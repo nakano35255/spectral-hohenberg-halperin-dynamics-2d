@@ -1,0 +1,15 @@
+{
+  "name": "spectral-fluctuating-binary-fluid",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/spectral-fluctuating-binary-fluid",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools"
+      ]
+    }
+  }
+}

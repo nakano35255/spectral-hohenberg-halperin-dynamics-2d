@@ -1,0 +1,9 @@
+# Build artifacts
+build/
+dev_env/out.exe
+dev_env/docker/out.exe
+dev_env/heffte/out.exe
+
+# Editor and OS files
+.DS_Store
+.vscode/
