@@ -1,0 +1,155 @@
+#ifndef SFI_SIMULATIONINFO_H
+#define SFI_SIMULATIONINFO_H
+
+#include <iosfwd>
+#include <string>
+#include <complex>
+#include <utility>
+#include <vector>
+#include "measure_registry.h"
+
+using Complex = std::complex<double>;
+
+// ---------------------------------------------------------------------- //
+struct Variable {
+    enum class Type {
+        Constant,
+        Expression
+    };
+    Type type = Type::Expression;
+    std::string text;
+
+    Variable() = default;
+    Variable(Type type_in, std::string value) : type(type_in), text(std::move(value)) {}
+    
+    bool specified() const {
+        return !text.empty();
+    }
+};
+// ---------------------------------------------------------------------- //
+struct GridConfig {
+    static constexpr double PI = 3.14159265358979323846;
+
+    int num_grid[2] = {128, 128};
+    double length[2] = {2.0 * PI, 2.0 * PI};
+
+    double dx() const {
+        return length[0] / static_cast<double>(num_grid[0]); 
+    }
+    double dy() const {
+        return length[1] / static_cast<double>(num_grid[1]); 
+    }
+    void print_config(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
+struct RuntimeConfig {
+    double dt = 0.005;
+    std::string integrator_type = "srk3";
+    void print_config(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
+struct PhysicsConfig {
+    int num_components = 0;
+    std::vector<std::pair<std::string, Variable>> variables;
+    Variable free_energy_entry;
+    std::vector<Variable> L_entries;
+    Variable eta_entry;
+    Variable zeta_entry;
+
+    void resize(int n) {
+        L_entries.assign(static_cast<std::size_t>(n * n), Variable());
+    }
+    Variable& mobility(int i, int j);
+    const Variable& mobility(int i, int j) const;
+    void print_config(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
+struct DensityICSpec {
+    std::string type = "zero";
+    std::vector<std::pair<std::string, std::string>> args;
+};
+struct MomentumICSpec {
+    std::string type = "zero";
+    std::vector<std::pair<std::string, std::string>> args;
+};
+struct InitialConditionConfig {
+    std::vector<DensityICSpec> densities;
+    MomentumICSpec momentum;
+    void resize_densities(int num_components) {
+        if (num_components <= 0) return;
+        densities.assign(num_components, DensityICSpec());
+    }
+    void print_config(std::ostream& os, const int num_components) const;
+};
+// ---------------------------------------------------------------------- //
+struct ThermoConfig {
+    bool observe = false;
+    bool progress = false;
+    int nevery = 1000;
+    void print_config(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
+struct RestartOutputConfig {
+    bool enabled = false;
+    std::string file = "";
+    void print_config(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
+struct NoiseSpec {
+    int seed = 12345;
+};
+struct ShearSpec {
+    double rate = 0.0;
+    std::string flow_direction = "x";
+};
+struct FixCommand {
+    enum class Style {
+        Noise,
+        Shear,
+        Nonlinear,
+        Barodiffusion
+    };
+
+    std::string id;
+    std::string group = "all";
+    Style style = Style::Noise;
+    bool enabled = false;
+
+    NoiseSpec noise;
+    ShearSpec shear;
+
+    static const char* style_name(Style style);
+    void print(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
+struct RunCommand {
+    int steps = 0;
+};
+// ---------------------------------------------------------------------- //
+struct Command {
+    enum class Type {
+        Run,
+        Fix,
+        Measure
+    };
+    Type type;
+    RunCommand run;
+    FixCommand fix;
+    std::shared_ptr<MeasureCommandBase> measure;
+};
+// ---------------------------------------------------------------------- //
+
+struct Params {
+    GridConfig grid;
+    RuntimeConfig runtime;
+    PhysicsConfig physics;
+    InitialConditionConfig initial;
+    ThermoConfig thermo;
+    RestartOutputConfig restart_output;
+    std::vector<Command> commands;
+
+    int total_run_steps() const;
+    void write_summary(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
+#endif

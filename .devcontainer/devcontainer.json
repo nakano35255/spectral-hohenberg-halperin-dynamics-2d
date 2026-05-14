@@ -1,10 +1,10 @@
 {
-  "name": "spectral-fluctuating-binary-fluid",
+  "name": "spectral-fluctuating-isothermal-fluid",
   "build": {
     "dockerfile": "../Dockerfile",
     "context": ".."
   },
-  "workspaceFolder": "/workspaces/spectral-fluctuating-binary-fluid",
+  "workspaceFolder": "/workspaces/spectral-fluctuating-isothermal-fluid",
   "customizations": {
     "vscode": {
       "extensions": [
