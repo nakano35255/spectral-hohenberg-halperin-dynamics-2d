@@ -27,28 +27,38 @@ struct Variable {
     }
 };
 // ---------------------------------------------------------------------- //
-struct RuntimeConfig {
-    double dt = 0.005;
-    std::string integrator = "srk3";
+struct GridConfig {
+    static constexpr double PI = 3.14159265358979323846;
+
+    int num_grid[2] = {128, 128};
+    double length[2] = {2.0 * PI, 2.0 * PI};
+
+    double dx() const {
+        return length[0] / static_cast<double>(num_grid[0]); 
+    }
+    double dy() const {
+        return length[1] / static_cast<double>(num_grid[1]); 
+    }
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
-struct NoiseSpec {
-    bool enabled = false;
-    int seed = 12345;
+struct RuntimeConfig {
+    double dt = 0.005;
+    std::string integrator_type = "srk3";
+    void print_config(std::ostream& os) const;
 };
+// ---------------------------------------------------------------------- //
 struct PhysicsConfig {
     int num_components = 0;
-    bool has_barodiffusion = true;
-    bool has_noise = false;
     std::vector<std::pair<std::string, Variable>> variables;
-    Variable free_energy;
-    std::vector<Variable> mobility_entries;
-    Variable eta;
-    Variable zeta;
-    NoiseSpec noise;
+    Variable free_energy_entry;
+    std::vector<Variable> L_entries;
+    Variable eta_entry;
+    Variable zeta_entry;
 
-    void resize(int n);
+    void resize(int n) {
+        L_entries.assign(static_cast<std::size_t>(n * n), Variable());
+    }
     Variable& mobility(int i, int j);
     const Variable& mobility(int i, int j) const;
     void print_config(std::ostream& os) const;
@@ -65,10 +75,6 @@ struct MomentumICSpec {
 struct InitialConditionConfig {
     std::vector<DensityICSpec> densities;
     MomentumICSpec momentum;
-    bool use_restart = false;
-    std::string restart_file = "";
-    bool use_stationary = false;
-    int stationary_seed = 12345;
     void resize_densities(int num_components) {
         if (num_components <= 0) return;
         densities.assign(num_components, DensityICSpec());
@@ -83,40 +89,53 @@ struct ThermoConfig {
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
-struct RestartConfig {
+struct RestartOutputConfig {
     bool enabled = false;
     std::string file = "";
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
+struct NoiseSpec {
+    int seed = 12345;
+};
+struct ShearSpec {
+    double rate = 0.0;
+    std::string flow_direction = "x";
+};
+struct FixCommand {
+    enum class Style {
+        Noise,
+        Shear,
+        Nonlinear,
+        Barodiffusion
+    };
+
+    std::string id;
+    std::string group = "all";
+    Style style = Style::Noise;
+    bool enabled = false;
+
+    NoiseSpec noise;
+    ShearSpec shear;
+
+    static const char* style_name(Style style);
+    void print(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
 struct RunCommand {
     int steps = 0;
 };
+// ---------------------------------------------------------------------- //
 struct Command {
     enum class Type {
         Run,
+        Fix,
         Measure
     };
     Type type;
     RunCommand run;
+    FixCommand fix;
     std::shared_ptr<MeasureCommandBase> measure;
-};
-// ---------------------------------------------------------------------- //
-struct GridConfig {
-    static constexpr double PI = 3.14159265358979323846;
-
-    int dimension = 2;
-    std::string boundary[2] = {"p", "p"};
-    int num_grid[2] = {128, 128};
-    double length[2] = {2.0 * PI, 2.0 * PI};
-
-    double dx() const {
-        return length[0] / static_cast<double>(num_grid[0]); 
-    }
-    double dy() const {
-        return length[1] / static_cast<double>(num_grid[1]); 
-    }
-    void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
 
@@ -126,14 +145,11 @@ struct Params {
     PhysicsConfig physics;
     InitialConditionConfig initial;
     ThermoConfig thermo;
-    RestartConfig restart;
+    RestartOutputConfig restart_output;
     std::vector<Command> commands;
 
     int total_run_steps() const;
     void write_summary(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
-
-bool parse_on_off(const std::string& value, const std::string& context);
-
 #endif

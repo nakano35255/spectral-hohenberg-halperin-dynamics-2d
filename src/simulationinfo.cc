@@ -2,140 +2,188 @@
 
 #include <ostream>
 #include <stdexcept>
+#include <iomanip>
+#include <sstream>
 
+// ---------------------------------------------------------------------- //
 namespace {
+    // ---------------------------------------------------------------------- //
+    constexpr int LABEL_WIDTH = 25;
+    constexpr int VARIABLE_LABEL_WIDTH = 23;
+    constexpr int MATRIX_COL_WIDTH = 17;
+    constexpr int RULE_WIDTH = 70;
 
-const char* variable_type_name(Variable::Type type) {
-    switch (type) {
-    case Variable::Type::Constant:
-        return "const";
-    case Variable::Type::Expression:
-        return "expr";
+    void print_rule(std::ostream& os) {
+        os << std::string(RULE_WIDTH, '-') << "\n";
     }
-    return "unknown";
-}
-
-void print_variable(std::ostream& os, const std::string& label, const Variable& variable) {
-    os << "  " << label << ": "
-       << variable_type_name(variable.type) << " " << variable.text << '\n';
-}
-
-const char* command_type_name(Command::Type type) {
-    switch (type) {
-    case Command::Type::Run:
-        return "run";
-    case Command::Type::Measure:
-        return "measure";
+    // ---------------------------------------------------------------------- //
+    void print_section(std::ostream& os, const std::string& title) {
+        os << "\n[" << title << "]\n";
     }
-    return "unknown";
-}
-
+    // ---------------------------------------------------------------------- //
+    template <typename T>
+    void print_entry(std::ostream& os, const std::string& label, const T& value) {
+        os << "  "
+           << std::left << std::setw(LABEL_WIDTH)
+           << label << ": " << value << '\n';
+    }
+    // ---------------------------------------------------------------------- //
+    template <typename T, typename U>
+    std::string pair_value(const T& first, const U& second) {
+        std::ostringstream ss;
+        ss << first << " " << second;
+        return ss.str();
+    }
+    // ---------------------------------------------------------------------- //
+    std::string value_with_args(const std::string& type,
+                                const std::vector<std::pair<std::string, std::string>>& args) {
+        std::string result = type;
+        for (const auto& arg : args) {
+            result += " ";
+            result += arg.first;
+            result += " ";
+            result += arg.second;
+        }
+        return result;
+    }
+    // ---------------------------------------------------------------------- //
+    void print_variable(std::ostream& os, const std::string& label, const Variable& variable) {
+        print_entry(os, label, variable.text);
+    }
+    // ---------------------------------------------------------------------- //
+    void print_variable_definition(std::ostream& os,
+                                   const std::string& name,
+                                   const Variable& variable) {
+        os << "    "
+           << std::left << std::setw(VARIABLE_LABEL_WIDTH)
+           << name << ": " << variable.text << '\n';
+    }
+    // ---------------------------------------------------------------------- //
 } // namespace
-
-void RuntimeConfig::print_config(std::ostream& os) const {
-    os << "[Runtime]\n";
-    os << "  integrator: " << integrator << '\n';
-    os << "  timestep: " << dt << '\n';
-}
-
-void PhysicsConfig::resize(int n) {
-    num_components = n;
-    mobility_entries.assign(static_cast<std::size_t>(n * n), Variable());
-}
-
-Variable& PhysicsConfig::mobility(int i, int j) {
-    return mobility_entries.at(static_cast<std::size_t>(i * num_components + j));
-}
-
-const Variable& PhysicsConfig::mobility(int i, int j) const {
-    return mobility_entries.at(static_cast<std::size_t>(i * num_components + j));
-}
-
-void PhysicsConfig::print_config(std::ostream& os) const {
-    os << "[Physics]\n";
-    os << "  components: " << num_components << '\n';
-    os << "  barodiffusion: " << (has_barodiffusion ? "on" : "off") << '\n';
-    os << "  noise: " << (has_noise ? "on" : "off");
-    if (has_noise) {
-        os << " seed " << noise.seed;
-    }
+// ---------------------------------------------------------------------- //
+void GridConfig::print_config(std::ostream& os) const {
+    print_section(os, "Grid Setup");
+    print_entry(os, "Grid points", pair_value(num_grid[0], num_grid[1]));
+    print_entry(os, "Length", pair_value(length[0], length[1]));
+    print_entry(os, "dx, dy", pair_value(dx(), dy()));
     os << '\n';
+    print_rule(os);
+}
+// ---------------------------------------------------------------------- //
+void RuntimeConfig::print_config(std::ostream& os) const {
+    print_section(os, "Runtime Setup");
+    print_entry(os, "Time step (dt)", dt);
+    print_entry(os, "Integrator", integrator_type);
+    os << '\n';
+    print_rule(os);
+}
+// ---------------------------------------------------------------------- //
+Variable& PhysicsConfig::mobility(int i, int j) {
+    return L_entries.at(static_cast<std::size_t>(i * num_components + j));
+}
+const Variable& PhysicsConfig::mobility(int i, int j) const {
+    return L_entries.at(static_cast<std::size_t>(i * num_components + j));
+}
+void PhysicsConfig::print_config(std::ostream& os) const {
+    print_section(os, "Physics");
+    print_entry(os, "components", num_components);
 
     os << "  variables:\n";
     for (const auto& variable : variables) {
-        os << "    " << variable.first << " "
-           << variable_type_name(variable.second.type) << " "
-           << variable.second.text << '\n';
+        print_variable_definition(os, variable.first, variable.second);
     }
 
-    print_variable(os, "free_energy", free_energy);
+    os << '\n';
+    print_variable(os, "free_energy", free_energy_entry);
 
-    os << "  L_coeff:\n";
+    os << "  "
+       << std::left << std::setw(LABEL_WIDTH)
+       << "L_coeff" << ":\n";
+
+    const std::string matrix_indent =
+        "  " + std::string(static_cast<std::size_t>(LABEL_WIDTH), ' ') + "  ";
     for (int i = 0; i < num_components; ++i) {
+        os << matrix_indent;
         for (int j = 0; j < num_components; ++j) {
             const auto& value = mobility(i, j);
-            os << "    " << i << " " << j << " "
-               << variable_type_name(value.type) << " " << value.text << '\n';
-        }
-    }
-
-    print_variable(os, "eta", eta);
-    print_variable(os, "zeta", zeta);
-}
-
-void InitialConditionConfig::print_config(std::ostream& os, const int num_components) const {
-    os << "[Initial]\n";
-    for (int i = 0; i < num_components; ++i) {
-        os << "  density " << i << ": " << densities.at(static_cast<std::size_t>(i)).type;
-        for (const auto& arg : densities.at(static_cast<std::size_t>(i)).args) {
-            os << " " << arg.first << " " << arg.second;
+            os << std::left << std::setw(MATRIX_COL_WIDTH) << value.text;
         }
         os << '\n';
     }
 
-    os << "  momentum: " << momentum.type;
-    for (const auto& arg : momentum.args) {
-        os << " " << arg.first << " " << arg.second;
-    }
-    os << '\n';
-
-    os << "  restart input: " << (use_restart ? "on" : "off");
-    if (use_restart) {
-        os << " file " << restart_file;
-    }
-    os << '\n';
-
-    os << "  stationary: " << (use_stationary ? "on" : "off");
-    if (use_stationary) {
-        os << " seed " << stationary_seed;
-    }
-    os << '\n';
+    print_variable(os, "eta", eta_entry);
+    print_variable(os, "zeta", zeta_entry);
+    os << "\n";
+    print_rule(os);
 }
+// ---------------------------------------------------------------------- //
+void InitialConditionConfig::print_config(std::ostream& os, const int num_components) const {
+    print_section(os, "Initial Conditions");
 
+    for (int i = 0; i < num_components; ++i) {
+        const auto& density = densities.at(static_cast<std::size_t>(i));
+        print_entry(os,
+                    "Density: Component " + std::to_string(i),
+                    value_with_args(density.type, density.args));
+    }
+
+    print_entry(os, "Momentum", value_with_args(momentum.type, momentum.args));
+    os << '\n';
+    print_rule(os);
+}
+// ---------------------------------------------------------------------- //
 void ThermoConfig::print_config(std::ostream& os) const {
-    os << "[Thermo]\n";
-    os << "  observe: " << (observe ? "on" : "off") << '\n';
-    os << "  progress: " << (progress ? "on" : "off") << '\n';
-    os << "  nevery: " << nevery << '\n';
+    print_section(os, "Thermo");
+    print_entry(os, "Observe", observe ? "ON" : "OFF");
+    print_entry(os, "Progress", progress ? "ON" : "OFF");
+    if (observe || progress) {
+        print_entry(os, "Nevery", nevery);
+    }
+    os << "\n";
+    print_rule(os);
 }
-
-void RestartConfig::print_config(std::ostream& os) const {
-    os << "[Restart]\n";
-    os << "  enabled: " << (enabled ? "on" : "off") << '\n';
+// ---------------------------------------------------------------------- //
+void RestartOutputConfig::print_config(std::ostream& os) const {
+    print_section(os, "Restart Output");
+    print_entry(os, "Enabled", enabled ? "ON" : "OFF");
     if (enabled) {
-        os << "  file: " << file << '\n';
+        print_entry(os, "File", file);
+    }
+    os << "\n";
+    print_rule(os);
+}
+// ---------------------------------------------------------------------- //
+const char* FixCommand::style_name(FixCommand::Style style) {
+    switch (style) {
+    case FixCommand::Style::Noise:
+        return "noise";
+    case FixCommand::Style::Shear:
+        return "shear";
+    case FixCommand::Style::Nonlinear:
+        return "nonlinear";
+    case FixCommand::Style::Barodiffusion:
+        return "barodiffusion";
+    }
+    return "unknown";
+}
+// ---------------------------------------------------------------------- //
+void FixCommand::print(std::ostream& os) const {
+    const std::string state =
+        std::string(FixCommand::style_name(style)) + " " + (enabled ? "ON" : "OFF");
+
+    print_entry(os, "Fix " + id, state);
+    print_entry(os, "  Group", group);
+
+    if (enabled && style == FixCommand::Style::Noise) {
+        print_entry(os, "  Seed", noise.seed);
+    }
+
+    if (enabled && style == FixCommand::Style::Shear) {
+        print_entry(os, "  Rate", shear.rate);
+        print_entry(os, "  Flow direction", shear.flow_direction);
     }
 }
-
-void GridConfig::print_config(std::ostream& os) const {
-    os << "[Grid]\n";
-    os << "  dimension: " << dimension << '\n';
-    os << "  grid: " << num_grid[0] << " " << num_grid[1] << '\n';
-    os << "  length: " << length[0] << " " << length[1] << '\n';
-    os << "  boundary: " << boundary[0] << " " << boundary[1] << '\n';
-    os << "  spacing: " << dx() << " " << dy() << '\n';
-}
-
+// ---------------------------------------------------------------------- //
 int Params::total_run_steps() const {
     int total = 0;
     for (const auto& command : commands) {
@@ -145,38 +193,17 @@ int Params::total_run_steps() const {
     }
     return total;
 }
-
+// ---------------------------------------------------------------------- //
 void Params::write_summary(std::ostream& os) const {
-    os << "Spectral Fluctuating Isothermal Fluid input summary\n";
-    os << "===================================================\n";
+    os << std::string(70, '=') << "\n";
+    os << "Spectral Fluctuating Isothermal Fluid Solver (v1.0)\n";
+    os << std::string(70, '=') << "\n";
     grid.print_config(os);
     runtime.print_config(os);
     physics.print_config(os);
     initial.print_config(os, physics.num_components);
     thermo.print_config(os);
-    restart.print_config(os);
+    restart_output.print_config(os);
 
-    os << "[Commands]\n";
-    for (std::size_t i = 0; i < commands.size(); ++i) {
-        const auto& command = commands[i];
-        os << "  " << i << ": " << command_type_name(command.type);
-        if (command.type == Command::Type::Run) {
-            os << " " << command.run.steps;
-        } else if (command.type == Command::Type::Measure && command.measure) {
-            os << " ";
-            command.measure->print(os);
-        }
-        os << '\n';
-    }
-    os << "  total run steps: " << total_run_steps() << '\n';
-}
 
-bool parse_on_off(const std::string& value, const std::string& context) {
-    if (value == "on") {
-        return true;
-    }
-    if (value == "off") {
-        return false;
-    }
-    throw std::runtime_error(context + " expects on|off");
 }

@@ -6,9 +6,10 @@ LDLIBS :=
 TARGET := out.exe
 SRCS := \
 	src/main.cc \
+	src/measure_registry_builtin.cc \
+	src/monitor.cc \
 	src/param_parser.cc \
 	src/simulationinfo.cc
-OBJS := $(SRCS:.cc=.o)
 
 INPUT ?= examples/01_two_component_ideal_gas/input.script
 
@@ -16,14 +17,11 @@ INPUT ?= examples/01_two_component_ideal_gas/input.script
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $@
-
-%.o: %.cc
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TARGET): $(SRCS)
+	$(CXX) $(CXXFLAGS) $(SRCS) $(LDFLAGS) $(LDLIBS) -o $@
 
 run: $(TARGET)
 	./$(TARGET) $(INPUT)
 
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(TARGET)

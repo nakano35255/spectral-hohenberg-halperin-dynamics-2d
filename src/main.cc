@@ -1,5 +1,8 @@
-#include "param_parser.h"
 #include "simulationinfo.h"
+#include "param_parser.h"
+#include "monitor.h"
+#include "project.h"
+#include "measure_registry_builtin.h"
 
 #include <exception>
 #include <iostream>
@@ -11,11 +14,15 @@ int main(int argc, char* argv[]) {
     }
 
     Params params;
-    ParamParser parser(params);
+    MeasureRegistry registry = build_measure_registry();
+    ParamParser parser(params, registry);
 
     try {
         parser.parse_file(argv[1]);
-        params.write_summary(std::cout);
+        Project proj(params);
+
+        proj.run();
+        
     } catch (const std::exception& e) {
         std::cerr << "\n[Fatal Error] " << e.what() << '\n';
         return 1;

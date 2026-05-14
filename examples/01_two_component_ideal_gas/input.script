@@ -92,6 +92,7 @@ zeta            expr zeta0 + zeta1 * rho
 # ----------------------------------------------------------
 
 fix             1 all noise on seed 12345
+fix             2 all barodiffusion off
 
 # ----------------------------------------------------------
 # 8. 初期条件
@@ -106,11 +107,15 @@ set             momentum zero
 # ----------------------------------------------------------
 
 thermo          observe on progress on nevery 1000
-measure         1 snapshot on Nevery 1000 file outputs/snapshot
+# measure         1 snapshot on Nevery 1000 file outputs/snapshot
 restart         off
 
 # ----------------------------------------------------------
 # 10. 時間発展
 # ----------------------------------------------------------
+
+run             10000
+
+fix             1 all noise off
 
 run             10000
