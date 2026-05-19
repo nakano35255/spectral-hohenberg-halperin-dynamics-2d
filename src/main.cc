@@ -3,6 +3,7 @@
 #include "monitor.h"
 #include "project.h"
 #include "measure_registry_builtin.h"
+#include "initial_condition_registry_builtin.h"
 
 #include <exception>
 #include <iostream>
@@ -19,8 +20,9 @@ int main(int argc, char* argv[]) {
     }
 
     Params params;
-    MeasureRegistry registry = build_measure_registry();
-    ParamParser parser(params, registry);
+    MeasureRegistry measure_registry = build_measure_registry();
+    InitialConditionRegistry initial_registry = build_initial_condition_registry();
+    ParamParser parser(params, measure_registry, initial_registry);
 
     try {
         parser.parse_file(argv[1]);

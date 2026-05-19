@@ -1,5 +1,6 @@
 #include "state.h"
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 
@@ -72,5 +73,9 @@ Complex* State::data() {
 // ---------------------------------------------------------------------- //
 const Complex* State::data() const {
     return spectral_data_.data();
+}
+// ---------------------------------------------------------------------- //
+void State::clear() {
+    std::fill(spectral_data_.begin(), spectral_data_.end(), Complex(0.0, 0.0));
 }
 // ---------------------------------------------------------------------- //

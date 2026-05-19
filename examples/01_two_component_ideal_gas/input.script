@@ -100,7 +100,7 @@ fix             2 all barodiffusion off
 
 set             density 0 uniform value 1.0
 set             density 1 uniform value 1.0
-set             momentum zero
+set             momentum all uniform value 0.0
 
 # ----------------------------------------------------------
 # 9. 出力

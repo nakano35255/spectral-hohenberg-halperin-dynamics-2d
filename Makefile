@@ -11,7 +11,11 @@ SRCS := \
 	src/main.cc \
 	src/buffer_physical_state.cc \
 	src/domain.cc \
+	src/initial_condition_registry_builtin.cc \
+	src/initial_condition_uniform_density.cc \
+	src/initial_condition_uniform_momentum.cc \
 	src/measure_registry_builtin.cc \
+	src/measure_snapshot.cc \
 	src/monitor.cc \
 	src/param_parser.cc \
 	src/state.cc \

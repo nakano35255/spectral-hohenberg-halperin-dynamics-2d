@@ -35,18 +35,6 @@ namespace {
         return ss.str();
     }
     // ---------------------------------------------------------------------- //
-    std::string value_with_args(const std::string& type,
-                                const std::vector<std::pair<std::string, std::string>>& args) {
-        std::string result = type;
-        for (const auto& arg : args) {
-            result += " ";
-            result += arg.first;
-            result += " ";
-            result += arg.second;
-        }
-        return result;
-    }
-    // ---------------------------------------------------------------------- //
     void print_variable(std::ostream& os, const std::string& label, const Variable& variable) {
         print_entry(os, label, variable.text);
     }
@@ -117,18 +105,18 @@ void PhysicsConfig::print_config(std::ostream& os) const {
     print_rule(os);
 }
 // ---------------------------------------------------------------------- //
-void InitialConditionConfig::print_config(std::ostream& os, const int num_components) const {
-    print_section(os, "Initial Conditions");
+void InitialConditionConfig::print_config(std::ostream& os) const {
+    print_section(os, "Initial Condition");
 
-    for (int i = 0; i < num_components; ++i) {
-        const auto& density = densities.at(static_cast<std::size_t>(i));
-        print_entry(os,
-                    "Density: Component " + std::to_string(i),
-                    value_with_args(density.type, density.args));
+    for (const auto& command : density_commands) {
+        command->print(os);
     }
 
-    print_entry(os, "Momentum", value_with_args(momentum.type, momentum.args));
-    os << '\n';
+    for (const auto& command : momentum_commands) {
+        command->print(os);
+    }
+
+    os << "\n";
     print_rule(os);
 }
 // ---------------------------------------------------------------------- //
@@ -201,7 +189,7 @@ void Params::write_summary(std::ostream& os) const {
     grid.print_config(os);
     runtime.print_config(os);
     physics.print_config(os);
-    initial.print_config(os, physics.num_components);
+    initial.print_config(os);
     thermo.print_config(os);
     restart_output.print_config(os);
 

@@ -3,6 +3,7 @@
 
 #include "simulationinfo.h"
 #include "measure_registry.h"
+#include "initial_condition_registry.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -12,7 +13,8 @@
 class ParamParser {
 private:
     Params& params;
-    const MeasureRegistry& registry;
+    const MeasureRegistry& measure_registry;
+    const InitialConditionRegistry &initial_condition_registry;
 
     std::vector<std::string> tokenize(const std::string& line) const;
 
@@ -28,9 +30,10 @@ private:
     void parse_restart_command(const std::vector<std::string>& tokens);
 
     void check_component_index(int index, const std::string& command_name) const;
+    void check_momentum_component_index(int index, const std::string& command_name) const;
 
 public:
-    ParamParser(Params& p, const MeasureRegistry& r) : params(p), registry(r) {}
+    ParamParser(Params& p, const MeasureRegistry& mr, const InitialConditionRegistry& icr) : params(p), measure_registry(mr), initial_condition_registry(icr) {}
     ~ParamParser() {}
 
     void parse_file(const std::string& filename) {

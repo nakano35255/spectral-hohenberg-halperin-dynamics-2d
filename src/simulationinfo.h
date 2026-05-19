@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include "measure_registry.h"
+#include "initial_condition_registry.h"
 
 using Complex = std::complex<double>;
 
@@ -64,22 +65,11 @@ struct PhysicsConfig {
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
-struct DensityICSpec {
-    std::string type = "zero";
-    std::vector<std::pair<std::string, std::string>> args;
-};
-struct MomentumICSpec {
-    std::string type = "zero";
-    std::vector<std::pair<std::string, std::string>> args;
-};
 struct InitialConditionConfig {
-    std::vector<DensityICSpec> densities;
-    MomentumICSpec momentum;
-    void resize_densities(int num_components) {
-        if (num_components <= 0) return;
-        densities.assign(num_components, DensityICSpec());
-    }
-    void print_config(std::ostream& os, const int num_components) const;
+    std::vector<std::shared_ptr<DensityInitialConditionCommandBase>> density_commands;
+    std::vector<std::shared_ptr<MomentumInitialConditionCommandBase>> momentum_commands;
+
+    void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
 struct ThermoConfig {

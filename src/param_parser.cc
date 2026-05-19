@@ -87,7 +87,6 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
             throw std::runtime_error("components must be positive.");
         }
         params.physics.resize(params.physics.num_components);
-        params.initial.resize_densities(params.physics.num_components);
     }
     else if (cmd == "boundary") {
         if (tokens.size() != 3) throw std::runtime_error("boundary syntax: boundary <x> <y>");
@@ -223,71 +222,87 @@ void ParamParser::parse_set_command(const std::vector<std::string>& tokens) {
         const std::string& target = tokens[2];
         const std::string& type = tokens[3];
 
-        DensityICSpec density;
-        density.type = type;
-
-        if (type == "restart") {
-            if (target != "all") {
-                throw std::runtime_error("set density restart must use target 'all'");
+        InitialConditionArgs args;
+        for (std::size_t i = 4; i < tokens.size(); i += 2) {
+            if (i + 1 >= tokens.size()) {
+                throw std::runtime_error("set density arguments must be key-value pairs");
             }
-            if (tokens.size() != 6 || tokens[4] != "file") {
-                throw std::runtime_error("set density all restart syntax: set density all restart file <filename>");
-            }
-            density.args.push_back({"file", tokens[5]});
-        } 
-        else if (type == "stationary") {
-            if (target != "all") {
-                throw std::runtime_error("set density stationary must use target 'all'");
-            }
-            if (tokens.size() != 4 && tokens.size() != 6) {
-                throw std::runtime_error("set density all stationary syntax: set density all stationary [seed <integer>]");
-            }
-            int seed = 12345;
-            if (tokens.size() == 6) {
-                if (tokens[4] != "seed") {
-                    throw std::runtime_error("set density all stationary syntax: set density all stationary [seed <integer>]");
-                }
-                seed = std::stoi(tokens[5]);
-            }
-            density.args.push_back({"seed", std::to_string(seed)});
-        } 
-        else {
-            for (std::size_t i = 4; i < tokens.size(); i += 2) {
-                if (i + 1 >= tokens.size()) {
-                    throw std::runtime_error("set density arguments must be key-value pairs");
-                }
-                density.args.push_back({tokens[i], tokens[i + 1]});
-            }
+            args.entries.emplace_back(tokens[i], tokens[i + 1]);
         }
 
+        const DensityInitialConditionStyle& style = initial_condition_registry.get_density(type);
+
         if (target == "all") {
-            for (auto& entry : params.initial.densities) {
-                entry = density;
+            if (params.physics.num_components <= 0) {
+                throw std::runtime_error("set density all requires components to be specified first");
             }
+
+            for (int component = 0; component < params.physics.num_components; ++component) {
+                std::shared_ptr<DensityInitialConditionCommandBase> command = style.parse_command(component, args, params);
+
+                params.initial.density_commands.push_back(std::move(command));
+            }
+
             return;
         }
 
         const int component = std::stoi(target);
         check_component_index(component, "set density");
-        params.initial.densities.at(static_cast<std::size_t>(component)) = density;
+
+        std::shared_ptr<DensityInitialConditionCommandBase> command = style.parse_command(component, args, params);
+
+        params.initial.density_commands.push_back(std::move(command));
         return;
     }
 
     if (tokens[1] == "momentum") {
-        params.initial.momentum.type = tokens[2];
-        params.initial.momentum.args.clear();
+        if (tokens.size() < 4) {
+            throw std::runtime_error("set momentum syntax: set momentum <component|x|y|0|1> <type> <args...>");
+        }
 
-        for (std::size_t i = 3; i < tokens.size(); i += 2) {
+        const std::string& target = tokens[2];
+        const std::string& type = tokens[3];
+
+        InitialConditionArgs args;
+        for (std::size_t i = 4; i < tokens.size(); i += 2) {
             if (i + 1 >= tokens.size()) {
                 throw std::runtime_error("set momentum arguments must be key-value pairs");
             }
-            params.initial.momentum.args.push_back({tokens[i], tokens[i + 1]});
+            args.entries.emplace_back(tokens[i], tokens[i + 1]);
         }
 
+        const MomentumInitialConditionStyle& style = initial_condition_registry.get_momentum(type);
+
+        if (target == "all") {
+            for (int component = 0; component < 2; ++component) {
+                std::shared_ptr<MomentumInitialConditionCommandBase> command = style.parse_command(component, args, params);
+
+                params.initial.momentum_commands.push_back(std::move(command));
+            }
+
+            return;
+        }
+
+        int component = -1;
+        if (target == "x" || target == "0") {
+            component = 0;
+        } else if (target == "y" || target == "1") {
+            component = 1;
+        } else {
+            throw std::runtime_error(
+                "set momentum target must be all, x, y, 0, or 1: " + target
+            );
+        }
+        check_momentum_component_index(component, "set momentum");
+
+        std::shared_ptr<MomentumInitialConditionCommandBase> command = style.parse_command(component, args, params);
+
+        params.initial.momentum_commands.push_back(std::move(command));
         return;
     }
 
     throw std::runtime_error("unknown set target: " + tokens[1]);
+
 }
 // ---------------------------------------------------------------------- //
 void ParamParser::parse_thermo_command(const std::vector<std::string>& tokens) {
@@ -373,7 +388,7 @@ void ParamParser::parse_restart_command(const std::vector<std::string>& tokens) 
         args.entries.emplace_back(tokens[i], tokens[i + 1]);
     }
 
-    const MeasureStyle& style = registry.get(type);
+    const MeasureStyle& style = measure_registry.get(type);
     std::shared_ptr<MeasureCommandBase> command = style.parse_command(id, enabled, args, params);
 
     Command cmd;
@@ -452,11 +467,6 @@ void ParamParser::validate_configuration() const {
         throw std::runtime_error("components must be specified");
     }
 
-    if (params.initial.densities.size() !=
-        static_cast<std::size_t>(params.physics.num_components)) {
-        throw std::runtime_error("initial density storage is not resized");
-    }
-
     if (!params.physics.free_energy_entry.specified()) {
         throw std::runtime_error("free_energy must be specified");
     }
@@ -486,6 +496,14 @@ void ParamParser::check_component_index(int index, const std::string& command_na
     if (index < 0 || index >= params.physics.num_components) {
         throw std::runtime_error(
             command_name + ": component index out of range: " + std::to_string(index)
+        );
+    }
+}
+// ---------------------------------------------------------------------- //
+void ParamParser::check_momentum_component_index(int index, const std::string& command_name) const {
+    if (index < 0 || index >= 2) {
+        throw std::runtime_error(
+            command_name + ": momentum component index must be 0 or 1: " + std::to_string(index)
         );
     }
 }

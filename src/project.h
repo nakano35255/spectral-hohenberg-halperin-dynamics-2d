@@ -8,6 +8,8 @@
 #include "fourier_transform.h"
 #include "monitor.h"
 #include "measure_registry_builtin.h"
+#include "initial_condition_registry_builtin.h"
+#include "initial_condition.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,6 +19,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <memory>
 
 class Project {
 private:
@@ -27,11 +30,28 @@ private:
     PhysicalStateBuffer buf_physical_state;
     FourierTransform2D fourier;
 
-    MeasureRegistry registry;
+    MeasureRegistry measure_registry;
+    InitialConditionRegistry initial_registry;
     SimulationMonitor monitor;
     int step;
     int run_index;
     double time;
+
+    void apply_initial_conditions() {
+        state.clear();
+
+        for (const auto& command : params.initial.density_commands) {
+            const DensityInitialConditionStyle& style = initial_registry.get_density(command->type);
+            std::unique_ptr<DensityInitialCondition> initial_condition = style.create_initial_condition(params, command);
+            initial_condition->apply(state, domain);
+        }
+
+        for (const auto& command : params.initial.momentum_commands) {
+            const MomentumInitialConditionStyle& style = initial_registry.get_momentum(command->type);
+            std::unique_ptr<MomentumInitialCondition> initial_condition = style.create_initial_condition(params, command);
+            initial_condition->apply(state, domain);
+        }
+    }
 
     void execute_command(const Command& command) {
         if (command.type == Command::Type::Run) {
@@ -65,7 +85,8 @@ public:
           state(domain, params),
           buf_physical_state(domain, params),
           fourier(domain),
-          registry(build_measure_registry()),
+          measure_registry(build_measure_registry()),
+          initial_registry(build_initial_condition_registry()),
           monitor(params, "output.log", domain.rank() == 0),
           step(0),
           run_index(0),
@@ -73,6 +94,8 @@ public:
 
     void run() {
         monitor.start();
+
+        apply_initial_conditions();
 
         for (const auto& command : params.commands) {
             execute_command(command);

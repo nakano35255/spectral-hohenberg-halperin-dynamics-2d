@@ -38,6 +38,8 @@ public:
 
     Complex* data();
     const Complex* data() const;
+
+    void clear();
 };
 
 #endif

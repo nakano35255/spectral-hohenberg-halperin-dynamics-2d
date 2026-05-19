@@ -39,7 +39,7 @@ zeta            expr zeta0 + zeta1 * rho
 
 set             density 0 uniform value 1.0
 set             density 1 uniform value 1.0
-set             momentum zero
+set             momentum all uniform value 0.0
 
 thermo          observe off progress off
 restart         off
