@@ -7,10 +7,13 @@
 #include <stdexcept>
 
 // ---------------------------------------------------------------------- //
-SimulationMonitor::SimulationMonitor(const Params& params, const std::string& log_filename)
+SimulationMonitor::SimulationMonitor(const Params& params, const std::string& log_filename, bool active)
     : params(params),
-      config(params.thermo) {
-    log_file.open(log_filename);
+      config(params.thermo),
+      active(active) {
+    if (active) {
+        log_file.open(log_filename);
+    }
 }
 // ---------------------------------------------------------------------- //
 SimulationMonitor::~SimulationMonitor() {
@@ -28,6 +31,9 @@ void SimulationMonitor::write_thermo_header(std::ostream& os) {
 }
 // ---------------------------------------------------------------------- //
 void SimulationMonitor::observe_thermo(int step, double time) {
+    if (!active) {
+        return;
+    }
     if (!config.observe) {
         return;
     }
@@ -58,6 +64,9 @@ void SimulationMonitor::observe_thermo(int step, double time) {
 }
 // ---------------------------------------------------------------------- //
 void SimulationMonitor::start() {
+    if (!active) {
+        return;
+    }
     if (log_file.is_open()) {
         params.write_summary(log_file);
     }
@@ -72,6 +81,9 @@ void SimulationMonitor::start() {
 }
 // ---------------------------------------------------------------------- //
 void SimulationMonitor::print_measure_command(const MeasureCommandBase& command) {
+    if (!active) {
+        return;
+    }
     if (!printed_first_command) {
         std::cout << "\n";
         if (log_file.is_open()) {
@@ -89,6 +101,9 @@ void SimulationMonitor::print_measure_command(const MeasureCommandBase& command)
 }
 // ---------------------------------------------------------------------- //
 void SimulationMonitor::print_fix_command(const FixCommand& command) {
+    if (!active) {
+        return;
+    }
     if (!printed_first_command) {
         std::cout << "\n";
         if (log_file.is_open()) {
@@ -116,6 +131,9 @@ void SimulationMonitor::print_fix_command(const FixCommand& command) {
 }
 // ---------------------------------------------------------------------- //
 void SimulationMonitor::print_progress(int run_index, int local_step, int run_steps, int global_step, double time) {
+    if (!active) {
+        return;
+    }
     observe_thermo(global_step, time);
 
     if (!config.progress) {
@@ -135,6 +153,9 @@ void SimulationMonitor::print_progress(int run_index, int local_step, int run_st
 }
 // ---------------------------------------------------------------------- //
 void SimulationMonitor::finish_run_segment(int run_index, int global_step, double time) {
+    if (!active) {
+        return;
+    }
     completed_steps = global_step;
 
     std::cout << "\nRun " << run_index
@@ -153,6 +174,9 @@ void SimulationMonitor::finish_run_segment(int run_index, int global_step, doubl
 }
 // ---------------------------------------------------------------------- //
 void SimulationMonitor::finish() {
+    if (!active) {
+        return;
+    }
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
 

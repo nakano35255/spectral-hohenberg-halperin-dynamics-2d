@@ -12,6 +12,7 @@ class SimulationMonitor {
 private:
     const Params& params;
     ThermoConfig config;
+    bool active = true;
 
     std::ofstream log_file;
     std::chrono::high_resolution_clock::time_point start_time;
@@ -27,7 +28,11 @@ private:
     
 
 public:
-    explicit SimulationMonitor(const Params& params, const std::string& log_filename = "output.log");
+    explicit SimulationMonitor(
+        const Params& params,
+        const std::string& log_filename = "output.log",
+        bool active = true
+    );
     ~SimulationMonitor();
 
     void start();

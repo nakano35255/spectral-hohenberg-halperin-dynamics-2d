@@ -6,10 +6,15 @@
 
 #include <exception>
 #include <iostream>
+#include <mpi.h>
 
 int main(int argc, char* argv[]) {
+    MPI_Init(&argc, &argv);
+    int exit_code = 0;
+
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <input_script>\n";
+        MPI_Finalize();
         return 1;
     }
 
@@ -22,11 +27,12 @@ int main(int argc, char* argv[]) {
         Project proj(params);
 
         proj.run();
-        
+
     } catch (const std::exception& e) {
         std::cerr << "\n[Fatal Error] " << e.what() << '\n';
-        return 1;
+        exit_code = 1;
     }
 
-    return 0;
+    MPI_Finalize();
+    return exit_code;
 }
