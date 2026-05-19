@@ -98,24 +98,21 @@ fix             2 all barodiffusion off
 # 8. 初期条件
 # ----------------------------------------------------------
 
-set             density 0 uniform value 1.0
-set             density 1 uniform value 1.0
-set             momentum all uniform value 0.0
+set             density 0 gaussian base 1.0 amplitude 0.25 x0 64.0 y0 64.0 sigma_x 8.0 sigma_y 8.0
+set             density 1 sine base 1.0 amplitude 0.25 nkx 3 nky 0
+set             momentum x sine base 1.0 amplitude 0.25 nkx 3 nky 0
+set             momentum y sine base 1.0 amplitude 0.25 nkx 2 nky 4
 
 # ----------------------------------------------------------
 # 9. 出力
 # ----------------------------------------------------------
 
 thermo          observe on progress on nevery 1000
-# measure         1 snapshot on Nevery 1000 file outputs/snapshot
+measure         1 snapshot on nevery 1000 file snapshot
 restart         off
 
 # ----------------------------------------------------------
 # 10. 時間発展
 # ----------------------------------------------------------
-
-run             10000
-
-fix             1 all noise off
 
 run             10000

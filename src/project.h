@@ -8,6 +8,7 @@
 #include "fourier_transform.h"
 #include "monitor.h"
 #include "measure_registry_builtin.h"
+#include "measure_manager.h"
 #include "initial_condition_registry_builtin.h"
 #include "initial_condition.h"
 
@@ -24,14 +25,15 @@
 class Project {
 private:
     Params params;
+    MeasureRegistry measure_registry;
+    InitialConditionRegistry initial_registry;
 
     Domain2D domain;
     State state;
     PhysicalStateBuffer buf_physical_state;
     FourierTransform2D fourier;
 
-    MeasureRegistry measure_registry;
-    InitialConditionRegistry initial_registry;
+    MeasurementManager measurements;
     SimulationMonitor monitor;
     int step;
     int run_index;
@@ -63,7 +65,7 @@ private:
         }
         else if (command.type == Command::Type::Measure) {
             monitor.print_measure_command(*command.measure);
-            // TODO: measurements.apply_measure_command(...);
+            measurements.apply_measure_command(command.measure);
         }
     }
 
@@ -72,7 +74,9 @@ private:
 
         for (int local_step = 1; local_step <= nsteps; ++local_step) {
             ++step;
+            time += params.runtime.dt;
             monitor.print_progress(run_index, local_step, nsteps, step, time);
+            measurements.observe(state, buf_physical_state, fourier, domain, step, time);
         }
 
         monitor.finish_run_segment(run_index, step, time);
@@ -81,12 +85,13 @@ private:
 public:
     explicit Project(const Params& p)
         : params(p),
+          measure_registry(build_measure_registry()),
+          initial_registry(build_initial_condition_registry()),
           domain(params),
           state(domain, params),
           buf_physical_state(domain, params),
           fourier(domain),
-          measure_registry(build_measure_registry()),
-          initial_registry(build_initial_condition_registry()),
+          measurements(params, measure_registry),
           monitor(params, "output.log", domain.rank() == 0),
           step(0),
           run_index(0),
@@ -101,6 +106,7 @@ public:
             execute_command(command);
         }
 
+        measurements.finalize();
         monitor.finish();
     }
 };

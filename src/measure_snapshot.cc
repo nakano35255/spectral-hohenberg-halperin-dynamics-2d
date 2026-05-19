@@ -62,31 +62,28 @@ void SnapshotMeasure::write_physical_snapshot(
      out << "# snapshot space physical\n";
      out << "# step " << step << " time " << std::scientific << std::setprecision(16) << time << "\n";
      out << "# nx " << nx << " ny " << ny << " components " << num_components_ << "\n";
-     out << "# columns x y field component value\n";
+     out << "# x y";
+     for (int component = 0; component < num_components_; ++component) {
+          out << " rho_com" << component;
+     }
+     out << " jx jy\n";
      out << std::scientific << std::setprecision(16);
 
      for (int gy = 0; gy < ny; ++gy) {
           for (int gx = 0; gx < nx; ++gx) {
                const int grid_index = gy * nx + gx;
+               out << gx << ' ' << gy;
                for (int component = 0; component < num_components_; ++component) {
-                    out << gx << ' ' << gy << " rho " << component << ' '
-                        << global_data[component * field_size + grid_index] << '\n';
+                    out << ' ' << global_data[component * field_size + grid_index];
                }
-               out << gx << ' ' << gy << " jx -1 "
-                   << global_data[num_components_ * field_size + grid_index] << '\n';
-               out << gx << ' ' << gy << " jy -1 "
-                   << global_data[(num_components_ + 1) * field_size + grid_index] << '\n';
+               out << ' ' << global_data[num_components_ * field_size + grid_index]
+                   << ' ' << global_data[(num_components_ + 1) * field_size + grid_index]
+                   << '\n';
           }
      }
 }
 // ---------------------------------------------------------------------- //
-void SnapshotMeasure::write_spectral_snapshot(
-     const std::string& filename,
-     const std::vector<double>& global_data,
-     const Domain2D& domain,
-     int step,
-     double time
-) const {
+void SnapshotMeasure::write_spectral_snapshot(const std::string& filename, const std::vector<double>& global_data, const Domain2D& domain, int step, double time) const {
      std::ofstream out(filename);
      if (!out) {
           throw std::runtime_error("SnapshotMeasure: cannot open file: " + filename);
@@ -99,36 +96,35 @@ void SnapshotMeasure::write_spectral_snapshot(
      out << "# snapshot space spectral\n";
      out << "# step " << step << " time " << std::scientific << std::setprecision(16) << time << "\n";
      out << "# nkx " << nkx << " nky " << nky << " components " << num_components_ << "\n";
-     out << "# columns kx_index ky_index field component real imag\n";
+     out << "# kx_index ky_index";
+     for (int component = 0; component < num_components_; ++component) {
+          out << " rho_com" << component << "_real rho_com" << component << "_imag";
+     }
+     out << " jx_real jx_imag jy_real jy_imag\n";
      out << std::scientific << std::setprecision(16);
 
      for (int ky = 0; ky < nky; ++ky) {
           for (int kx = 0; kx < nkx; ++kx) {
                const int grid_index = ky * nkx + kx;
+               out << kx << ' ' << ky;
                for (int component = 0; component < num_components_; ++component) {
                     const int offset = 2 * (component * field_size + grid_index);
-                    out << kx << ' ' << ky << " rho " << component << ' '
-                        << global_data[offset] << ' ' << global_data[offset + 1] << '\n';
+                    out << ' ' << global_data[offset]
+                        << ' ' << global_data[offset + 1];
                }
 
                const int jx_offset = 2 * (num_components_ * field_size + grid_index);
                const int jy_offset = 2 * ((num_components_ + 1) * field_size + grid_index);
-               out << kx << ' ' << ky << " jx -1 "
-                   << global_data[jx_offset] << ' ' << global_data[jx_offset + 1] << '\n';
-               out << kx << ' ' << ky << " jy -1 "
-                   << global_data[jy_offset] << ' ' << global_data[jy_offset + 1] << '\n';
+               out << ' ' << global_data[jx_offset]
+                   << ' ' << global_data[jx_offset + 1]
+                   << ' ' << global_data[jy_offset]
+                   << ' ' << global_data[jy_offset + 1]
+                   << '\n';
           }
      }
 }
 // ---------------------------------------------------------------------- //
-void SnapshotMeasure::observe_physical(
-     const State& state,
-     PhysicalStateBuffer& physical,
-     FourierTransform2D& fft,
-     const Domain2D& domain,
-     int step,
-     double time
-) const {
+void SnapshotMeasure::observe_physical(const State& state, PhysicalStateBuffer& physical, FourierTransform2D& fft, const Domain2D& domain, int step, double time) const {
      const int nfields = num_components_ + 2;
      const int nx = domain.nx_global();
      const int local_ny = domain.physical_box().size[1];
@@ -141,16 +137,7 @@ void SnapshotMeasure::observe_physical(
           gathered.resize(static_cast<std::size_t>(local_count * domain.size()));
      }
 
-     MPI_Gather(
-          physical.data(),
-          local_count,
-          MPI_DOUBLE,
-          gathered.data(),
-          local_count,
-          MPI_DOUBLE,
-          0,
-          domain.comm()
-     );
+     MPI_Gather(physical.data(), local_count, MPI_DOUBLE, gathered.data(), local_count, MPI_DOUBLE, 0, domain.comm());
 
      if (domain.rank() != 0) {
           return;
@@ -165,10 +152,8 @@ void SnapshotMeasure::observe_physical(
           for (int field = 0; field < nfields; ++field) {
                for (int ly = 0; ly < local_ny; ++ly) {
                     for (int gx = 0; gx < nx; ++gx) {
-                         const int local_index =
-                              rank * local_count + field * local_field_size + ly * nx + gx;
-                         const int global_index =
-                              field * global_field_size + (y0 + ly) * nx + gx;
+                         const int local_index = rank * local_count + field * local_field_size + ly * nx + gx;
+                         const int global_index = field * global_field_size + (y0 + ly) * nx + gx;
                          global_data[global_index] = gathered[local_index];
                     }
                }
@@ -178,12 +163,7 @@ void SnapshotMeasure::observe_physical(
      write_physical_snapshot(snapshot_filename(step), global_data, domain, step, time);
 }
 // ---------------------------------------------------------------------- //
-void SnapshotMeasure::observe_spectral(
-     const State& state,
-     const Domain2D& domain,
-     int step,
-     double time
-) const {
+void SnapshotMeasure::observe_spectral(const State& state, const Domain2D& domain, int step, double time) const {
      const int nfields = num_components_ + 2;
      const int nkx = domain.nx_global() / 2 + 1;
      const int local_ny = domain.spectral_box().size[1];
@@ -201,16 +181,7 @@ void SnapshotMeasure::observe_spectral(
           gathered.resize(static_cast<std::size_t>(2 * local_complex_count * domain.size()));
      }
 
-     MPI_Gather(
-          local_data.data(),
-          2 * local_complex_count,
-          MPI_DOUBLE,
-          gathered.data(),
-          2 * local_complex_count,
-          MPI_DOUBLE,
-          0,
-          domain.comm()
-     );
+     MPI_Gather(local_data.data(), 2 * local_complex_count, MPI_DOUBLE, gathered.data(), 2 * local_complex_count, MPI_DOUBLE, 0,  domain.comm());
 
      if (domain.rank() != 0) {
           return;
@@ -226,14 +197,10 @@ void SnapshotMeasure::observe_spectral(
           for (int field = 0; field < nfields; ++field) {
                for (int ly = 0; ly < local_ny; ++ly) {
                     for (int kx = 0; kx < nkx; ++kx) {
-                         const int local_complex_index =
-                              field * local_field_size + ly * nkx + kx;
-                         const int global_complex_index =
-                              field * global_field_size + (y0 + ly) * nkx + kx;
-                         global_data[2 * global_complex_index] =
-                              gathered[rank * local_double_count + 2 * local_complex_index];
-                         global_data[2 * global_complex_index + 1] =
-                              gathered[rank * local_double_count + 2 * local_complex_index + 1];
+                         const int local_complex_index = field * local_field_size + ly * nkx + kx;
+                         const int global_complex_index = field * global_field_size + (y0 + ly) * nkx + kx;
+                         global_data[2 * global_complex_index] = gathered[rank * local_double_count + 2 * local_complex_index];
+                         global_data[2 * global_complex_index + 1] = gathered[rank * local_double_count + 2 * local_complex_index + 1];
                     }
                }
           }
