@@ -211,6 +211,57 @@ void ParamParser::parse_l_coeff_command(const std::vector<std::string>& tokens) 
     params.physics.mobility(i, j) = parse_variable_from_tail(tokens, 3, "L_coeff");
 }
 // ---------------------------------------------------------------------- //
+void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
+    if (tokens.size() < 5) {
+        throw std::runtime_error("fix syntax: fix <ID> all <type> <on|off> ...");
+    }
+
+    if (!params.commands.empty()) {
+        throw std::runtime_error("fix must be specified before run or measure commands");
+    }
+    if (!params.initial.density_commands.empty() || !params.initial.momentum_commands.empty()) {
+        throw std::runtime_error("fix must be specified before initial condition commands");
+    }
+
+    const std::string& group = tokens[2];
+    const std::string& type = tokens[3];
+
+    if (group != "all") {
+        throw std::runtime_error("only group 'all' is supported for now");
+    }
+
+    const FixSpec& spec = find_fix_spec(type);
+    const bool enabled = parse_on_off(tokens[4], "fix");
+
+    if (spec.arg_kind == FixArgKind::None) {
+        if (tokens.size() != 5) {
+            throw std::runtime_error(std::string("fix ") + spec.name + " syntax: fix <ID> all " + spec.name + " <on|off>");
+        }
+    }
+    else if (spec.arg_kind == FixArgKind::Seed) {
+        if (enabled) {
+            if (tokens.size() != 7 || tokens[5] != "seed") {
+                throw std::runtime_error("fix noise syntax: fix <ID> all noise on seed <integer>");
+            }
+            params.fix.noise.seed = std::stoi(tokens[6]);
+        } else if (tokens.size() != 5) {
+            throw std::runtime_error("fix noise off syntax: fix <ID> all noise off");
+        }
+    }
+    else if (spec.arg_kind == FixArgKind::Rate) {
+        if (enabled) {
+            if (tokens.size() != 7 || tokens[5] != "rate") {
+                throw std::runtime_error("fix shear syntax: fix <ID> all shear on rate <value>");
+            }
+            params.fix.shear.rate = std::stod(tokens[6]);
+        } else if (tokens.size() != 5) {
+            throw std::runtime_error("fix shear off syntax: fix <ID> all shear off");
+        }
+    }
+
+    params.fix.set(spec.flag, enabled);
+}
+// ---------------------------------------------------------------------- //
 void ParamParser::parse_set_command(const std::vector<std::string>& tokens) {
     if (tokens.size() < 3) throw std::runtime_error("set syntax: set density <component|all> <type> <args...> | set momentum <type> <args...>");
 
@@ -396,70 +447,6 @@ void ParamParser::parse_restart_command(const std::vector<std::string>& tokens) 
     cmd.measure = std::move(command);
     params.commands.push_back(std::move(cmd));
 
-}
-// ---------------------------------------------------------------------- //
-void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
-    if (tokens.size() < 5) throw std::runtime_error( "fix syntax: fix <ID> all <noise|shear|nonlinear|barodiffusion> <on|off> ...");
-
-    FixCommand fix;
-    fix.id = tokens[1];
-    fix.group = tokens[2];
-
-    const std::string& style = tokens[3];
-    const std::string& state = tokens[4];
-
-    if (fix.group != "all") {
-        throw std::runtime_error("only group 'all' is supported for now");
-    }
-
-    if (style == "noise") fix.style = FixCommand::Style::Noise;
-    else if (style == "shear") fix.style = FixCommand::Style::Shear;
-    else if (style == "nonlinear") fix.style = FixCommand::Style::Nonlinear;
-    else if (style == "barodiffusion") fix.style = FixCommand::Style::Barodiffusion;
-    else throw std::runtime_error("unknown fix style: " + style);
-
-    if (state == "on") fix.enabled = true;
-    else if (state == "off") fix.enabled = false;
-    else throw std::runtime_error("fix expects on|off");
-
-    if (fix.style == FixCommand::Style::Noise) {
-        if (fix.enabled) {
-            if (tokens.size() != 7 || tokens[5] != "seed") {
-                throw std::runtime_error("fix noise syntax: fix <ID> all noise on seed <integer>");
-            }
-            fix.noise.seed = std::stoi(tokens[6]);
-        } else {
-            if (tokens.size() != 5) {
-                throw std::runtime_error("fix noise off syntax: fix <ID> all noise off");
-            }
-        }
-    } 
-    else if (fix.style == FixCommand::Style::Shear) {
-        if (fix.enabled) {
-            if (tokens.size() != 7 || tokens[5] != "rate") {
-                throw std::runtime_error( "fix shear syntax: fix <ID> all shear on rate <value>");
-            }
-            fix.shear.rate = std::stod(tokens[6]);
-        } else {
-            if (tokens.size() != 5) {
-                throw std::runtime_error("fix shear off syntax: fix <ID> all shear off");
-            }
-        }
-    } 
-    else if (fix.style == FixCommand::Style::Nonlinear) {
-        if (tokens.size() != 5) {
-            throw std::runtime_error( "fix nonlinear syntax: fix <ID> all nonlinear <on|off>");
-        }
-    } else if (fix.style == FixCommand::Style::Barodiffusion) {
-        if (tokens.size() != 5) {
-            throw std::runtime_error("fix barodiffusion syntax: fix <ID> all barodiffusion <on|off>");
-        }
-    }
-
-    Command command;
-    command.type = Command::Type::Fix;
-    command.fix = fix;
-    params.commands.push_back(command);
 }
 // ---------------------------------------------------------------------- //
 void ParamParser::validate_configuration() const {

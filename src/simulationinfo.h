@@ -6,6 +6,7 @@
 #include <complex>
 #include <utility>
 #include <vector>
+#include "fix_flag.h"
 #include "measure_registry.h"
 #include "initial_condition_registry.h"
 
@@ -65,6 +66,33 @@ struct PhysicsConfig {
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
+struct NoiseSpec {
+    int seed = 12345;
+};
+struct ShearSpec {
+    double rate = 0.0;
+    std::string flow_direction = "x";
+};
+struct FixConfig {
+    std::uint32_t flags = 0;
+    NoiseSpec noise;
+    ShearSpec shear;
+
+    bool enabled(FixFlag flag) const {
+        return (flags & fix_bit(flag)) != 0;
+    }
+
+    void set(FixFlag flag, bool value) {
+        if (value) {
+            flags |= fix_bit(flag);
+        } else {
+            flags &= ~fix_bit(flag);
+        }
+    }
+
+    void print_config(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
 struct InitialConditionConfig {
     std::vector<std::shared_ptr<DensityInitialConditionCommandBase>> density_commands;
     std::vector<std::shared_ptr<MomentumInitialConditionCommandBase>> momentum_commands;
@@ -85,33 +113,6 @@ struct RestartOutputConfig {
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
-struct NoiseSpec {
-    int seed = 12345;
-};
-struct ShearSpec {
-    double rate = 0.0;
-    std::string flow_direction = "x";
-};
-struct FixCommand {
-    enum class Style {
-        Noise,
-        Shear,
-        Nonlinear,
-        Barodiffusion
-    };
-
-    std::string id;
-    std::string group = "all";
-    Style style = Style::Noise;
-    bool enabled = false;
-
-    NoiseSpec noise;
-    ShearSpec shear;
-
-    static const char* style_name(Style style);
-    void print(std::ostream& os) const;
-};
-// ---------------------------------------------------------------------- //
 struct RunCommand {
     int steps = 0;
 };
@@ -119,21 +120,19 @@ struct RunCommand {
 struct Command {
     enum class Type {
         Run,
-        Fix,
         Measure
     };
     Type type;
     RunCommand run;
-    FixCommand fix;
     std::shared_ptr<MeasureCommandBase> measure;
 };
 // ---------------------------------------------------------------------- //
-
 struct Params {
     GridConfig grid;
     RuntimeConfig runtime;
     PhysicsConfig physics;
     InitialConditionConfig initial;
+    FixConfig fix;
     ThermoConfig thermo;
     RestartOutputConfig restart_output;
     std::vector<Command> commands;

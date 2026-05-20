@@ -105,6 +105,27 @@ void PhysicsConfig::print_config(std::ostream& os) const {
     print_rule(os);
 }
 // ---------------------------------------------------------------------- //
+void FixConfig::print_config(std::ostream& os) const {
+    print_section(os, "Fix");
+
+    for (const auto& spec : FIX_SPECS) {
+        print_entry(os, spec.name, enabled(spec.flag) ? "ON" : "OFF");
+
+        if (spec.flag == FixFlag::Noise) {
+            print_entry(os, "  Seed", noise.seed);
+        }
+
+        if (spec.flag == FixFlag::Shear) {
+            print_entry(os, "  Rate", shear.rate);
+            print_entry(os, "  Flow direction", shear.flow_direction);
+        }
+    }
+
+    os << "\n";
+    print_rule(os);
+}
+
+// ---------------------------------------------------------------------- //
 void InitialConditionConfig::print_config(std::ostream& os) const {
     print_section(os, "Initial Condition");
 
@@ -141,37 +162,6 @@ void RestartOutputConfig::print_config(std::ostream& os) const {
     print_rule(os);
 }
 // ---------------------------------------------------------------------- //
-const char* FixCommand::style_name(FixCommand::Style style) {
-    switch (style) {
-    case FixCommand::Style::Noise:
-        return "noise";
-    case FixCommand::Style::Shear:
-        return "shear";
-    case FixCommand::Style::Nonlinear:
-        return "nonlinear";
-    case FixCommand::Style::Barodiffusion:
-        return "barodiffusion";
-    }
-    return "unknown";
-}
-// ---------------------------------------------------------------------- //
-void FixCommand::print(std::ostream& os) const {
-    const std::string state =
-        std::string(FixCommand::style_name(style)) + " " + (enabled ? "ON" : "OFF");
-
-    print_entry(os, "Fix " + id, state);
-    print_entry(os, "  Group", group);
-
-    if (enabled && style == FixCommand::Style::Noise) {
-        print_entry(os, "  Seed", noise.seed);
-    }
-
-    if (enabled && style == FixCommand::Style::Shear) {
-        print_entry(os, "  Rate", shear.rate);
-        print_entry(os, "  Flow direction", shear.flow_direction);
-    }
-}
-// ---------------------------------------------------------------------- //
 int Params::total_run_steps() const {
     int total = 0;
     for (const auto& command : commands) {
@@ -189,6 +179,7 @@ void Params::write_summary(std::ostream& os) const {
     grid.print_config(os);
     runtime.print_config(os);
     physics.print_config(os);
+    fix.print_config(os);
     initial.print_config(os);
     thermo.print_config(os);
     restart_output.print_config(os);

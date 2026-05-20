@@ -6,7 +6,9 @@
 #include "state.h"
 #include "buffer_physical_state.h"
 #include "fourier_transform.h"
+#include "fluid_constraint.h"
 #include "monitor.h"
+#include "time_evolution_mask.h"
 #include "measure_registry_builtin.h"
 #include "measure_manager.h"
 #include "initial_condition_registry_builtin.h"
@@ -32,6 +34,8 @@ private:
     State state;
     PhysicalStateBuffer buf_physical_state;
     FourierTransform2D fourier;
+    FluidConstraint constraint;
+    TimeEvolutionMask time_evolution_mask;
 
     MeasurementManager measurements;
     SimulationMonitor monitor;
@@ -53,15 +57,14 @@ private:
             std::unique_ptr<MomentumInitialCondition> initial_condition = style.create_initial_condition(params, command);
             initial_condition->apply(state, domain);
         }
+
+        constraint.initialize(state);
+        constraint.apply(state);
     }
 
     void execute_command(const Command& command) {
         if (command.type == Command::Type::Run) {
             run_steps(command.run.steps);
-        }
-        else if (command.type == Command::Type::Fix) {
-            monitor.print_fix_command(command.fix);
-            // TODO: active_fixes.apply(command.fix);
         }
         else if (command.type == Command::Type::Measure) {
             monitor.print_measure_command(*command.measure);
@@ -91,6 +94,8 @@ public:
           state(domain, params),
           buf_physical_state(domain, params),
           fourier(domain),
+          constraint(domain, params),
+          time_evolution_mask(params),
           measurements(params, measure_registry),
           monitor(params, "output.log", domain.rank() == 0),
           step(0),

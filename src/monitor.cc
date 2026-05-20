@@ -99,37 +99,6 @@ void SimulationMonitor::print_measure_command(const MeasureCommandBase& command)
         log_file << "\n";
     }
 }
-// ---------------------------------------------------------------------- //
-void SimulationMonitor::print_fix_command(const FixCommand& command) {
-    if (!active) {
-        return;
-    }
-    if (!printed_first_command) {
-        std::cout << "\n";
-        if (log_file.is_open()) {
-            log_file << "\n";
-        }
-        printed_first_command = true;
-    }
-
-    if (!printed_fix_command_header) {
-        std::cout << "[Fix Commands]\n";
-        if (log_file.is_open()) {
-            log_file << "[Fix Commands]\n";
-        }
-        printed_fix_command_header = true;
-    }
-
-    command.print(std::cout);
-
-    std::cout << "\n";
-
-    if (log_file.is_open()) {
-        command.print(log_file);
-        log_file << "\n";
-    }
-}
-// ---------------------------------------------------------------------- //
 void SimulationMonitor::print_progress(int run_index, int local_step, int run_steps, int global_step, double time) {
     if (!active) {
         return;
@@ -170,7 +139,6 @@ void SimulationMonitor::finish_run_segment(int run_index, int global_step, doubl
         log_file << std::string(70, '-') << "\n\n";
     }
 
-    printed_fix_command_header = false;
 }
 // ---------------------------------------------------------------------- //
 void SimulationMonitor::finish() {
