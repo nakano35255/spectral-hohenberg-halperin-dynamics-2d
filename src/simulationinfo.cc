@@ -184,7 +184,7 @@ int Params::total_run_steps() const {
 // ---------------------------------------------------------------------- //
 void Params::write_summary(std::ostream& os) const {
     os << std::string(70, '=') << "\n";
-    os << "Spectral Fluctuating Isothermal Fluid Solver (v1.0)\n";
+    os << "Spectral Fluctuating Isothermal Fluid Solver (v0.0)\n";
     os << std::string(70, '=') << "\n";
     grid.print_config(os);
     runtime.print_config(os);
