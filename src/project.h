@@ -9,6 +9,10 @@
 #include "fluid_constraint.h"
 #include "monitor.h"
 #include "time_evolution_mask.h"
+#include "model_thermodynamics.h"
+#include "model_thermodynamics_registry_builtin.h"
+#include "model_transport_coefficient.h"
+#include "model_transport_coefficient_registry_builtin.h"
 #include "measure_registry_builtin.h"
 #include "measure_manager.h"
 #include "initial_condition_registry_builtin.h"
@@ -27,8 +31,12 @@
 class Project {
 private:
     Params params;
+    ThermodynamicsModelRegistry thermodynamics_model_registry;
+    TransportCoefficientModelRegistry transport_coefficient_model_registry;
     MeasureRegistry measure_registry;
     InitialConditionRegistry initial_registry;
+    std::unique_ptr<ThermodynamicsModel> thermodynamics_model;
+    std::unique_ptr<TransportCoefficientModel> transport_coefficient_model;
 
     Domain2D domain;
     State state;
@@ -88,8 +96,20 @@ private:
 public:
     explicit Project(const Params& p)
         : params(p),
+          thermodynamics_model_registry(build_thermodynamics_model_registry()),
+          transport_coefficient_model_registry(build_transport_coefficient_model_registry()),
           measure_registry(build_measure_registry()),
           initial_registry(build_initial_condition_registry()),
+          thermodynamics_model(
+              thermodynamics_model_registry
+                  .get_thermo(params.physics.thermo->type)
+                  .create_model(params, params.physics.thermo)
+          ),
+          transport_coefficient_model(
+              transport_coefficient_model_registry
+                  .get_transport(params.physics.transport->type)
+                  .create_model(params, params.physics.transport)
+          ),
           domain(params),
           state(domain, params),
           buf_physical_state(domain, params),

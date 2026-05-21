@@ -62,7 +62,6 @@ struct InitialConditionArgs {
 class DensityInitialConditionStyle {
 public:
     virtual ~DensityInitialConditionStyle() = default;
-
     virtual const std::string& type_name() const = 0;
 
     virtual std::shared_ptr<DensityInitialConditionCommandBase> parse_command(
@@ -80,7 +79,6 @@ public:
 class MomentumInitialConditionStyle {
 public:
     virtual ~MomentumInitialConditionStyle() = default;
-
     virtual const std::string& type_name() const = 0;
 
     virtual std::shared_ptr<MomentumInitialConditionCommandBase> parse_command(

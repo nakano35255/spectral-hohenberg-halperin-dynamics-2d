@@ -35,18 +35,6 @@ namespace {
         return ss.str();
     }
     // ---------------------------------------------------------------------- //
-    void print_variable(std::ostream& os, const std::string& label, const Variable& variable) {
-        print_entry(os, label, variable.text);
-    }
-    // ---------------------------------------------------------------------- //
-    void print_variable_definition(std::ostream& os,
-                                   const std::string& name,
-                                   const Variable& variable) {
-        os << "    "
-           << std::left << std::setw(VARIABLE_LABEL_WIDTH)
-           << name << ": " << variable.text << '\n';
-    }
-    // ---------------------------------------------------------------------- //
 } // namespace
 // ---------------------------------------------------------------------- //
 void GridConfig::print_config(std::ostream& os) const {
@@ -66,41 +54,22 @@ void RuntimeConfig::print_config(std::ostream& os) const {
     print_rule(os);
 }
 // ---------------------------------------------------------------------- //
-Variable& PhysicsConfig::mobility(int i, int j) {
-    return L_entries.at(static_cast<std::size_t>(i * num_components + j));
-}
-const Variable& PhysicsConfig::mobility(int i, int j) const {
-    return L_entries.at(static_cast<std::size_t>(i * num_components + j));
-}
 void PhysicsConfig::print_config(std::ostream& os) const {
     print_section(os, "Physics");
     print_entry(os, "components", num_components);
 
-    os << "  variables:\n";
-    for (const auto& variable : variables) {
-        print_variable_definition(os, variable.first, variable.second);
+    if (thermo) {
+        thermo->print(os);
+    } else {
+        print_entry(os, "thermodynamics", "none");
     }
 
-    os << '\n';
-    print_variable(os, "free_energy", free_energy_entry);
-
-    os << "  "
-       << std::left << std::setw(LABEL_WIDTH)
-       << "L_coeff" << ":\n";
-
-    const std::string matrix_indent =
-        "  " + std::string(static_cast<std::size_t>(LABEL_WIDTH), ' ') + "  ";
-    for (int i = 0; i < num_components; ++i) {
-        os << matrix_indent;
-        for (int j = 0; j < num_components; ++j) {
-            const auto& value = mobility(i, j);
-            os << std::left << std::setw(MATRIX_COL_WIDTH) << value.text;
-        }
-        os << '\n';
+    if (transport) {
+        transport->print(os);
+    } else {
+        print_entry(os, "transport", "none");
     }
 
-    print_variable(os, "eta", eta_entry);
-    print_variable(os, "zeta", zeta_entry);
     os << "\n";
     print_rule(os);
 }

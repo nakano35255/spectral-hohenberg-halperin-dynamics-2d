@@ -7,27 +7,13 @@
 #include <utility>
 #include <vector>
 #include "fix_flag.h"
+#include "model_thermodynamics_registry.h"
+#include "model_transport_coefficient_registry.h"
 #include "measure_registry.h"
 #include "initial_condition_registry.h"
 
 using Complex = std::complex<double>;
 
-// ---------------------------------------------------------------------- //
-struct Variable {
-    enum class Type {
-        Constant,
-        Expression
-    };
-    Type type = Type::Expression;
-    std::string text;
-
-    Variable() = default;
-    Variable(Type type_in, std::string value) : type(type_in), text(std::move(value)) {}
-    
-    bool specified() const {
-        return !text.empty();
-    }
-};
 // ---------------------------------------------------------------------- //
 struct GridConfig {
     static constexpr double PI = 3.14159265358979323846;
@@ -52,17 +38,9 @@ struct RuntimeConfig {
 // ---------------------------------------------------------------------- //
 struct PhysicsConfig {
     int num_components = 0;
-    std::vector<std::pair<std::string, Variable>> variables;
-    Variable free_energy_entry;
-    std::vector<Variable> L_entries;
-    Variable eta_entry;
-    Variable zeta_entry;
+    std::shared_ptr<ThermodynamicsModelCommandBase> thermo;
+    std::shared_ptr<TransportCoefficientModelCommandBase> transport;
 
-    void resize(int n) {
-        L_entries.assign(static_cast<std::size_t>(n * n), Variable());
-    }
-    Variable& mobility(int i, int j);
-    const Variable& mobility(int i, int j) const;
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //

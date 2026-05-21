@@ -1,0 +1,8 @@
+#ifndef SFI_MODEL_TRANSPORT_COEFFICIENT_REGISTRY_BUILTIN_H
+#define SFI_MODEL_TRANSPORT_COEFFICIENT_REGISTRY_BUILTIN_H
+
+#include "model_transport_coefficient_registry.h"
+
+TransportCoefficientModelRegistry build_transport_coefficient_model_registry();
+
+#endif

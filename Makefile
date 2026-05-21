@@ -20,6 +20,9 @@ SRCS := \
 	src/measure_registry_builtin.cc \
 	src/measure_manager.cc \
 	src/measure_snapshot.cc \
+	src/model_thermodynamics_ideal_gas.cc \
+	src/model_thermodynamics_registry_builtin.cc \
+	src/model_transport_coefficient_registry_builtin.cc \
 	src/monitor.cc \
 	src/param_parser.cc \
 	src/state.cc \

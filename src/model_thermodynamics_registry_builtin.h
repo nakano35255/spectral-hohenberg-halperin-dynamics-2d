@@ -1,0 +1,8 @@
+#ifndef SFI_MODEL_THERMODYNAMICS_REGISTRY_BUILTIN_H
+#define SFI_MODEL_THERMODYNAMICS_REGISTRY_BUILTIN_H
+
+#include "model_thermodynamics_registry.h"
+
+ThermodynamicsModelRegistry build_thermodynamics_model_registry();
+
+#endif

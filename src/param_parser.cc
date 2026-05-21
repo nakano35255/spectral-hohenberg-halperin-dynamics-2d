@@ -8,42 +8,6 @@
 // ---------------------------------------------------------------------- //
 namespace {
     // ---------------------------------------------------------------------- //
-    std::string join_tokens(const std::vector<std::string>& tokens, std::size_t first) {
-        if (first >= tokens.size()) {
-            return "";
-        }
-
-        std::string result = tokens[first];
-        for (std::size_t i = first + 1; i < tokens.size(); ++i) {
-            result += " ";
-            result += tokens[i];
-        }
-        return result;
-    }
-    // ---------------------------------------------------------------------- //
-    Variable::Type parse_variable_type(const std::string& token, const std::string& context) {
-        if (token == "const") {
-            return Variable::Type::Constant;
-        }
-        if (token == "expr") {
-            return Variable::Type::Expression;
-        }
-        throw std::runtime_error(context + " expects const|expr");
-    }
-    // ---------------------------------------------------------------------- //
-    Variable parse_variable_from_tail(const std::vector<std::string>& tokens, std::size_t type_index, const std::string& context) {
-        if (tokens.size() <= type_index + 1) {
-            throw std::runtime_error(context + " needs: const <value> or expr <expression>");
-        }
-
-        const Variable::Type type = parse_variable_type(tokens[type_index], context);
-        const std::string text = join_tokens(tokens, type_index + 1);
-        if (text.empty()) {
-            throw std::runtime_error(context + " has empty value");
-        }
-        return Variable(type, text);
-    }
-    // ---------------------------------------------------------------------- //
     bool parse_on_off(const std::string& value, const std::string& context) {
         if (value == "on") return true;
         if (value == "off") return false;
@@ -86,7 +50,6 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
         if (params.physics.num_components <= 0) {
             throw std::runtime_error("components must be positive.");
         }
-        params.physics.resize(params.physics.num_components);
     }
     else if (cmd == "boundary") {
         if (tokens.size() != 3) throw std::runtime_error("boundary syntax: boundary <x> <y>");
@@ -132,20 +95,8 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
     // --------------------------------------------------
     // 3. Physics
     // --------------------------------------------------
-    else if (cmd == "variable") {
-        parse_variable_command(tokens);
-    }
-    else if (cmd == "free_energy") {
-        params.physics.free_energy_entry = parse_variable_from_tail(tokens, 1, "free_energy");
-    }
-    else if (cmd == "L_coeff") {
-        parse_l_coeff_command(tokens);
-    }
-    else if (cmd == "eta") {
-        params.physics.eta_entry = parse_variable_from_tail(tokens, 1, "eta");
-    }
-    else if (cmd == "zeta") {
-        params.physics.zeta_entry = parse_variable_from_tail(tokens, 1, "zeta");
+    else if (cmd == "model") {
+        parse_model_command(tokens);
     }
 
     // --------------------------------------------------
@@ -188,27 +139,89 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
     }
 }
 // ---------------------------------------------------------------------- //
-void ParamParser::parse_variable_command(const std::vector<std::string>& tokens) {
-    if (tokens.size() < 4) throw std::runtime_error("variable syntax: variable <name> const <value> | variable <name> expr <expression>");
-    Variable variable = parse_variable_from_tail(tokens, 2, "variable");
+void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
+    if (tokens.size() < 3) {
+        throw std::runtime_error(
+            "model syntax: model <thermo|transport> <type> [args...] | model <thermo|transport> coeff <args...>"
+        );
+    }
 
-    for (auto& entry : params.physics.variables) {
-        if (entry.first == tokens[1]) {
-            entry.second = variable;
+    const std::string& category = tokens[1];
+    const std::string& action = tokens[2];
+
+    if (category == "thermo") {
+        if (action == "coeff") {
+            if (!params.physics.thermo) {
+                throw std::runtime_error("model thermo coeff requires model thermo <type> first");
+            }
+
+            ThermodynamicsModelArgs args;
+            for (std::size_t i = 3; i < tokens.size(); i += 2) {
+                if (i + 1 >= tokens.size()) {
+                    throw std::runtime_error("model thermo coeff arguments must be key-value pairs");
+                }
+                args.entries.emplace_back(tokens[i], tokens[i + 1]);
+            }
+
+            const auto& style = thermodynamics_model_registry.get_thermo(params.physics.thermo->type);
+            style.update_command(*params.physics.thermo, args, params);
             return;
         }
+
+        const std::string& type = action;
+        const auto& style = thermodynamics_model_registry.get_thermo(type);
+
+        params.physics.thermo = style.create_default_command(params);
+
+        ThermodynamicsModelArgs args;
+        for (std::size_t i = 3; i < tokens.size(); i += 2) {
+            if (i + 1 >= tokens.size()) {
+                throw std::runtime_error("model thermo " + type + " arguments must be key-value pairs");
+            }
+            args.entries.emplace_back(tokens[i], tokens[i + 1]);
+        }
+
+        style.update_command(*params.physics.thermo, args, params);
+        return;
     }
-    params.physics.variables.push_back({tokens[1], variable});
-}
-// ---------------------------------------------------------------------- //
-void ParamParser::parse_l_coeff_command(const std::vector<std::string>& tokens) {
-    if (tokens.size() < 5) throw std::runtime_error("L_coeff syntax: L_coeff <i> <j> const <value> | L_coeff <i> <j> expr <expression>");
-    const int i = std::stoi(tokens[1]);
-    const int j = std::stoi(tokens[2]);
-    
-    check_component_index(i, "L_coeff");
-    check_component_index(j, "L_coeff");
-    params.physics.mobility(i, j) = parse_variable_from_tail(tokens, 3, "L_coeff");
+
+    if (category == "transport") {
+        if (action == "coeff") {
+            if (!params.physics.transport) {
+                throw std::runtime_error("model transport coeff requires model transport <type> first");
+            }
+
+            TransportCoefficientModelArgs args;
+            for (std::size_t i = 3; i < tokens.size(); i += 2) {
+                if (i + 1 >= tokens.size()) {
+                    throw std::runtime_error("model transport coeff arguments must be key-value pairs");
+                }
+                args.entries.emplace_back(tokens[i], tokens[i + 1]);
+            }
+
+            const auto& style = transport_coefficient_model_registry.get_transport(params.physics.transport->type);
+            style.update_command(*params.physics.transport, args, params);
+            return;
+        }
+
+        const std::string& type = action;
+        const auto& style =  transport_coefficient_model_registry.get_transport(type);
+
+        params.physics.transport = style.create_default_command(params);
+
+        TransportCoefficientModelArgs args;
+        for (std::size_t i = 3; i < tokens.size(); i += 2) {
+            if (i + 1 >= tokens.size()) {
+                throw std::runtime_error("model transport " + type + " arguments must be key-value pairs");
+            }
+            args.entries.emplace_back(tokens[i], tokens[i + 1]);
+        }
+
+        style.update_command(*params.physics.transport, args, params);
+        return;
+    }
+
+    throw std::runtime_error("unknown model category: " + category);
 }
 // ---------------------------------------------------------------------- //
 void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
@@ -454,24 +467,12 @@ void ParamParser::validate_configuration() const {
         throw std::runtime_error("components must be specified");
     }
 
-    if (!params.physics.free_energy_entry.specified()) {
-        throw std::runtime_error("free_energy must be specified");
+    if (!params.physics.thermo) {
+        throw std::runtime_error("model thermo must be specified");
     }
 
-    if (!params.physics.eta_entry.specified()) {
-        throw std::runtime_error("eta must be specified");
-    }
-
-    if (!params.physics.zeta_entry.specified()) {
-        throw std::runtime_error("zeta must be specified");
-    }
-
-    for (int i = 0; i < params.physics.num_components; ++i) {
-        for (int j = 0; j < params.physics.num_components; ++j) {
-            if (!params.physics.mobility(i, j).specified()) {
-                throw std::runtime_error("missing L_coeff " + std::to_string(i) + " " + std::to_string(j));
-            }
-        }
+    if (!params.physics.transport) {
+        throw std::runtime_error("model transport must be specified");
     }
 
 }

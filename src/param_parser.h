@@ -2,6 +2,8 @@
 #define SFI_PARAM_PARSER_H
 
 #include "simulationinfo.h"
+#include "model_thermodynamics_registry.h"
+#include "model_transport_coefficient_registry.h"
 #include "measure_registry.h"
 #include "initial_condition_registry.h"
 
@@ -13,6 +15,8 @@
 class ParamParser {
 private:
     Params& params;
+    const ThermodynamicsModelRegistry& thermodynamics_model_registry;
+    const TransportCoefficientModelRegistry& transport_coefficient_model_registry;
     const MeasureRegistry& measure_registry;
     const InitialConditionRegistry &initial_condition_registry;
 
@@ -21,8 +25,7 @@ private:
     void execute_command(const std::vector<std::string>& tokens);
     void validate_configuration() const;
 
-    void parse_variable_command(const std::vector<std::string>& tokens);
-    void parse_l_coeff_command(const std::vector<std::string>& tokens);
+    void parse_model_command(const std::vector<std::string>& tokens);
     void parse_fix_command(const std::vector<std::string>& tokens);
     void parse_set_command(const std::vector<std::string>& tokens);
     void parse_measure_command(const std::vector<std::string>& tokens);
@@ -33,7 +36,13 @@ private:
     void check_momentum_component_index(int index, const std::string& command_name) const;
 
 public:
-    ParamParser(Params& p, const MeasureRegistry& mr, const InitialConditionRegistry& icr) : params(p), measure_registry(mr), initial_condition_registry(icr) {}
+    ParamParser(Params& p, const ThermodynamicsModelRegistry& tmr, const TransportCoefficientModelRegistry& tcr, const MeasureRegistry& mr, const InitialConditionRegistry& icr)
+      : params(p),
+        thermodynamics_model_registry(tmr),
+        transport_coefficient_model_registry(tcr),
+        measure_registry(mr),
+        initial_condition_registry(icr) {}
+
     ~ParamParser() {}
 
     void parse_file(const std::string& filename) {
