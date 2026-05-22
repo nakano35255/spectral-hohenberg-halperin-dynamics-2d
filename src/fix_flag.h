@@ -11,7 +11,8 @@ enum class FixFlag : std::uint32_t {
      Nonlinear      = 1u << 2,
      Barodiffusion  = 1u << 3,
      Quiescent      = 1u << 4,
-     Incompressible = 1u << 5
+     Incompressible = 1u << 5,
+     Interface      = 1u << 6
 };
 
 enum class FixArgKind {
@@ -33,6 +34,7 @@ inline const FixSpec FIX_SPECS[] = {
      {"barodiffusion", FixFlag::Barodiffusion, FixArgKind::None},
      {"quiescent", FixFlag::Quiescent, FixArgKind::None},
      {"incompressible", FixFlag::Incompressible, FixArgKind::None},
+     {"interface", FixFlag::Interface, FixArgKind::None},
 };
 
 inline const FixSpec& find_fix_spec(const std::string& name) {
@@ -46,6 +48,10 @@ inline const FixSpec& find_fix_spec(const std::string& name) {
 
 inline std::uint32_t fix_bit(FixFlag flag) {
      return static_cast<std::uint32_t>(flag);
+}
+
+inline bool fix_enabled(std::uint32_t flags, FixFlag flag) {
+     return (flags & fix_bit(flag)) != 0;
 }
 
 #endif

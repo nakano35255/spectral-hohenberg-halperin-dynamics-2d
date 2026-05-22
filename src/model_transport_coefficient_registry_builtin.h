@@ -3,6 +3,6 @@
 
 #include "model_transport_coefficient_registry.h"
 
-TransportCoefficientModelRegistry build_transport_coefficient_model_registry();
+TransportCoefficientRegistry build_transport_coefficient_registry();
 
 #endif

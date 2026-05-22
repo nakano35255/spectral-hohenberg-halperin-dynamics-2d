@@ -3,20 +3,15 @@
 
 #include <vector>
 
-struct TransportCoefficientRequest {
-    bool shear_viscosity = true;
-    bool bulk_viscosity = true;
-    bool mobility = true;
-};
-
-class TransportCoefficientModel {
+class TransportCoefficient {
 public:
-    virtual ~TransportCoefficientModel() = default;
+    virtual ~TransportCoefficient() = default;
 
     virtual double shear_viscosity(const std::vector<double>& rho) const = 0;
     virtual double bulk_viscosity(const std::vector<double>& rho) const = 0;
 
     virtual void mobility(const std::vector<double>& rho, std::vector<double>& L) const = 0;
+    virtual void noise_factor(const std::vector<double>& rho, std::vector<double>& B) const = 0;
 };
 
 #endif

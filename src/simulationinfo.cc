@@ -78,7 +78,7 @@ void FixConfig::print_config(std::ostream& os) const {
     print_section(os, "Fix");
 
     for (const auto& spec : FIX_SPECS) {
-        print_entry(os, spec.name, enabled(spec.flag) ? "ON" : "OFF");
+        print_entry(os, spec.name, fix_enabled(flags, spec.flag) ? "ON" : "OFF");
 
         if (spec.flag == FixFlag::Noise) {
             print_entry(os, "  Seed", noise.seed);

@@ -3,15 +3,9 @@
 
 #include <vector>
 
-struct ThermodynamicsRequest {
-    bool free_energy = false;
-    bool chemical_potential = true;
-    bool pressure = true;
-};
-
-class ThermodynamicsModel {
+class Thermodynamics {
 public:
-    virtual ~ThermodynamicsModel() = default;
+    virtual ~Thermodynamics() = default;
 
     virtual double free_energy(const std::vector<double>& rho) const = 0;
 

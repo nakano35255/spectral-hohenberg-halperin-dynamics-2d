@@ -17,7 +17,7 @@ public:
         : num_components_(params.physics.num_components),
           num_fields_(num_components_ + 2),
           active_(static_cast<std::size_t>(num_fields_), true) {
-        if (params.fix.enabled(FixFlag::Quiescent)) {
+        if (fix_enabled(params.fix.flags, FixFlag::Quiescent)) {
             active_[static_cast<std::size_t>(last_density_field())] = false;
             active_[static_cast<std::size_t>(momentum_x_field())] = false;
             active_[static_cast<std::size_t>(momentum_y_field())] = false;

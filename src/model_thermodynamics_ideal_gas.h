@@ -5,7 +5,7 @@
 
 #include <vector>
 
-class IdealGasThermodynamicsModel : public ThermodynamicsModel {
+class IdealGasThermodynamics : public Thermodynamics {
 private:
     double kB_ = 1.0;
     double temperature_ = 1.0;
@@ -15,7 +15,7 @@ private:
     void check_density_size(const std::vector<double>& rho) const;
 
 public:
-    IdealGasThermodynamicsModel(
+    IdealGasThermodynamics(
         double kB,
         double temperature,
         std::vector<double> mass,
@@ -24,10 +24,7 @@ public:
 
     double free_energy(const std::vector<double>& rho) const override;
 
-    void chemical_potential(
-        const std::vector<double>& rho,
-        std::vector<double>& mu
-    ) const override;
+    void chemical_potential(const std::vector<double>& rho, std::vector<double>& mu) const override;
 
     double pressure(const std::vector<double>& rho) const override;
 };

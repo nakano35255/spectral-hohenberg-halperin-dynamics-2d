@@ -1,4 +1,5 @@
 #include "param_parser.h"
+#include "model_requirement.h"
 
 #include <cctype>
 #include <fstream>
@@ -155,7 +156,7 @@ void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
                 throw std::runtime_error("model thermo coeff requires model thermo <type> first");
             }
 
-            ThermodynamicsModelArgs args;
+            ThermodynamicsArgs args;
             for (std::size_t i = 3; i < tokens.size(); i += 2) {
                 if (i + 1 >= tokens.size()) {
                     throw std::runtime_error("model thermo coeff arguments must be key-value pairs");
@@ -163,17 +164,17 @@ void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
                 args.entries.emplace_back(tokens[i], tokens[i + 1]);
             }
 
-            const auto& style = thermodynamics_model_registry.get_thermo(params.physics.thermo->type);
+            const auto& style = thermodynamics_registry.get_thermo(params.physics.thermo->type);
             style.update_command(*params.physics.thermo, args, params);
             return;
         }
 
         const std::string& type = action;
-        const auto& style = thermodynamics_model_registry.get_thermo(type);
+        const auto& style = thermodynamics_registry.get_thermo(type);
 
         params.physics.thermo = style.create_default_command(params);
 
-        ThermodynamicsModelArgs args;
+        ThermodynamicsArgs args;
         for (std::size_t i = 3; i < tokens.size(); i += 2) {
             if (i + 1 >= tokens.size()) {
                 throw std::runtime_error("model thermo " + type + " arguments must be key-value pairs");
@@ -191,7 +192,7 @@ void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
                 throw std::runtime_error("model transport coeff requires model transport <type> first");
             }
 
-            TransportCoefficientModelArgs args;
+            TransportCoefficientArgs args;
             for (std::size_t i = 3; i < tokens.size(); i += 2) {
                 if (i + 1 >= tokens.size()) {
                     throw std::runtime_error("model transport coeff arguments must be key-value pairs");
@@ -199,17 +200,17 @@ void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
                 args.entries.emplace_back(tokens[i], tokens[i + 1]);
             }
 
-            const auto& style = transport_coefficient_model_registry.get_transport(params.physics.transport->type);
+            const auto& style = transport_coefficient_registry.get_transport(params.physics.transport->type);
             style.update_command(*params.physics.transport, args, params);
             return;
         }
 
         const std::string& type = action;
-        const auto& style =  transport_coefficient_model_registry.get_transport(type);
+        const auto& style =  transport_coefficient_registry.get_transport(type);
 
         params.physics.transport = style.create_default_command(params);
 
-        TransportCoefficientModelArgs args;
+        TransportCoefficientArgs args;
         for (std::size_t i = 3; i < tokens.size(); i += 2) {
             if (i + 1 >= tokens.size()) {
                 throw std::runtime_error("model transport " + type + " arguments must be key-value pairs");
@@ -231,9 +232,6 @@ void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
 
     if (!params.commands.empty()) {
         throw std::runtime_error("fix must be specified before run or measure commands");
-    }
-    if (!params.initial.density_commands.empty() || !params.initial.momentum_commands.empty()) {
-        throw std::runtime_error("fix must be specified before initial condition commands");
     }
 
     const std::string& group = tokens[2];
@@ -474,6 +472,14 @@ void ParamParser::validate_configuration() const {
     if (!params.physics.transport) {
         throw std::runtime_error("model transport must be specified");
     }
+
+    const ModelRequirement requirement = build_model_requirement(params.fix.flags);
+
+    const ThermodynamicsStyle& thermo_style = thermodynamics_registry.get_thermo(params.physics.thermo->type);
+    thermo_style.validate_command(*params.physics.thermo, requirement.thermodynamics, params);
+
+    const TransportCoefficientStyle& transport_style = transport_coefficient_registry.get_transport(params.physics.transport->type);
+    transport_style.validate_command(*params.physics.transport, requirement.transport_coefficient, params);
 
 }
 // ---------------------------------------------------------------------- //

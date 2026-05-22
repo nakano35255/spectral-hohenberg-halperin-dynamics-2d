@@ -38,8 +38,8 @@ struct RuntimeConfig {
 // ---------------------------------------------------------------------- //
 struct PhysicsConfig {
     int num_components = 0;
-    std::shared_ptr<ThermodynamicsModelCommandBase> thermo;
-    std::shared_ptr<TransportCoefficientModelCommandBase> transport;
+    std::shared_ptr<ThermodynamicsCommandBase> thermo;
+    std::shared_ptr<TransportCoefficientCommandBase> transport;
 
     void print_config(std::ostream& os) const;
 };
@@ -55,10 +55,6 @@ struct FixConfig {
     std::uint32_t flags = 0;
     NoiseSpec noise;
     ShearSpec shear;
-
-    bool enabled(FixFlag flag) const {
-        return (flags & fix_bit(flag)) != 0;
-    }
 
     void set(FixFlag flag, bool value) {
         if (value) {

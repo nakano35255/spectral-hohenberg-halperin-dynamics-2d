@@ -31,12 +31,13 @@
 class Project {
 private:
     Params params;
-    ThermodynamicsModelRegistry thermodynamics_model_registry;
-    TransportCoefficientModelRegistry transport_coefficient_model_registry;
+    ThermodynamicsRegistry thermodynamics_registry;
+    TransportCoefficientRegistry transport_coefficient_registry;
     MeasureRegistry measure_registry;
     InitialConditionRegistry initial_registry;
-    std::unique_ptr<ThermodynamicsModel> thermodynamics_model;
-    std::unique_ptr<TransportCoefficientModel> transport_coefficient_model;
+
+    std::unique_ptr<Thermodynamics> thermodynamics;
+    std::unique_ptr<TransportCoefficient> transport_coefficient;
 
     Domain2D domain;
     State state;
@@ -50,6 +51,20 @@ private:
     int step;
     int run_index;
     double time;
+
+    static std::unique_ptr<Thermodynamics> create_thermodynamics(const Params& params, const ThermodynamicsRegistry& registry) {
+        const std::string& thermo_type = params.physics.thermo->type;
+        const ThermodynamicsStyle& thermo_style = registry.get_thermo(thermo_type);
+
+        return thermo_style.create(params, params.physics.thermo);
+    }
+
+    static std::unique_ptr<TransportCoefficient> create_transport_coefficient(const Params& params, const TransportCoefficientRegistry& registry) {
+        const std::string& transport_type = params.physics.transport->type;
+        const TransportCoefficientStyle& transport_style = registry.get_transport(transport_type);
+
+        return transport_style.create(params, params.physics.transport);
+    }
 
     void apply_initial_conditions() {
         state.clear();
@@ -96,20 +111,12 @@ private:
 public:
     explicit Project(const Params& p)
         : params(p),
-          thermodynamics_model_registry(build_thermodynamics_model_registry()),
-          transport_coefficient_model_registry(build_transport_coefficient_model_registry()),
+          thermodynamics_registry(build_thermodynamics_registry()),
+          transport_coefficient_registry(build_transport_coefficient_registry()),
           measure_registry(build_measure_registry()),
           initial_registry(build_initial_condition_registry()),
-          thermodynamics_model(
-              thermodynamics_model_registry
-                  .get_thermo(params.physics.thermo->type)
-                  .create_model(params, params.physics.thermo)
-          ),
-          transport_coefficient_model(
-              transport_coefficient_model_registry
-                  .get_transport(params.physics.transport->type)
-                  .create_model(params, params.physics.transport)
-          ),
+          thermodynamics(create_thermodynamics(params, thermodynamics_registry)),
+          transport_coefficient(create_transport_coefficient(params, transport_coefficient_registry)),
           domain(params),
           state(domain, params),
           buf_physical_state(domain, params),

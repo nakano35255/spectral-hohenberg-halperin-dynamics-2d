@@ -3,6 +3,6 @@
 
 #include "model_thermodynamics_registry.h"
 
-ThermodynamicsModelRegistry build_thermodynamics_model_registry();
+ThermodynamicsRegistry build_thermodynamics_registry();
 
 #endif

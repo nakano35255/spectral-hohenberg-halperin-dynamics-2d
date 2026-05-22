@@ -2,8 +2,8 @@
 #include "model_thermodynamics_ideal_gas_style.h"
 
 
-ThermodynamicsModelRegistry build_thermodynamics_model_registry() {
-    ThermodynamicsModelRegistry registry;
-    registry.register_thermo_style(std::make_unique<IdealGasThermodynamicsModelStyle>());
+ThermodynamicsRegistry build_thermodynamics_registry() {
+    ThermodynamicsRegistry registry;
+    registry.register_thermo_style(std::make_unique<IdealGasThermodynamicsStyle>());
     return registry;
 }

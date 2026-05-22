@@ -15,8 +15,8 @@
 class ParamParser {
 private:
     Params& params;
-    const ThermodynamicsModelRegistry& thermodynamics_model_registry;
-    const TransportCoefficientModelRegistry& transport_coefficient_model_registry;
+    const ThermodynamicsRegistry& thermodynamics_registry;
+    const TransportCoefficientRegistry& transport_coefficient_registry;
     const MeasureRegistry& measure_registry;
     const InitialConditionRegistry &initial_condition_registry;
 
@@ -36,10 +36,10 @@ private:
     void check_momentum_component_index(int index, const std::string& command_name) const;
 
 public:
-    ParamParser(Params& p, const ThermodynamicsModelRegistry& tmr, const TransportCoefficientModelRegistry& tcr, const MeasureRegistry& mr, const InitialConditionRegistry& icr)
+    ParamParser(Params& p, const ThermodynamicsRegistry& tmr, const TransportCoefficientRegistry& tcr, const MeasureRegistry& mr, const InitialConditionRegistry& icr)
       : params(p),
-        thermodynamics_model_registry(tmr),
-        transport_coefficient_model_registry(tcr),
+        thermodynamics_registry(tmr),
+        transport_coefficient_registry(tcr),
         measure_registry(mr),
         initial_condition_registry(icr) {}
 

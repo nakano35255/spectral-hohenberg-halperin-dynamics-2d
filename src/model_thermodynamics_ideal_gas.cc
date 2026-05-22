@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 
-IdealGasThermodynamicsModel::IdealGasThermodynamicsModel(
+IdealGasThermodynamics::IdealGasThermodynamics(
     double kB,
     double temperature,
     std::vector<double> mass,
@@ -38,18 +38,13 @@ IdealGasThermodynamicsModel::IdealGasThermodynamicsModel(
     }
 }
 
-void IdealGasThermodynamicsModel::check_density_size(const std::vector<double>& rho) const {
+void IdealGasThermodynamics::check_density_size(const std::vector<double>& rho) const {
     if (rho.size() != mass_.size()) {
-        throw std::runtime_error(
-            "ideal_gas thermodynamics expected "
-            + std::to_string(mass_.size())
-            + " density components, got "
-            + std::to_string(rho.size())
-        );
+        throw std::runtime_error("ideal_gas thermodynamics expected " + std::to_string(mass_.size()) + " density components, got " + std::to_string(rho.size()));
     }
 }
 
-double IdealGasThermodynamicsModel::free_energy(const std::vector<double>& rho) const {
+double IdealGasThermodynamics::free_energy(const std::vector<double>& rho) const {
     check_density_size(rho);
 
     double f = 0.0;
@@ -65,10 +60,7 @@ double IdealGasThermodynamicsModel::free_energy(const std::vector<double>& rho) 
     return f;
 }
 
-void IdealGasThermodynamicsModel::chemical_potential(
-    const std::vector<double>& rho,
-    std::vector<double>& mu
-) const {
+void IdealGasThermodynamics::chemical_potential(const std::vector<double>& rho, std::vector<double>& mu) const {
     check_density_size(rho);
 
     mu.assign(rho.size(), 0.0);
@@ -82,7 +74,7 @@ void IdealGasThermodynamicsModel::chemical_potential(
     }
 }
 
-double IdealGasThermodynamicsModel::pressure(const std::vector<double>& rho) const {
+double IdealGasThermodynamics::pressure(const std::vector<double>& rho) const {
     check_density_size(rho);
 
     double p = 0.0;

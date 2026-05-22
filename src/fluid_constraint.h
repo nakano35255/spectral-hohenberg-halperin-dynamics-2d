@@ -48,7 +48,7 @@ public:
           local_spectral_size_(domain.spectral_size()) {}
 
     void initialize(const State& state) {
-        if (!params_.fix.enabled(FixFlag::Quiescent)) {
+        if (!fix_enabled(params_.fix.flags, FixFlag::Quiescent)) {
             initialized_ = true;
             return;
         }
@@ -64,7 +64,7 @@ public:
     }
 
     void apply(State& state) const {
-        if (params_.fix.enabled(FixFlag::Quiescent)) {
+        if (fix_enabled(params_.fix.flags, FixFlag::Quiescent)) {
             apply_quiescent(state);
         }
     }

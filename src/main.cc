@@ -22,8 +22,8 @@ int main(int argc, char* argv[]) {
     }
 
     Params params;
-    ThermodynamicsModelRegistry thermo_registry = build_thermodynamics_model_registry();
-    TransportCoefficientModelRegistry transport_registry = build_transport_coefficient_model_registry();
+    ThermodynamicsRegistry thermo_registry = build_thermodynamics_registry();
+    TransportCoefficientRegistry transport_registry = build_transport_coefficient_registry();
     MeasureRegistry measure_registry = build_measure_registry();
     InitialConditionRegistry initial_registry = build_initial_condition_registry();
     ParamParser parser(params, thermo_registry, transport_registry, measure_registry, initial_registry);
