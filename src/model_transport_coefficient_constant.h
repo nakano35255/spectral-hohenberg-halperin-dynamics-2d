@@ -11,10 +11,10 @@ private:
     double shear_viscosity_ = 0.0;
     double bulk_viscosity_ = 0.0;
     std::vector<double> mobility_;
-    std::vector<double> noise_factor_;
+    std::vector<double> mobility_noise_;
 
     void check_density_size(const std::vector<double>& rho) const;
-    void build_noise_factor();
+    void build_mobility_noise();
 
 public:
     ConstantTransportCoefficient(
@@ -28,7 +28,7 @@ public:
     double bulk_viscosity(const std::vector<double>& rho) const override;
 
     void mobility(const std::vector<double>& rho, std::vector<double>& L) const override;
-    void noise_factor(const std::vector<double>& rho, std::vector<double>& B) const override;
+    void mobility_noise(const std::vector<double>& rho, std::vector<double>& B) const override;
 };
 
 #endif

@@ -2,10 +2,8 @@
 #define SFI_TIME_INTEGRATOR_H
 
 #include "domain.h"
-#include "fluid_constraint.h"
 #include "state.h"
 #include "simulationinfo.h"
-#include "time_evolution_mask.h"
 
 #include <algorithm>
 #include <functional>
@@ -14,18 +12,22 @@
 #include <stdexcept>
 #include <vector>
 
-// Deterministic RHS: writes F_det(current, t) into out.
-using DetRHSFunc = std::function<void(const State&, State&, double)>;
+using DensityDetRHSFunc = std::function<void(int, const State&, Complex*, double)>;
+using MomentumDetRHSFunc = std::function<void(const State&, Complex*, Complex*, double)>;
+using DensityStoRHSFunc = std::function<void(int, const State&, Complex*)>;
+using MomentumStoRHSFunc = std::function<void(const State&, Complex*, Complex*)>;
 
-// Stochastic RHS/noise increment coefficient: writes into out.
-using StoRHSFunc = std::function<void(State&)>;
+struct RHSOperators {
+    DensityDetRHSFunc density_det;
+    MomentumDetRHSFunc momentum_det;
+    DensityStoRHSFunc density_sto;
+    MomentumStoRHSFunc momentum_sto;
+};
 
 class TimeIntegrator {
 protected:
     const Domain2D& domain_;
     const Params& params_;
-    const FluidConstraint& constraint_;
-    const TimeEvolutionMask& mask_;
     const int num_components_;
     const int num_fields_;
     const std::size_t local_spectral_size_;
@@ -69,22 +71,13 @@ protected:
         }
     }
 
-    void enforce_after_stage(State& state) const {
-        constraint_.apply(state);
-        enforce_real_symmetry(state);
-    }
-
 public:
     TimeIntegrator(
         const Domain2D& domain,
-        const Params& params,
-        const FluidConstraint& constraint,
-        const TimeEvolutionMask& mask
+        const Params& params
     )
         : domain_(domain),
           params_(params),
-          constraint_(constraint),
-          mask_(mask),
           num_components_(params.physics.num_components),
           num_fields_(params.physics.num_components + 2),
           local_spectral_size_(domain.spectral_size()),
@@ -98,7 +91,7 @@ public:
 
     virtual ~TimeIntegrator() = default;
 
-    virtual void step(State& u, double t, const DetRHSFunc& calc_det, const StoRHSFunc& calc_sto) = 0;
+    virtual void step(State& u, double t, const RHSOperators& rhs) = 0;
 
 };
 

@@ -32,7 +32,7 @@ struct GridConfig {
 // ---------------------------------------------------------------------- //
 struct RuntimeConfig {
     double dt = 0.005;
-    std::string integrator_type = "srk3";
+    std::string time_evolution_type = "srk3/compressible";
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //

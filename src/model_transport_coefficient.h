@@ -11,7 +11,7 @@ public:
     virtual double bulk_viscosity(const std::vector<double>& rho) const = 0;
 
     virtual void mobility(const std::vector<double>& rho, std::vector<double>& L) const = 0;
-    virtual void noise_factor(const std::vector<double>& rho, std::vector<double>& B) const = 0;
+    virtual void mobility_noise(const std::vector<double>& rho, std::vector<double>& B) const = 0;
 };
 
 #endif

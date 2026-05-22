@@ -1,5 +1,4 @@
 #include "param_parser.h"
-#include "model_requirement.h"
 
 #include <cctype>
 #include <fstream>
@@ -88,9 +87,9 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
             throw std::runtime_error("timestep must be positive");
         }
     }
-    else if (cmd == "integrator") {
-        if (tokens.size() != 2) throw std::runtime_error("integrator syntax: integrator <name>");
-        params.runtime.integrator_type = tokens[1];
+    else if (cmd == "time_evolution") {
+        if (tokens.size() != 2) throw std::runtime_error("time_evolution syntax: time_evolution <type>");
+        params.runtime.time_evolution_type = tokens[1];
     }
     
     // --------------------------------------------------
@@ -472,14 +471,6 @@ void ParamParser::validate_configuration() const {
     if (!params.physics.transport) {
         throw std::runtime_error("model transport must be specified");
     }
-
-    const ModelRequirement requirement = build_model_requirement(params.fix.flags);
-
-    const ThermodynamicsStyle& thermo_style = thermodynamics_registry.get_thermo(params.physics.thermo->type);
-    thermo_style.validate_command(*params.physics.thermo, requirement.thermodynamics, params);
-
-    const TransportCoefficientStyle& transport_style = transport_coefficient_registry.get_transport(params.physics.transport->type);
-    transport_style.validate_command(*params.physics.transport, requirement.transport_coefficient, params);
 
 }
 // ---------------------------------------------------------------------- //

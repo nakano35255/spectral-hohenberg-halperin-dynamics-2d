@@ -49,7 +49,7 @@ void GridConfig::print_config(std::ostream& os) const {
 void RuntimeConfig::print_config(std::ostream& os) const {
     print_section(os, "Runtime Setup");
     print_entry(os, "Time step (dt)", dt);
-    print_entry(os, "Integrator", integrator_type);
+    print_entry(os, "Time evolution", time_evolution_type);
     os << '\n';
     print_rule(os);
 }

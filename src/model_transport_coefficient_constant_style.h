@@ -73,32 +73,6 @@ public:
         return name_;
     }
 
-    void validate_command(const TransportCoefficientCommandBase& command, const TransportCoefficientRequirement& requirement, const Params& /*params*/) const override {
-        const auto* cmd = dynamic_cast<const ConstantTransportCoefficientCommand*>(&command);
-        if (!cmd) {
-            throw std::runtime_error("ConstantTransportCoefficientStyle received incompatible command.");
-        }
-
-        if (requirement.shear_viscosity && !cmd->shear_viscosity_set) {
-            throw std::runtime_error("model transport constant requires eta for current fix settings.");
-        }
-
-        if (requirement.bulk_viscosity && !cmd->bulk_viscosity_set) {
-            throw std::runtime_error("model transport constant requires zeta for current fix settings.");
-        }
-
-        if (requirement.mobility || requirement.noise_factor) {
-            for (int row = 0; row < cmd->num_components; ++row) {
-                for (int col = 0; col < cmd->num_components; ++col) {
-                    const std::size_t index = mobility_index(row, col, cmd->num_components);
-                    if (!cmd->mobility_set[index]) {
-                        throw std::runtime_error("model transport constant requires L" + std::to_string(row) + std::to_string(col) + " for current fix settings.");
-                    }
-                }
-            }
-        }
-    }
-
     std::shared_ptr<TransportCoefficientCommandBase> create_default_command(const Params& params) const override {
         if (params.physics.num_components <= 0) {
             throw std::runtime_error("model transport constant requires components to be specified first.");

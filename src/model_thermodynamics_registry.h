@@ -1,8 +1,6 @@
 #ifndef SFI_MODEL_THERMODYNAMICS_REGISTRY_H
 #define SFI_MODEL_THERMODYNAMICS_REGISTRY_H
 
-#include "model_requirement.h"
-
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -54,8 +52,6 @@ class ThermodynamicsStyle {
 public:
     virtual ~ThermodynamicsStyle() = default;
     virtual const std::string& type_name() const = 0;
-
-    virtual void validate_command(const ThermodynamicsCommandBase& command, const ThermodynamicsRequirement& requirement, const Params& params) const = 0;
 
     virtual std::shared_ptr<ThermodynamicsCommandBase> create_default_command(const Params& params) const = 0;
 

@@ -106,7 +106,7 @@ namespace {
         return factor;
     }
 
-    std::vector<double> lift_noise_factor(
+    std::vector<double> lift_mobility_noise(
         const std::vector<double>& basis,
         const std::vector<double>& reduced_factor,
         int num_components
@@ -153,7 +153,7 @@ ConstantTransportCoefficient::ConstantTransportCoefficient(
         throw std::runtime_error("constant transport coefficient mobility matrix size mismatch.");
     }
 
-    build_noise_factor();
+    build_mobility_noise();
 }
 
 void ConstantTransportCoefficient::check_density_size(const std::vector<double>& rho) const {
@@ -162,7 +162,7 @@ void ConstantTransportCoefficient::check_density_size(const std::vector<double>&
     }
 }
 
-void ConstantTransportCoefficient::build_noise_factor() {
+void ConstantTransportCoefficient::build_mobility_noise() {
     const double scale = matrix_scale(mobility_);
     const double tolerance = 1.0e-10 * scale * static_cast<double>(num_components_);
 
@@ -189,25 +189,25 @@ void ConstantTransportCoefficient::build_noise_factor() {
 
     const int reduced_size = num_components_ - 1;
     if (reduced_size == 0) {
-        noise_factor_.clear();
+        mobility_noise_.clear();
     } else {
         const std::vector<double> basis = make_composition_basis(num_components_);
         const std::vector<double> reduced = project_to_composition_space(mobility_, basis, num_components_);
         const std::vector<double> reduced_factor = cholesky_semidefinite(reduced, reduced_size, tolerance);
-        noise_factor_ = lift_noise_factor(basis, reduced_factor, num_components_);
+        mobility_noise_ = lift_mobility_noise(basis, reduced_factor, num_components_);
     }
 
     for (int row = 0; row < num_components_; ++row) {
         for (int col = 0; col < num_components_; ++col) {
             double reconstructed = 0.0;
             for (int k = 0; k < reduced_size; ++k) {
-                reconstructed += noise_factor_[matrix_index(row, k, reduced_size)]
-                               * noise_factor_[matrix_index(col, k, reduced_size)];
+                reconstructed += mobility_noise_[matrix_index(row, k, reduced_size)]
+                               * mobility_noise_[matrix_index(col, k, reduced_size)];
             }
 
             const double expected = mobility_[matrix_index(row, col, num_components_)];
             if (std::abs(reconstructed - expected) > 10.0 * tolerance) {
-                throw std::runtime_error("constant transport coefficient mobility noise factor does not reconstruct the mobility matrix.");
+                throw std::runtime_error("constant transport coefficient mobility noise does not reconstruct the mobility matrix.");
             }
         }
     }
@@ -228,7 +228,7 @@ void ConstantTransportCoefficient::mobility(const std::vector<double>& rho, std:
     L = mobility_;
 }
 
-void ConstantTransportCoefficient::noise_factor(const std::vector<double>& rho, std::vector<double>& B) const {
+void ConstantTransportCoefficient::mobility_noise(const std::vector<double>& rho, std::vector<double>& B) const {
     check_density_size(rho);
-    B = noise_factor_;
+    B = mobility_noise_;
 }

@@ -53,47 +53,6 @@ public:
         return name_;
     }
 
-    void validate_command(const ThermodynamicsCommandBase& command, const ThermodynamicsRequirement& requirement, const Params& /*params*/) const override {
-        const auto* cmd = dynamic_cast<const IdealGasThermodynamicsCommand*>(&command);
-        if (!cmd) {
-            throw std::runtime_error("IdealGasThermodynamicsStyle received incompatible command.");
-        }
-
-        const bool thermodynamics_required =
-            requirement.free_energy ||
-            requirement.chemical_potential ||
-            requirement.bulk_pressure ||
-            requirement.interfacial_force;
-
-        if (!thermodynamics_required) {
-            return;
-        }
-
-        if (requirement.interfacial_force) {
-            throw std::runtime_error("model thermo ideal_gas does not support interfacial force.");
-        }
-
-        if (!cmd->kB_set) {
-            throw std::runtime_error("model thermo ideal_gas requires kB for current fix settings.");
-        }
-
-        if (!cmd->temperature_set) {
-            throw std::runtime_error("model thermo ideal_gas requires T for current fix settings.");
-        }
-
-        for (std::size_t k = 0; k < cmd->mass.size(); ++k) {
-            if (!cmd->mass_set[k]) {
-                throw std::runtime_error("model thermo ideal_gas requires m" + std::to_string(k) + " for current fix settings.");
-            }
-        }
-
-        for (std::size_t k = 0; k < cmd->reference_density.size(); ++k) {
-            if (!cmd->reference_density_set[k]) {
-                throw std::runtime_error("model thermo ideal_gas requires rho" + std::to_string(k) + "_ref for current fix settings.");
-            }
-        }
-    }
-
     std::shared_ptr<ThermodynamicsCommandBase> create_default_command(const Params& params) const override {
         if (params.physics.num_components <= 0) {
             throw std::runtime_error("model thermo ideal_gas requires components to be specified first.");

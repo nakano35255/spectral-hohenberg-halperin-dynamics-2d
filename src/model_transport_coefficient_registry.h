@@ -1,8 +1,6 @@
 #ifndef SFI_MODEL_TRANSPORT_COEFFICIENT_REGISTRY_H
 #define SFI_MODEL_TRANSPORT_COEFFICIENT_REGISTRY_H
 
-#include "model_requirement.h"
-
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -54,8 +52,6 @@ class TransportCoefficientStyle {
 public:
     virtual ~TransportCoefficientStyle() = default;
     virtual const std::string& type_name() const = 0;
-
-    virtual void validate_command(const TransportCoefficientCommandBase& command, const TransportCoefficientRequirement& requirement, const Params& params) const = 0;
 
     virtual std::shared_ptr<TransportCoefficientCommandBase> create_default_command(const Params& params) const = 0;
 
