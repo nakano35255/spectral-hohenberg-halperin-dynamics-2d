@@ -2,6 +2,7 @@
 #define SFI_PARAM_PARSER_H
 
 #include "simulationinfo.h"
+#include "model_free_energy_registry.h"
 #include "model_thermodynamics_registry.h"
 #include "model_transport_coefficient_registry.h"
 #include "measure_registry.h"
@@ -16,6 +17,7 @@ class ParamParser {
 private:
     Params& params;
     const ThermodynamicsRegistry& thermodynamics_registry;
+    const FreeEnergyRegistry& free_energy_registry;
     const TransportCoefficientRegistry& transport_coefficient_registry;
     const MeasureRegistry& measure_registry;
     const InitialConditionRegistry &initial_condition_registry;
@@ -32,13 +34,14 @@ private:
     void parse_thermo_command(const std::vector<std::string>& tokens);
     void parse_restart_command(const std::vector<std::string>& tokens);
 
-    void check_component_index(int index, const std::string& command_name) const;
-    void check_momentum_component_index(int index, const std::string& command_name) const;
+    void check_order_parameter_index(int index, const std::string& command_name) const;
+    void check_momentum_direction_index(int index, const std::string& command_name) const;
 
 public:
-    ParamParser(Params& p, const ThermodynamicsRegistry& tmr, const TransportCoefficientRegistry& tcr, const MeasureRegistry& mr, const InitialConditionRegistry& icr)
+    ParamParser(Params& p, const ThermodynamicsRegistry& tmr, const FreeEnergyRegistry& fer, const TransportCoefficientRegistry& tcr, const MeasureRegistry& mr, const InitialConditionRegistry& icr)
       : params(p),
         thermodynamics_registry(tmr),
+        free_energy_registry(fer),
         transport_coefficient_registry(tcr),
         measure_registry(mr),
         initial_condition_registry(icr) {}

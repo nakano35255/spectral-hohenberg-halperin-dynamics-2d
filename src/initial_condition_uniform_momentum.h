@@ -14,7 +14,7 @@ private:
 public:
     UniformMomentumInitialCondition(const Params& params, std::shared_ptr<const MomentumInitialConditionCommandBase> command);
 
-    void apply(State& state, const Domain2D& domain) const override;
+    void apply(State& state, const Domain2D& domain, const SpectralMask2D& spectral_mask) const override;
 };
 
 

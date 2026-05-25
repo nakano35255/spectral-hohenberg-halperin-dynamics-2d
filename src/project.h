@@ -4,6 +4,7 @@
 #include "simulationinfo.h"
 #include "domain.h"
 #include "state.h"
+#include "spectral_mask.h"
 #include "buffer_physical_state.h"
 #include "fourier_transform.h"
 #include "monitor.h"
@@ -30,6 +31,7 @@ private:
     InitialConditionRegistry initial_registry;
 
     Domain2D domain;
+    SpectralMask2D spectral_mask;
     State state;
     PhysicalStateBuffer buf_physical_state;
     FourierTransform2D fourier;
@@ -49,15 +51,20 @@ private:
         for (const auto& command : params.initial.density_commands) {
             const DensityInitialConditionStyle& style = initial_registry.get_density(command->type);
             std::unique_ptr<DensityInitialCondition> initial_condition = style.create_initial_condition(params, command);
-            initial_condition->apply(state, domain);
+            initial_condition->apply(state, domain, spectral_mask);
         }
 
         for (const auto& command : params.initial.momentum_commands) {
             const MomentumInitialConditionStyle& style = initial_registry.get_momentum(command->type);
             std::unique_ptr<MomentumInitialCondition> initial_condition = style.create_initial_condition(params, command);
-            initial_condition->apply(state, domain);
+            initial_condition->apply(state, domain, spectral_mask);
         }
 
+        for (const auto& command : params.initial.order_parameter_commands) {
+            const OrderParameterInitialConditionStyle& style = initial_registry.get_order_parameter(command->type);
+            std::unique_ptr<OrderParameterInitialCondition> initial_condition = style.create_initial_condition(params, command);
+            initial_condition->apply(state, domain, spectral_mask);
+        }
     }
 
     void execute_command(const Command& command) {
@@ -92,6 +99,7 @@ public:
           measure_registry(build_measure_registry()),
           initial_registry(build_initial_condition_registry()),
           domain(params),
+          spectral_mask(domain, params),
           state(domain, params),
           buf_physical_state(domain, params),
           fourier(domain),

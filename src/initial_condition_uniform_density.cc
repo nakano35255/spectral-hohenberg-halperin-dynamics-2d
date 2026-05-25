@@ -13,14 +13,19 @@ UniformDensityInitialCondition::UniformDensityInitialCondition(const Params& par
     value_ = cfg->value;
 }
 
-void UniformDensityInitialCondition::apply(State& state, const Domain2D& domain) const {
+void UniformDensityInitialCondition::apply(
+    State& state,
+    const Domain2D& domain,
+    const SpectralMask2D& spectral_mask
+) const {
     const double amplitude = value_ * static_cast<double>(domain.nx_global()) * static_cast<double>(domain.ny_global());
 
-    const Box2D& box = domain.spectral_box();
+    Complex* rho = state.rho_hat_data();
 
-    if (box.low[0] <= 0 && 0 <= box.high[0] && box.low[1] <= 0 && 0 <= box.high[1]) {
-        state.rho_hat(component_, 0, 0) = Complex(amplitude, 0.0);
+    for (const SpectralMode2D& mode : spectral_mask.active_modes()) {
+        if (mode.gx == 0 && mode.gy == 0) {
+            rho[mode.index] = Complex(amplitude, 0.0);
+            break;
+        }
     }
-
 }
-

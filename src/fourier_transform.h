@@ -21,7 +21,8 @@ public:
                fft_(domain.physical_box(),
                     domain.spectral_box(),
                     Domain2D::R2C_DIRECTION,
-                    domain.comm()) {}
+                    domain.comm()
+               ) {}
 
      void forward(const double* physical, Complex* spectral) {
           forward_many(1, physical, spectral);

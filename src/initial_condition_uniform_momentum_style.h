@@ -17,17 +17,17 @@ namespace uniform_momentum_initial_condition {
 struct UniformMomentumInitialConditionCommand : public MomentumInitialConditionCommandBase {
     double value = 0.0;
 
-    UniformMomentumInitialConditionCommand(int component_in, double value_in)
+    UniformMomentumInitialConditionCommand(int direction_in, double value_in)
         : value(value_in) {
         type = uniform_momentum_initial_condition::TYPE_NAME;
-        component = component_in;
+        direction = direction_in;
     }
 
     void print(std::ostream& os) const override {
         const char* component_name = "?";
-        if (component == 0) {
+        if (direction == 0) {
             component_name = "x";
-        } else if (component == 1) {
+        } else if (direction == 1) {
             component_name = "y";
         }
 

@@ -1,9 +1,10 @@
 #ifndef SFI_TIME_INTEGRATOR_H
 #define SFI_TIME_INTEGRATOR_H
 
+#include "simulationinfo.h"
 #include "domain.h"
 #include "state.h"
-#include "simulationinfo.h"
+#include "spectral_mask.h"
 
 #include <algorithm>
 #include <functional>
@@ -12,23 +13,31 @@
 #include <stdexcept>
 #include <vector>
 
-using DensityDetRHSFunc = std::function<void(int, const State&, Complex*, double)>;
+using DensityDetRHSFunc = std::function<void(const State&, Complex*, double)>;
+using OrderParameterDetRHSFunc = std::function<void(int, const State&, Complex*, double)>;
 using MomentumDetRHSFunc = std::function<void(const State&, Complex*, Complex*, double)>;
-using DensityStoRHSFunc = std::function<void(int, const State&, Complex*)>;
+
+using DensityStoRHSFunc = std::function<void(const State&, Complex*)>;
+using OrderParameterStoRHSFunc = std::function<void(int, const State&, Complex*)>;
 using MomentumStoRHSFunc = std::function<void(const State&, Complex*, Complex*)>;
 
+
 struct RHSOperators {
-    DensityDetRHSFunc density_det;
-    MomentumDetRHSFunc momentum_det;
-    DensityStoRHSFunc density_sto;
-    MomentumStoRHSFunc momentum_sto;
+    DensityDetRHSFunc rho_det;
+    OrderParameterDetRHSFunc psi_det;
+    MomentumDetRHSFunc j_det;
+
+    OrderParameterStoRHSFunc psi_sto;
+    MomentumStoRHSFunc j_sto;
 };
 
 class TimeIntegrator {
 protected:
     const Domain2D& domain_;
     const Params& params_;
-    const int num_components_;
+    const SpectralMask2D& spectral_mask_;
+
+    const int num_order_parameters_;
     const int num_fields_;
     const std::size_t local_spectral_size_;
     const std::size_t total_spectral_size_;
@@ -74,18 +83,21 @@ protected:
 public:
     TimeIntegrator(
         const Domain2D& domain,
-        const Params& params
+        const Params& params,
+        const SpectralMask2D& spectral_mask
     )
         : domain_(domain),
           params_(params),
-          num_components_(params.physics.num_components),
-          num_fields_(params.physics.num_components + 2),
+          spectral_mask_(spectral_mask),
+          num_order_parameters_(params.physics.num_order_parameters),
+          num_fields_(params.physics.num_order_parameters + 3),
           local_spectral_size_(domain.spectral_size()),
           total_spectral_size_(static_cast<std::size_t>(num_fields_) * local_spectral_size_),
           dt_(params.runtime.dt),
-          sqrt_dt_(std::sqrt(dt_)) {
-        if (num_components_ <= 0) {
-            throw std::runtime_error("TimeIntegrator requires a positive number of components.");
+          sqrt_dt_(std::sqrt(dt_))
+    {
+        if (num_order_parameters_ < 0) {
+            throw std::runtime_error("TimeIntegrator requires a nonnegative number of order parameters.");
         }
     }
 

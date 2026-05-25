@@ -19,7 +19,7 @@ struct UniformDensityInitialConditionCommand : public DensityInitialConditionCom
     void print(std::ostream& os) const override {
         os << "  "
            << std::left << std::setw(25)
-           << "Density" << ": Component " << component
+           << "Density"
            << " " << type
            << " value " << value << '\n';
     }
@@ -34,11 +34,10 @@ public:
         return name_;
     };
 
-    std::shared_ptr<DensityInitialConditionCommandBase> parse_command(int component, const InitialConditionArgs& args, const Params& /*params*/) const override {
+    std::shared_ptr<DensityInitialConditionCommandBase> parse_command(const InitialConditionArgs& args, const Params& /*params*/) const override {
         auto cmd = std::make_shared<UniformDensityInitialConditionCommand>();
         cmd->value = std::stod(args.get_required("value"));
         cmd->type = uniform_density_initial_condition::TYPE_NAME;
-        cmd->component = component;
         
         if (cmd->value < 0.0) {
             throw std::runtime_error("set density uniform requires nonnegative value");

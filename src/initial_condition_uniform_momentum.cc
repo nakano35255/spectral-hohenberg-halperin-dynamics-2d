@@ -15,18 +15,22 @@ UniformMomentumInitialCondition::UniformMomentumInitialCondition(const Params& p
     value_ = cfg->value;
 }
 
-void UniformMomentumInitialCondition::apply(State& state, const Domain2D& domain) const {
+void UniformMomentumInitialCondition::apply(
+    State& state,
+    const Domain2D& domain,
+    const SpectralMask2D& spectral_mask
+) const {
     const double amplitude = value_ * static_cast<double>(domain.nx_global()) * static_cast<double>(domain.ny_global());
 
-    const Box2D& box = domain.spectral_box();
+    Complex* momentum = nullptr;
+    if (direction_ == 0) momentum = state.jx_hat_data();
+    else if (direction_ == 1) momentum = state.jy_hat_data();
+    else throw std::runtime_error("UniformMomentumInitialCondition: direction must be 0 or 1.");
 
-    if (box.low[0] <= 0 && 0 <= box.high[0] && box.low[1] <= 0 && 0 <= box.high[1]) {
-        if (component_ == 0) {
-            state.jx_hat(0, 0) = Complex(amplitude, 0.0);
-        } else if (component_ == 1) {
-            state.jy_hat(0, 0) = Complex(amplitude, 0.0);
-        } else {
-            throw std::runtime_error("UniformMomentumInitialCondition: component must be 0 or 1.");
+    for (const SpectralMode2D& mode : spectral_mask.active_modes()) {
+        if (mode.gx == 0 && mode.gy == 0) {
+            momentum[mode.index] = Complex(amplitude, 0.0);
+            break;
         }
     }
 

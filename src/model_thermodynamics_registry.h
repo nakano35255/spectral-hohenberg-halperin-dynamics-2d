@@ -1,6 +1,7 @@
 #ifndef SFI_MODEL_THERMODYNAMICS_REGISTRY_H
 #define SFI_MODEL_THERMODYNAMICS_REGISTRY_H
 
+#include <iomanip>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -14,8 +15,18 @@ class Thermodynamics;
 
 struct ThermodynamicsCommandBase {
     std::string type;
+    double sound_speed = 0.0;
+
     virtual ~ThermodynamicsCommandBase() = default;
     virtual void print(std::ostream& os) const = 0;
+
+    void print_common(std::ostream& os) const {
+        os << "  "
+           << std::left << std::setw(25)
+           << "Thermodynamics" << ": " << type
+           << " cT " << sound_speed
+           << '\n';
+    }
 };
 
 struct ThermodynamicsArgs {
@@ -49,6 +60,19 @@ struct ThermodynamicsArgs {
 };
 
 class ThermodynamicsStyle {
+protected:
+    bool update_common_command(ThermodynamicsCommandBase& command, const std::string& key, const std::string& value) const {
+        if (key == "cT" || key == "sound_speed") {
+            const double sound_speed = std::stod(value);
+            if (sound_speed < 0.0) {
+                throw std::runtime_error("model thermo " + command.type + " requires nonnegative " + key + ".");
+            }
+            command.sound_speed = sound_speed;
+            return true;
+        }
+        return false;
+    }
+
 public:
     virtual ~ThermodynamicsStyle() = default;
     virtual const std::string& type_name() const = 0;

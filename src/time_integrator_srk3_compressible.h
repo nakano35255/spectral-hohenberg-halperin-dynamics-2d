@@ -30,10 +30,12 @@ private:
     ) {
         clear_state(deterministic_rhs_);
 
-        for (int component = 0; component < num_components_; ++component) {
-            rhs.density_det(component, current, deterministic_rhs_.rho_hat_data(component), t);
+        rhs.rho_det(current, deterministic_rhs_.rho_hat_data(), t);
+
+        for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+            rhs.psi_det(order_parameter, current, deterministic_rhs_.psi_hat_data(order_parameter), t);
         }
-        rhs.momentum_det(current, deterministic_rhs_.jx_hat_data(), deterministic_rhs_.jy_hat_data(), t);
+        rhs.j_det(current, deterministic_rhs_.jx_hat_data(), deterministic_rhs_.jy_hat_data(), t);
 
         Complex* next_data = next.data();
         const Complex* current_data = current.data();
@@ -44,8 +46,9 @@ private:
 
         for (int field = 0; field < num_fields_; ++field) {
             const std::size_t offset = static_cast<std::size_t>(field) * local_spectral_size_;
-            for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-                const std::size_t index = offset + i;
+
+            for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+                const std::size_t index = offset + mode.index;
                 const Complex stochastic = sto_a[index] + beta * sto_b[index];
                 next_data[index] = weight_base * base_data[index]
                                  + weight_current * (
@@ -60,9 +63,10 @@ private:
 public:
     SRK3Compressible(
         const Domain2D& domain,
-        const Params& params
+        const Params& params,
+        const SpectralMask2D& spectral_mask
     )
-        : TimeIntegrator(domain, params),
+        : TimeIntegrator(domain, params, spectral_mask),
           stochastic_rhs_a_(domain, params),
           stochastic_rhs_b_(domain, params),
           deterministic_rhs_(domain, params),
@@ -75,16 +79,16 @@ public:
         clear_state(stochastic_rhs_a_);
         clear_state(stochastic_rhs_b_);
 
-        if (rhs.density_sto) {
-            for (int component = 0; component < num_components_; ++component) {
-                rhs.density_sto(component, u_old_, stochastic_rhs_a_.rho_hat_data(component));
-                rhs.density_sto(component, u_old_, stochastic_rhs_b_.rho_hat_data(component));
+        if (rhs.psi_sto) {
+            for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_a_.psi_hat_data(order_parameter));
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_b_.psi_hat_data(order_parameter));
             }
         }
 
-        if (rhs.momentum_sto) {
-            rhs.momentum_sto(u_old_, stochastic_rhs_a_.jx_hat_data(), stochastic_rhs_a_.jy_hat_data());
-            rhs.momentum_sto(u_old_, stochastic_rhs_b_.jx_hat_data(), stochastic_rhs_b_.jy_hat_data());
+        if (rhs.j_sto) {
+            rhs.j_sto(u_old_, stochastic_rhs_a_.jx_hat_data(), stochastic_rhs_a_.jy_hat_data());
+            rhs.j_sto(u_old_, stochastic_rhs_b_.jx_hat_data(), stochastic_rhs_b_.jy_hat_data());
         }
 
         calculate_stage(

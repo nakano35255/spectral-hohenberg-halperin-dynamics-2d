@@ -24,7 +24,7 @@ struct SineDensityInitialConditionCommand : public DensityInitialConditionComman
     void print(std::ostream& os) const override {
         os << "  "
            << std::left << std::setw(25)
-           << "Density" << ": Component " << component
+           << "Density"
            << " " << type
            << " base " << base
            << " amplitude " << amplitude
@@ -43,7 +43,6 @@ public:
     }
 
     std::shared_ptr<DensityInitialConditionCommandBase> parse_command(
-        int component,
         const InitialConditionArgs& args,
         const Params& params
     ) const override {
@@ -53,23 +52,22 @@ public:
         cmd->nkx = std::stoi(args.get_required("nkx"));
         cmd->nky = std::stoi(args.get_or("nky", "0"));
         cmd->type = sine_density_initial_condition::TYPE_NAME;
-        cmd->component = component;
 
         if (cmd->base - std::abs(cmd->amplitude) < 0.0) {
             throw std::runtime_error("set density sine requires base >= abs(amplitude)");
         }
-        if (cmd->nkx < 0 || cmd->nkx > params.grid.num_grid[0] / 2) {
+        if (cmd->nkx < 0 || cmd->nkx > params.grid.active_num_grid[0] / 2) {
             throw std::runtime_error("set density sine requires 0 <= nkx <= Nx/2");
         }
-        if (cmd->nky < -params.grid.num_grid[1] / 2 || cmd->nky > params.grid.num_grid[1] / 2) {
+        if (cmd->nky < -params.grid.active_num_grid[1] / 2 || cmd->nky > params.grid.active_num_grid[1] / 2) {
             throw std::runtime_error("set density sine requires -Ny/2 <= nky <= Ny/2");
         }
         if (cmd->nkx == 0 && cmd->nky == 0) {
             throw std::runtime_error("set density sine requires a nonzero wave number");
         }
 
-        const bool self_conjugate_kx = (cmd->nkx == 0 || cmd->nkx == params.grid.num_grid[0] / 2);
-        const bool self_conjugate_ky = (cmd->nky == 0 || std::abs(cmd->nky) == params.grid.num_grid[1] / 2);
+        const bool self_conjugate_kx = (cmd->nkx == 0 || cmd->nkx == params.grid.active_num_grid[0] / 2);
+        const bool self_conjugate_ky = (cmd->nky == 0 || std::abs(cmd->nky) == params.grid.active_num_grid[1] / 2);
         if (self_conjugate_kx && self_conjugate_ky) {
             throw std::runtime_error("set density sine mode is zero on the grid; choose a non-self-conjugate wave number");
         }

@@ -17,10 +17,8 @@ private:
     State u_old_;
     State u_stage1_;
     State u_stage2_;
-    std::vector<Complex> rho_total_;
     std::vector<Complex> jx_increment_;
     std::vector<Complex> jy_increment_;
-    bool initialized_ = false;
 
     void calculate_stage(
         State& next,
@@ -33,11 +31,12 @@ private:
         double weight_current
     ) {
         clear_state(deterministic_rhs_);
+        copy_state(next, current);
 
-        for (int component = 0; component < num_components_ - 1; ++component) {
-            rhs.density_det(component, current, deterministic_rhs_.rho_hat_data(component), t);
+        for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+            rhs.psi_det(order_parameter, current, deterministic_rhs_.psi_hat_data(order_parameter), t);
         }
-        rhs.momentum_det(current, deterministic_rhs_.jx_hat_data(), deterministic_rhs_.jy_hat_data(), t);
+        rhs.j_det(current, deterministic_rhs_.jx_hat_data(), deterministic_rhs_.jy_hat_data(), t);
 
         Complex* next_data = next.data();
         const Complex* current_data = current.data();
@@ -46,10 +45,11 @@ private:
         const Complex* sto_a = stochastic_rhs_a_.data();
         const Complex* sto_b = stochastic_rhs_b_.data();
 
-        for (int field = 0; field < num_components_ - 1; ++field) {
-            const std::size_t offset = static_cast<std::size_t>(field) * local_spectral_size_;
-            for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-                const std::size_t index = offset + i;
+        for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+            const std::size_t offset = static_cast<std::size_t>(order_parameter + 1) * local_spectral_size_;
+
+            for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+                const std::size_t index = offset + mode.index;
                 const Complex stochastic = sto_a[index] + beta * sto_b[index];
                 next_data[index] = weight_base * base_data[index]
                                  + weight_current * (
@@ -58,48 +58,35 @@ private:
             }
         }
 
-        const std::size_t jx_offset = static_cast<std::size_t>(num_components_) * local_spectral_size_;
-        const std::size_t jy_offset = static_cast<std::size_t>(num_components_ + 1) * local_spectral_size_;
+        const std::size_t jx_offset = static_cast<std::size_t>(num_order_parameters_ + 1) * local_spectral_size_;
+        const std::size_t jy_offset = static_cast<std::size_t>(num_order_parameters_ + 2) * local_spectral_size_;
 
-        for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-            const Complex sto_jx = sto_a[jx_offset + i] + beta * sto_b[jx_offset + i];
-            const Complex sto_jy = sto_a[jy_offset + i] + beta * sto_b[jy_offset + i];
-            jx_increment_[i] = dt_ * det[jx_offset + i] + sqrt_dt_ * sto_jx;
-            jy_increment_[i] = dt_ * det[jy_offset + i] + sqrt_dt_ * sto_jy;
-        }
+        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+            const std::size_t index = mode.index;
 
-        const Box2D& box = domain_.spectral_box();
-        for (int gy = box.low[1]; gy <= box.high[1]; ++gy) {
-            const double ky = domain_.ky(gy);
-            for (int gx = box.low[0]; gx <= box.high[0]; ++gx) {
-                const double kx = domain_.kx(gx);
-                const double k2 = kx * kx + ky * ky;
-                if (k2 == 0.0) {
-                    continue;
-                }
-                const std::size_t index = domain_.spectral_local_index(gx, gy);
-                const Complex transverse = -ky * jx_increment_[index] + kx * jy_increment_[index];
-                jx_increment_[index] = -ky * transverse / k2;
-                jy_increment_[index] =  kx * transverse / k2;
+            const Complex sto_jx = sto_a[jx_offset + index] + beta * sto_b[jx_offset + index];
+            const Complex sto_jy = sto_a[jy_offset + index] + beta * sto_b[jy_offset + index];
+
+            jx_increment_[index] = dt_ * det[jx_offset + index] + sqrt_dt_ * sto_jx;
+            jy_increment_[index] = dt_ * det[jy_offset + index] + sqrt_dt_ * sto_jy;
+
+            if (mode.k2 != 0.0) {
+                const Complex transverse = -mode.ky * jx_increment_[index] + mode.kx * jy_increment_[index];
+
+                jx_increment_[index] = -mode.ky * transverse / mode.k2;
+                jy_increment_[index] =  mode.kx * transverse / mode.k2;
             }
         }
 
-        for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-            next_data[jx_offset + i] =
-                weight_base * base_data[jx_offset + i]
-              + weight_current * (current_data[jx_offset + i] + jx_increment_[i]);
-            next_data[jy_offset + i] =
-                weight_base * base_data[jy_offset + i]
-              + weight_current * (current_data[jy_offset + i] + jy_increment_[i]);
-        }
+        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+            const std::size_t index = mode.index;
 
-        Complex* rho_last = next.rho_hat_data(num_components_ - 1);
-        std::copy(rho_total_.begin(), rho_total_.end(), rho_last);
-        for (int component = 0; component < num_components_ - 1; ++component) {
-            const Complex* rho = next.rho_hat_data(component);
-            for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-                rho_last[i] -= rho[i];
-            }
+            next_data[jx_offset + index] =
+                weight_base * base_data[jx_offset + index]
+              + weight_current * (current_data[jx_offset + index] + jx_increment_[index]);
+            next_data[jy_offset + index] =
+                weight_base * base_data[jy_offset + index]
+              + weight_current * (current_data[jy_offset + index] + jy_increment_[index]);
         }
 
         enforce_real_symmetry(next);
@@ -108,9 +95,10 @@ private:
 public:
     SRK3Incompressible(
         const Domain2D& domain,
-        const Params& params
+        const Params& params,
+        const SpectralMask2D& spectral_mask
     )
-        : TimeIntegrator(domain, params),
+        : TimeIntegrator(domain, params, spectral_mask),
           stochastic_rhs_a_(domain, params),
           stochastic_rhs_b_(domain, params),
           deterministic_rhs_(domain, params),
@@ -121,31 +109,20 @@ public:
           jy_increment_(domain.spectral_size(), Complex(0.0, 0.0)) {}
 
     void step(State& u, double t, const RHSOperators& rhs) override {
-        if (!initialized_) {
-            rho_total_.assign(local_spectral_size_, Complex(0.0, 0.0));
-            for (int component = 0; component < num_components_; ++component) {
-                const Complex* rho = u.rho_hat_data(component);
-                for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-                    rho_total_[i] += rho[i];
-                }
-            }
-            initialized_ = true;
-        }
-
         copy_state(u_old_, u);
         clear_state(stochastic_rhs_a_);
         clear_state(stochastic_rhs_b_);
 
-        if (rhs.density_sto) {
-            for (int component = 0; component < num_components_ - 1; ++component) {
-                rhs.density_sto(component, u_old_, stochastic_rhs_a_.rho_hat_data(component));
-                rhs.density_sto(component, u_old_, stochastic_rhs_b_.rho_hat_data(component));
+        if (rhs.psi_sto) {
+            for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_a_.psi_hat_data(order_parameter));
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_b_.psi_hat_data(order_parameter));
             }
         }
 
-        if (rhs.momentum_sto) {
-            rhs.momentum_sto(u_old_, stochastic_rhs_a_.jx_hat_data(), stochastic_rhs_a_.jy_hat_data());
-            rhs.momentum_sto(u_old_, stochastic_rhs_b_.jx_hat_data(), stochastic_rhs_b_.jy_hat_data());
+        if (rhs.j_sto) {
+            rhs.j_sto(u_old_, stochastic_rhs_a_.jx_hat_data(), stochastic_rhs_a_.jy_hat_data());
+            rhs.j_sto(u_old_, stochastic_rhs_b_.jx_hat_data(), stochastic_rhs_b_.jy_hat_data());
         }
 
         calculate_stage(

@@ -2,6 +2,7 @@
 #include "param_parser.h"
 #include "monitor.h"
 #include "project.h"
+#include "model_free_energy_registry_builtin.h"
 #include "model_thermodynamics_registry_builtin.h"
 #include "model_transport_coefficient_registry_builtin.h"
 #include "measure_registry_builtin.h"
@@ -23,10 +24,11 @@ int main(int argc, char* argv[]) {
 
     Params params;
     ThermodynamicsRegistry thermo_registry = build_thermodynamics_registry();
+    FreeEnergyRegistry free_energy_registry = build_free_energy_registry();
     TransportCoefficientRegistry transport_registry = build_transport_coefficient_registry();
     MeasureRegistry measure_registry = build_measure_registry();
     InitialConditionRegistry initial_registry = build_initial_condition_registry();
-    ParamParser parser(params, thermo_registry, transport_registry, measure_registry, initial_registry);
+    ParamParser parser(params, thermo_registry, free_energy_registry, transport_registry, measure_registry, initial_registry);
 
     try {
         parser.parse_file(argv[1]);

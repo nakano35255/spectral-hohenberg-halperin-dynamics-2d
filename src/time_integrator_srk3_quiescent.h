@@ -17,8 +17,6 @@ private:
     State u_old_;
     State u_stage1_;
     State u_stage2_;
-    std::vector<Complex> rho_total_;
-    bool initialized_ = false;
 
     void calculate_stage(
         State& next,
@@ -31,9 +29,10 @@ private:
         double weight_current
     ) {
         clear_state(deterministic_rhs_);
+        copy_state(next, current);
 
-        for (int component = 0; component < num_components_ - 1; ++component) {
-            rhs.density_det(component, current, deterministic_rhs_.rho_hat_data(component), t);
+        for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+            rhs.psi_det(order_parameter, current, deterministic_rhs_.psi_hat_data(order_parameter), t);
         }
 
         Complex* next_data = next.data();
@@ -43,10 +42,11 @@ private:
         const Complex* sto_a = stochastic_rhs_a_.data();
         const Complex* sto_b = stochastic_rhs_b_.data();
 
-        for (int field = 0; field < num_components_ - 1; ++field) {
-            const std::size_t offset = static_cast<std::size_t>(field) * local_spectral_size_;
-            for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-                const std::size_t index = offset + i;
+        for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+            const std::size_t offset = static_cast<std::size_t>(order_parameter + 1) * local_spectral_size_;
+
+            for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+                const std::size_t index = offset + mode.index;
                 const Complex stochastic = sto_a[index] + beta * sto_b[index];
                 next_data[index] = weight_base * base_data[index]
                                  + weight_current * (
@@ -55,27 +55,16 @@ private:
             }
         }
 
-        Complex* rho_last = next.rho_hat_data(num_components_ - 1);
-        std::copy(rho_total_.begin(), rho_total_.end(), rho_last);
-        for (int component = 0; component < num_components_ - 1; ++component) {
-            const Complex* rho = next.rho_hat_data(component);
-            for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-                rho_last[i] -= rho[i];
-            }
-        }
-
-        std::fill(next.jx_hat_data(), next.jx_hat_data() + local_spectral_size_, Complex(0.0, 0.0));
-        std::fill(next.jy_hat_data(), next.jy_hat_data() + local_spectral_size_, Complex(0.0, 0.0));
-
         enforce_real_symmetry(next);
     }
 
 public:
     SRK3Quiescent(
         const Domain2D& domain,
-        const Params& params
+        const Params& params,
+        const SpectralMask2D& spectral_mask
     )
-        : TimeIntegrator(domain, params),
+        : TimeIntegrator(domain, params, spectral_mask),
           stochastic_rhs_a_(domain, params),
           stochastic_rhs_b_(domain, params),
           deterministic_rhs_(domain, params),
@@ -84,25 +73,14 @@ public:
           u_stage2_(domain, params) {}
 
     void step(State& u, double t, const RHSOperators& rhs) override {
-        if (!initialized_) {
-            rho_total_.assign(local_spectral_size_, Complex(0.0, 0.0));
-            for (int component = 0; component < num_components_; ++component) {
-                const Complex* rho = u.rho_hat_data(component);
-                for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-                    rho_total_[i] += rho[i];
-                }
-            }
-            initialized_ = true;
-        }
-
         copy_state(u_old_, u);
         clear_state(stochastic_rhs_a_);
         clear_state(stochastic_rhs_b_);
 
-        if (rhs.density_sto) {
-            for (int component = 0; component < num_components_ - 1; ++component) {
-                rhs.density_sto(component, u_old_, stochastic_rhs_a_.rho_hat_data(component));
-                rhs.density_sto(component, u_old_, stochastic_rhs_b_.rho_hat_data(component));
+        if (rhs.psi_sto) {
+            for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_a_.psi_hat_data(order_parameter));
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_b_.psi_hat_data(order_parameter));
             }
         }
 

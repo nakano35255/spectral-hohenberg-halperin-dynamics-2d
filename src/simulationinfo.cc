@@ -35,13 +35,27 @@ namespace {
         return ss.str();
     }
     // ---------------------------------------------------------------------- //
+    const char* dealias_rule_name(DealiasRule rule) {
+        if (rule == DealiasRule::None) {
+            return "none";
+        }
+        if (rule == DealiasRule::ThreeHalves) {
+            return "three_halves";
+        }
+        if (rule == DealiasRule::Two) {
+            return "two";
+        }
+        return "unknown";
+    }
+    // ---------------------------------------------------------------------- //
 } // namespace
 // ---------------------------------------------------------------------- //
 void GridConfig::print_config(std::ostream& os) const {
     print_section(os, "Grid Setup");
-    print_entry(os, "Grid points", pair_value(num_grid[0], num_grid[1]));
-    print_entry(os, "Length", pair_value(length[0], length[1]));
-    print_entry(os, "dx, dy", pair_value(dx(), dy()));
+    print_entry(os, "Grid points", pair_value(active_num_grid[0], active_num_grid[1]));
+    print_entry(os, "Dealias rule", dealias_rule_name(dealias_rule));
+    print_entry(os, "Domain Length", pair_value(length[0], length[1]));
+    print_entry(os, "dx, dy", pair_value(active_dx(), active_dy()));
     os << '\n';
     print_rule(os);
 }
@@ -56,12 +70,18 @@ void RuntimeConfig::print_config(std::ostream& os) const {
 // ---------------------------------------------------------------------- //
 void PhysicsConfig::print_config(std::ostream& os) const {
     print_section(os, "Physics");
-    print_entry(os, "components", num_components);
+    print_entry(os, "order_parameters", num_order_parameters);
 
     if (thermo) {
         thermo->print(os);
     } else {
         print_entry(os, "thermodynamics", "none");
+    }
+
+    if (free_energy) {
+        free_energy->print(os);
+    } else {
+        print_entry(os, "free_energy", "none");
     }
 
     if (transport) {
@@ -82,6 +102,7 @@ void FixConfig::print_config(std::ostream& os) const {
 
         if (spec.flag == FixFlag::Noise) {
             print_entry(os, "  Seed", noise.seed);
+            print_entry(os, "  kBT", noise.kBT);
         }
 
         if (spec.flag == FixFlag::Shear) {
@@ -103,6 +124,10 @@ void InitialConditionConfig::print_config(std::ostream& os) const {
     }
 
     for (const auto& command : momentum_commands) {
+        command->print(os);
+    }
+
+    for (const auto& command : order_parameter_commands) {
         command->print(os);
     }
 

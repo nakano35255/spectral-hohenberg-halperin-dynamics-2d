@@ -2,6 +2,7 @@
 #define SFI_DOMAIN_H
 
 #define OMPI_SKIP_MPICXX 1
+
 #include "simulationinfo.h"
 
 #include <mpi.h>

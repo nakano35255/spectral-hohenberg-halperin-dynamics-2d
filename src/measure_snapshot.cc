@@ -11,9 +11,14 @@
 // ---------------------------------------------------------------------- //
 SnapshotMeasure::SnapshotMeasure(const Params& params, std::shared_ptr<const MeasureCommandBase> command) :
        Measure(params, command),
-       num_components_(params.physics.num_components),
+       num_order_parameters_(params.physics.num_order_parameters),
+       num_fields_(params.physics.num_order_parameters + 3),
        step_width_(compute_step_width(params.total_run_steps()))
 {
+     if (num_order_parameters_ < 0) {
+          throw std::runtime_error("SnapshotMeasure requires a nonnegative number of order parameters.");
+     }
+
      auto cfg = std::dynamic_pointer_cast<const SnapshotMeasureCommand>(command);
      if (!cfg) {
           throw std::runtime_error("SnapshotMeasure: invalid command type.");
@@ -61,10 +66,10 @@ void SnapshotMeasure::write_physical_snapshot(
 
      out << "# snapshot space physical\n";
      out << "# step " << step << " time " << std::scientific << std::setprecision(16) << time << "\n";
-     out << "# nx " << nx << " ny " << ny << " components " << num_components_ << "\n";
-     out << "# x y";
-     for (int component = 0; component < num_components_; ++component) {
-          out << " rho_com" << component;
+     out << "# nx " << nx << " ny " << ny << " order_parameters " << num_order_parameters_ << "\n";
+     out << "# x y rho";
+     for (int component = 0; component < num_order_parameters_; ++component) {
+          out << " psi_com" << component;
      }
      out << " jx jy\n";
      out << std::scientific << std::setprecision(16);
@@ -73,11 +78,12 @@ void SnapshotMeasure::write_physical_snapshot(
           for (int gx = 0; gx < nx; ++gx) {
                const int grid_index = gy * nx + gx;
                out << gx << ' ' << gy;
-               for (int component = 0; component < num_components_; ++component) {
-                    out << ' ' << global_data[component * field_size + grid_index];
+               out << ' ' << global_data[grid_index];
+               for (int component = 0; component < num_order_parameters_; ++component) {
+                    out << ' ' << global_data[(component + 1) * field_size + grid_index];
                }
-               out << ' ' << global_data[num_components_ * field_size + grid_index]
-                   << ' ' << global_data[(num_components_ + 1) * field_size + grid_index]
+               out << ' ' << global_data[(num_order_parameters_ + 1) * field_size + grid_index]
+                   << ' ' << global_data[(num_order_parameters_ + 2) * field_size + grid_index]
                    << '\n';
           }
      }
@@ -95,10 +101,10 @@ void SnapshotMeasure::write_spectral_snapshot(const std::string& filename, const
 
      out << "# snapshot space spectral\n";
      out << "# step " << step << " time " << std::scientific << std::setprecision(16) << time << "\n";
-     out << "# nkx " << nkx << " nky " << nky << " components " << num_components_ << "\n";
-     out << "# kx_index ky_index";
-     for (int component = 0; component < num_components_; ++component) {
-          out << " rho_com" << component << "_real rho_com" << component << "_imag";
+     out << "# nkx " << nkx << " nky " << nky << " order_parameters " << num_order_parameters_ << "\n";
+     out << "# kx_index ky_index rho_real rho_imag";
+     for (int component = 0; component < num_order_parameters_; ++component) {
+          out << " psi_com" << component << "_real psi_com" << component << "_imag";
      }
      out << " jx_real jx_imag jy_real jy_imag\n";
      out << std::scientific << std::setprecision(16);
@@ -107,14 +113,18 @@ void SnapshotMeasure::write_spectral_snapshot(const std::string& filename, const
           for (int kx = 0; kx < nkx; ++kx) {
                const int grid_index = ky * nkx + kx;
                out << kx << ' ' << ky;
-               for (int component = 0; component < num_components_; ++component) {
-                    const int offset = 2 * (component * field_size + grid_index);
+               const int rho_offset = 2 * grid_index;
+               out << ' ' << global_data[rho_offset]
+                   << ' ' << global_data[rho_offset + 1];
+
+               for (int component = 0; component < num_order_parameters_; ++component) {
+                    const int offset = 2 * ((component + 1) * field_size + grid_index);
                     out << ' ' << global_data[offset]
                         << ' ' << global_data[offset + 1];
                }
 
-               const int jx_offset = 2 * (num_components_ * field_size + grid_index);
-               const int jy_offset = 2 * ((num_components_ + 1) * field_size + grid_index);
+               const int jx_offset = 2 * ((num_order_parameters_ + 1) * field_size + grid_index);
+               const int jy_offset = 2 * ((num_order_parameters_ + 2) * field_size + grid_index);
                out << ' ' << global_data[jx_offset]
                    << ' ' << global_data[jx_offset + 1]
                    << ' ' << global_data[jy_offset]
@@ -125,7 +135,7 @@ void SnapshotMeasure::write_spectral_snapshot(const std::string& filename, const
 }
 // ---------------------------------------------------------------------- //
 void SnapshotMeasure::observe_physical(const State& state, PhysicalStateBuffer& physical, FourierTransform2D& fft, const Domain2D& domain, int step, double time) const {
-     const int nfields = num_components_ + 2;
+     const int nfields = num_fields_;
      const int nx = domain.nx_global();
      const int local_ny = domain.physical_box().size[1];
      const int local_count = nfields * nx * local_ny;
@@ -164,7 +174,7 @@ void SnapshotMeasure::observe_physical(const State& state, PhysicalStateBuffer& 
 }
 // ---------------------------------------------------------------------- //
 void SnapshotMeasure::observe_spectral(const State& state, const Domain2D& domain, int step, double time) const {
-     const int nfields = num_components_ + 2;
+     const int nfields = num_fields_;
      const int nkx = domain.nx_global() / 2 + 1;
      const int local_ny = domain.spectral_box().size[1];
      const int local_complex_count = nfields * nkx * local_ny;

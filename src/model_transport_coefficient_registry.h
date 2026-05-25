@@ -1,6 +1,10 @@
 #ifndef SFI_MODEL_TRANSPORT_COEFFICIENT_REGISTRY_H
 #define SFI_MODEL_TRANSPORT_COEFFICIENT_REGISTRY_H
 
+#include <cctype>
+#include <cmath>
+#include <cstddef>
+#include <iomanip>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -14,8 +18,28 @@ class TransportCoefficient;
 
 struct TransportCoefficientCommandBase {
     std::string type;
+    int num_order_parameters = 0;
+    double shear_viscosity = 0.0;
+    double bulk_viscosity = 0.0;
+    std::vector<double> order_parameter_mobility;
+
     virtual ~TransportCoefficientCommandBase() = default;
     virtual void print(std::ostream& os) const = 0;
+
+    void print_common(std::ostream& os) const {
+        os << "  "
+           << std::left << std::setw(25)
+           << "Transport Coefficients" << ": " << type
+           << " eta " << shear_viscosity
+           << " zeta " << bulk_viscosity;
+
+        for (int q = 0; q < num_order_parameters; ++q) {
+            os << " M[" << q << ',' << q << "] "
+               << order_parameter_mobility[static_cast<std::size_t>(q)];
+        }
+
+        os << '\n';
+    }
 };
 
 struct TransportCoefficientArgs {
@@ -49,6 +73,77 @@ struct TransportCoefficientArgs {
 };
 
 class TransportCoefficientStyle {
+protected:
+    static bool parse_mobility_key(const std::string& key, int& row, int& col) {
+        if (key.size() < 6 || key[0] != 'M' || key[1] != '[' || key.back() != ']') {
+            return false;
+        }
+
+        std::size_t comma = key.find(',', 2);
+        if (comma == std::string::npos || comma + 1 >= key.size() - 1) {
+            return false;
+        }
+
+        for (std::size_t i = 2; i < comma; ++i) {
+            if (!std::isdigit(static_cast<unsigned char>(key[i]))) {
+                return false;
+            }
+        }
+        for (std::size_t i = comma + 1; i < key.size() - 1; ++i) {
+            if (!std::isdigit(static_cast<unsigned char>(key[i]))) {
+                return false;
+            }
+        }
+
+        row = std::stoi(key.substr(2, comma - 2));
+        col = std::stoi(key.substr(comma + 1, key.size() - comma - 2));
+        return true;
+    }
+
+    bool update_common_command(TransportCoefficientCommandBase& command, const std::string& key, const std::string& raw_value) const {
+        if (key == "eta" || key == "shear_viscosity") {
+            const double value = std::stod(raw_value);
+            if (value < 0.0) {
+                throw std::runtime_error("model transport " + command.type + " requires nonnegative " + key + ".");
+            }
+            command.shear_viscosity = value;
+            return true;
+        }
+
+        if (key == "zeta" || key == "bulk_viscosity") {
+            const double value = std::stod(raw_value);
+            if (value < 0.0) {
+                throw std::runtime_error("model transport " + command.type + " requires nonnegative " + key + ".");
+            }
+            command.bulk_viscosity = value;
+            return true;
+        }
+
+        int row = -1;
+        int col = -1;
+        if (parse_mobility_key(key, row, col)) {
+            const double value = std::stod(raw_value);
+            if (row < 0 || row >= command.num_order_parameters || col < 0 || col >= command.num_order_parameters) {
+                throw std::runtime_error("model transport " + command.type + " mobility index out of range: " + key);
+            }
+
+            if (row != col) {
+                if (std::abs(value) > 0.0) {
+                    throw std::runtime_error("model transport " + command.type + " only supports diagonal mobility; " + key + " must be zero.");
+                }
+                return true;
+            }
+
+            if (value < 0.0) {
+                throw std::runtime_error("model transport " + command.type + " requires nonnegative " + key + ".");
+            }
+            command.order_parameter_mobility[static_cast<std::size_t>(row)] = value;
+            return true;
+        }
+
+        return false;
+    }
+
 public:
     virtual ~TransportCoefficientStyle() = default;
     virtual const std::string& type_name() const = 0;

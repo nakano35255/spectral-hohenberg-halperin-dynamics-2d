@@ -12,29 +12,31 @@ private:
 public:
     EulerCompressible(
         const Domain2D& domain,
-        const Params& params
+        const Params& params,
+        const SpectralMask2D& spectral_mask
     )
-        : TimeIntegrator(domain, params),
+        : TimeIntegrator(domain, params, spectral_mask),
           deterministic_rhs_(domain, params),
           stochastic_rhs_(domain, params),
           u_old_(domain, params) {}
 
     void step(State& u, double t, const RHSOperators& rhs) override {
-
         copy_state(u_old_, u);
         clear_state(deterministic_rhs_);
         clear_state(stochastic_rhs_);
 
-        for (int component = 0; component < num_components_; ++component) {
-            rhs.density_det(component, u_old_, deterministic_rhs_.rho_hat_data(component), t);
-            if (rhs.density_sto) {
-                rhs.density_sto(component, u_old_, stochastic_rhs_.rho_hat_data(component));
+        rhs.rho_det(u_old_, deterministic_rhs_.rho_hat_data(), t);
+
+        for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
+            rhs.psi_det(order_parameter, u_old_, deterministic_rhs_.psi_hat_data(order_parameter), t);
+            if (rhs.psi_sto) {
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_.psi_hat_data(order_parameter));
             }
         }
 
-        rhs.momentum_det(u_old_, deterministic_rhs_.jx_hat_data(), deterministic_rhs_.jy_hat_data(), t);
-        if (rhs.momentum_sto) {
-            rhs.momentum_sto(u_old_, stochastic_rhs_.jx_hat_data(), stochastic_rhs_.jy_hat_data());
+        rhs.j_det(u_old_, deterministic_rhs_.jx_hat_data(), deterministic_rhs_.jy_hat_data(), t);
+        if (rhs.j_sto) {
+            rhs.j_sto(u_old_, stochastic_rhs_.jx_hat_data(), stochastic_rhs_.jy_hat_data());
         }
 
         Complex* next = u.data();
@@ -44,8 +46,9 @@ public:
 
         for (int field = 0; field < num_fields_; ++field) {
             const std::size_t offset = static_cast<std::size_t>(field) * local_spectral_size_;
-            for (std::size_t i = 0; i < local_spectral_size_; ++i) {
-                const std::size_t index = offset + i;
+
+            for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+                const std::size_t index = offset + mode.index;
                 next[index] = current[index] + dt_ * det[index] + sqrt_dt_ * sto[index];
             }
         }

@@ -26,7 +26,7 @@ struct GaussianDensityInitialConditionCommand : public DensityInitialConditionCo
     void print(std::ostream& os) const override {
         os << "  "
            << std::left << std::setw(25)
-           << "Density" << ": Component " << component
+           << "Density"
            << " " << type
            << " base " << base
            << " amplitude " << amplitude
@@ -47,7 +47,6 @@ public:
     }
 
     std::shared_ptr<DensityInitialConditionCommandBase> parse_command(
-        int component,
         const InitialConditionArgs& args,
         const Params& params
     ) const override {
@@ -67,7 +66,6 @@ public:
         }
 
         cmd->type = gaussian_density_initial_condition::TYPE_NAME;
-        cmd->component = component;
 
         if (cmd->sigma_x <= 0.0 || cmd->sigma_y <= 0.0) {
             throw std::runtime_error("set density gaussian requires positive sigma values");

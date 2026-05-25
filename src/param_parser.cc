@@ -44,11 +44,11 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
             throw std::runtime_error("This solver only supports dimension 2.");
         }
     } 
-    else if (cmd == "components") {
-        if (tokens.size() < 2) throw std::runtime_error("components syntax: components <num>");
-        params.physics.num_components = std::stoi(tokens[1]);
-        if (params.physics.num_components <= 0) {
-            throw std::runtime_error("components must be positive.");
+    else if (cmd == "order_parameters" || cmd == "order_parameter") {
+        if (tokens.size() != 2) throw std::runtime_error("order_parameters syntax: order_parameters <num>");
+        params.physics.num_order_parameters = std::stoi(tokens[1]);
+        if (params.physics.num_order_parameters < 0) {
+            throw std::runtime_error("order_parameters must be nonnegative.");
         }
     }
     else if (cmd == "boundary") {
@@ -59,14 +59,15 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
     }
     else if (cmd == "grid") {
         if (tokens.size() != 3) throw std::runtime_error("grid syntax: grid <Nx> <Ny>");
-        params.grid.num_grid[0] = std::stoi(tokens[1]);
-        params.grid.num_grid[1] = std::stoi(tokens[2]);
-        if (params.grid.num_grid[0] <= 0 || params.grid.num_grid[1] <= 0) {
+        params.grid.active_num_grid[0] = std::stoi(tokens[1]);
+        params.grid.active_num_grid[1] = std::stoi(tokens[2]);
+        if (params.grid.active_num_grid[0] <= 0 || params.grid.active_num_grid[1] <= 0) {
             throw std::runtime_error("grid sizes must be positive");
         }
-        if (params.grid.num_grid[0] % 2 != 0 || params.grid.num_grid[1] % 2 != 0) {
+        if (params.grid.active_num_grid[0] % 2 != 0 || params.grid.active_num_grid[1] % 2 != 0) {
             throw std::runtime_error("grid must be even.");
         }
+        params.grid.update_compute_grid();
     }
     else if (cmd == "length") {
         if (tokens.size() != 3) throw std::runtime_error("length syntax: length <Lx> <Ly>");
@@ -75,6 +76,17 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
         if (params.grid.length[0] <= 0.0 || params.grid.length[1] <= 0.0) {
             throw std::runtime_error("domain lengths must be positive");
         }
+    }
+    else if (cmd == "dealias") {
+        if (tokens.size() != 2) throw std::runtime_error("dealias syntax: dealias <none|three_halves|3/2|two|2>");
+        const std::string& rule = tokens[1];
+
+        if (rule == "none" || rule == "off") params.grid.dealias_rule = DealiasRule::None;
+        else if (rule == "three_halves" || rule == "3/2") params.grid.dealias_rule = DealiasRule::ThreeHalves;
+        else if (rule == "two" || rule == "2") params.grid.dealias_rule = DealiasRule::Two;
+        else throw std::runtime_error("unknown dealias rule: " + rule);
+
+        params.grid.update_compute_grid();
     }
 
     // --------------------------------------------------
@@ -185,6 +197,42 @@ void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
         return;
     }
 
+    if (category == "free_energy") {
+        if (action == "coeff") {
+            if (!params.physics.free_energy) {
+                throw std::runtime_error("model free_energy coeff requires model free_energy <type> first");
+            }
+
+            FreeEnergyArgs args;
+            for (std::size_t i = 3; i < tokens.size(); i += 2) {
+                if (i + 1 >= tokens.size()) {
+                    throw std::runtime_error("model free_energy coeff arguments must be key-value pairs");
+                }
+                args.entries.emplace_back(tokens[i], tokens[i + 1]);
+            }
+
+            const auto& style = free_energy_registry.get_free_energy(params.physics.free_energy->type);
+            style.update_command(*params.physics.free_energy, args, params);
+            return;
+        }
+
+        const std::string& type = action;
+        const auto& style = free_energy_registry.get_free_energy(type);
+
+        params.physics.free_energy = style.create_default_command(params);
+
+        FreeEnergyArgs args;
+        for (std::size_t i = 3; i < tokens.size(); i += 2) {
+            if (i + 1 >= tokens.size()) {
+                throw std::runtime_error("model free_energy " + type + " arguments must be key-value pairs");
+            }
+            args.entries.emplace_back(tokens[i], tokens[i + 1]);
+        }
+
+        style.update_command(*params.physics.free_energy, args, params);
+        return;
+    }
+
     if (category == "transport") {
         if (action == "coeff") {
             if (!params.physics.transport) {
@@ -250,10 +298,29 @@ void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
     }
     else if (spec.arg_kind == FixArgKind::Seed) {
         if (enabled) {
-            if (tokens.size() != 7 || tokens[5] != "seed") {
-                throw std::runtime_error("fix noise syntax: fix <ID> all noise on seed <integer>");
+            if ((tokens.size() - 5) % 2 != 0) {
+                throw std::runtime_error("fix noise syntax: fix <ID> all noise on [seed <integer>] [kBT <value>]");
             }
-            params.fix.noise.seed = std::stoi(tokens[6]);
+
+            for (std::size_t i = 5; i < tokens.size(); i += 2) {
+                const std::string& key = tokens[i];
+                const std::string& value = tokens[i + 1];
+
+                if (key == "seed") {
+                    params.fix.noise.seed = std::stoi(value);
+                    continue;
+                }
+
+                if (key == "kBT" || key == "kbt" || key == "temperature") {
+                    params.fix.noise.kBT = std::stod(value);
+                    if (params.fix.noise.kBT < 0.0) {
+                        throw std::runtime_error("fix noise requires nonnegative kBT.");
+                    }
+                    continue;
+                }
+
+                throw std::runtime_error("unknown fix noise argument: " + key);
+            }
         } else if (tokens.size() != 5) {
             throw std::runtime_error("fix noise off syntax: fix <ID> all noise off");
         }
@@ -273,18 +340,21 @@ void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
 }
 // ---------------------------------------------------------------------- //
 void ParamParser::parse_set_command(const std::vector<std::string>& tokens) {
-    if (tokens.size() < 3) throw std::runtime_error("set syntax: set density <component|all> <type> <args...> | set momentum <type> <args...>");
+    if (tokens.size() < 3) {
+        throw std::runtime_error(
+            "set syntax: set density <type> <args...> | "
+            "set momentum <x|y|all> <type> <args...> | "
+            "set order_parameter <component|all> <type> <args...>"
+        );
+    }
 
-    if (tokens[1] == "density") {
-        if (tokens.size() < 4) {
-            throw std::runtime_error("set density syntax: set density <component|all> <type> <args...>");
-        }
+    if (tokens[1] == "density" || tokens[1] == "rho") {
+        if (tokens.size() < 3) {throw std::runtime_error("set density syntax: set density <type> <args...>");}
 
-        const std::string& target = tokens[2];
-        const std::string& type = tokens[3];
+        const std::string& type = tokens[2];
 
         InitialConditionArgs args;
-        for (std::size_t i = 4; i < tokens.size(); i += 2) {
+        for (std::size_t i = 3; i < tokens.size(); i += 2) {
             if (i + 1 >= tokens.size()) {
                 throw std::runtime_error("set density arguments must be key-value pairs");
             }
@@ -292,31 +362,13 @@ void ParamParser::parse_set_command(const std::vector<std::string>& tokens) {
         }
 
         const DensityInitialConditionStyle& style = initial_condition_registry.get_density(type);
-
-        if (target == "all") {
-            if (params.physics.num_components <= 0) {
-                throw std::runtime_error("set density all requires components to be specified first");
-            }
-
-            for (int component = 0; component < params.physics.num_components; ++component) {
-                std::shared_ptr<DensityInitialConditionCommandBase> command = style.parse_command(component, args, params);
-
-                params.initial.density_commands.push_back(std::move(command));
-            }
-
-            return;
-        }
-
-        const int component = std::stoi(target);
-        check_component_index(component, "set density");
-
-        std::shared_ptr<DensityInitialConditionCommandBase> command = style.parse_command(component, args, params);
+        std::shared_ptr<DensityInitialConditionCommandBase> command = style.parse_command(args, params);
 
         params.initial.density_commands.push_back(std::move(command));
         return;
     }
 
-    if (tokens[1] == "momentum") {
+    if (tokens[1] == "momentum" || tokens[1] == "j") {
         if (tokens.size() < 4) {
             throw std::runtime_error("set momentum syntax: set momentum <component|x|y|0|1> <type> <args...>");
         }
@@ -344,21 +396,59 @@ void ParamParser::parse_set_command(const std::vector<std::string>& tokens) {
             return;
         }
 
-        int component = -1;
+        int direction = -1;
         if (target == "x" || target == "0") {
-            component = 0;
+            direction = 0;
         } else if (target == "y" || target == "1") {
-            component = 1;
+            direction = 1;
         } else {
-            throw std::runtime_error(
-                "set momentum target must be all, x, y, 0, or 1: " + target
-            );
+            throw std::runtime_error("set momentum target must be all, x, y, 0, or 1: " + target);
         }
-        check_momentum_component_index(component, "set momentum");
+        check_momentum_direction_index(direction, "set momentum");
 
-        std::shared_ptr<MomentumInitialConditionCommandBase> command = style.parse_command(component, args, params);
+        std::shared_ptr<MomentumInitialConditionCommandBase> command = style.parse_command(direction, args, params);
 
         params.initial.momentum_commands.push_back(std::move(command));
+        return;
+    }
+
+    if (tokens[1] == "order_parameter" || tokens[1] == "psi") {
+        if (tokens.size() < 4) {
+            throw std::runtime_error("set order_parameter syntax: set order_parameter <component|all> <type> <args...>");
+        }
+
+        const std::string& target = tokens[2];
+        const std::string& type = tokens[3];
+
+        InitialConditionArgs args;
+        for (std::size_t i = 4; i < tokens.size(); i += 2) {
+            if (i + 1 >= tokens.size()) {
+                throw std::runtime_error("set order_parameter arguments must be key-value pairs");
+            }
+            args.entries.emplace_back(tokens[i], tokens[i + 1]);
+        }
+
+        const OrderParameterInitialConditionStyle& style = initial_condition_registry.get_order_parameter(type);
+
+        if (target == "all") {
+            if (params.physics.num_order_parameters <= 0) {
+                throw std::runtime_error("set order_parameter all requires at least one order parameter.");
+            }
+
+            for (int component = 0; component < params.physics.num_order_parameters; ++component) {
+                std::shared_ptr<OrderParameterInitialConditionCommandBase> command = style.parse_command(component, args, params);
+                params.initial.order_parameter_commands.push_back(std::move(command));
+            }
+
+            return;
+        }
+
+        const int component = std::stoi(target);
+        check_order_parameter_index(component, "set order_parameter");
+
+        std::shared_ptr<OrderParameterInitialConditionCommandBase> command = style.parse_command(component, args, params);
+
+        params.initial.order_parameter_commands.push_back(std::move(command));
         return;
     }
 
@@ -460,12 +550,8 @@ void ParamParser::parse_restart_command(const std::vector<std::string>& tokens) 
 }
 // ---------------------------------------------------------------------- //
 void ParamParser::validate_configuration() const {
-    if (params.physics.num_components <= 0) {
-        throw std::runtime_error("components must be specified");
-    }
-
-    if (!params.physics.thermo) {
-        throw std::runtime_error("model thermo must be specified");
+    if (params.physics.num_order_parameters < 0) {
+        throw std::runtime_error("order_parameters must be nonnegative");
     }
 
     if (!params.physics.transport) {
@@ -474,21 +560,18 @@ void ParamParser::validate_configuration() const {
 
 }
 // ---------------------------------------------------------------------- //
-void ParamParser::check_component_index(int index, const std::string& command_name) const {
-    if (params.physics.num_components <= 0) {
-        throw std::runtime_error(command_name + " requires components to be specified first");
-    }
-    if (index < 0 || index >= params.physics.num_components) {
+void ParamParser::check_order_parameter_index(int index, const std::string& command_name) const {
+    if (index < 0 || index >= params.physics.num_order_parameters) {
         throw std::runtime_error(
-            command_name + ": component index out of range: " + std::to_string(index)
+            command_name + ": order-parameter index out of range: " + std::to_string(index)
         );
     }
 }
 // ---------------------------------------------------------------------- //
-void ParamParser::check_momentum_component_index(int index, const std::string& command_name) const {
+void ParamParser::check_momentum_direction_index(int index, const std::string& command_name) const {
     if (index < 0 || index >= 2) {
         throw std::runtime_error(
-            command_name + ": momentum component index must be 0 or 1: " + std::to_string(index)
+            command_name + ": momentum direction index must be 0 or 1: " + std::to_string(index)
         );
     }
 }

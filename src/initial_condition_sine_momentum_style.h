@@ -22,16 +22,16 @@ struct SineMomentumInitialConditionCommand : public MomentumInitialConditionComm
     int nky = 0;
 
     void print(std::ostream& os) const override {
-        const char* component_name = "?";
-        if (component == 0) {
-            component_name = "x";
-        } else if (component == 1) {
-            component_name = "y";
+        const char* direction_name = "?";
+        if (direction == 0) {
+            direction_name = "x";
+        } else if (direction == 1) {
+            direction_name = "y";
         }
 
         os << "  "
            << std::left << std::setw(25)
-           << "Momentum" << ": Component " << component_name
+           << "Momentum" << ": Direction " << direction_name
            << " " << type
            << " base " << base
            << " amplitude " << amplitude
@@ -50,7 +50,7 @@ public:
     }
 
     std::shared_ptr<MomentumInitialConditionCommandBase> parse_command(
-        int component,
+        int direction,
         const InitialConditionArgs& args,
         const Params& params
     ) const override {
@@ -60,20 +60,20 @@ public:
         cmd->nkx = std::stoi(args.get_required("nkx"));
         cmd->nky = std::stoi(args.get_or("nky", "0"));
         cmd->type = sine_momentum_initial_condition::TYPE_NAME;
-        cmd->component = component;
+        cmd->direction = direction;
 
-        if (cmd->nkx < 0 || cmd->nkx > params.grid.num_grid[0] / 2) {
+        if (cmd->nkx < 0 || cmd->nkx > params.grid.active_num_grid[0] / 2) {
             throw std::runtime_error("set momentum sine requires 0 <= nkx <= Nx/2");
         }
-        if (cmd->nky < -params.grid.num_grid[1] / 2 || cmd->nky > params.grid.num_grid[1] / 2) {
+        if (cmd->nky < -params.grid.active_num_grid[1] / 2 || cmd->nky > params.grid.active_num_grid[1] / 2) {
             throw std::runtime_error("set momentum sine requires -Ny/2 <= nky <= Ny/2");
         }
         if (cmd->nkx == 0 && cmd->nky == 0) {
             throw std::runtime_error("set momentum sine requires a nonzero wave number");
         }
 
-        const bool self_conjugate_kx = (cmd->nkx == 0 || cmd->nkx == params.grid.num_grid[0] / 2);
-        const bool self_conjugate_ky = (cmd->nky == 0 || std::abs(cmd->nky) == params.grid.num_grid[1] / 2);
+        const bool self_conjugate_kx = (cmd->nkx == 0 || cmd->nkx == params.grid.active_num_grid[0] / 2);
+        const bool self_conjugate_ky = (cmd->nky == 0 || std::abs(cmd->nky) == params.grid.active_num_grid[1] / 2);
         if (self_conjugate_kx && self_conjugate_ky) {
             throw std::runtime_error("set momentum sine mode is zero on the grid; choose a non-self-conjugate wave number");
         }

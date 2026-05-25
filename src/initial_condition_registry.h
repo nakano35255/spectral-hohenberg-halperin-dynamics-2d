@@ -12,6 +12,7 @@
 struct Params;
 class DensityInitialCondition;
 class MomentumInitialCondition;
+class OrderParameterInitialCondition;
 
 struct InitialConditionCommandBase {
     std::string type;
@@ -20,10 +21,13 @@ struct InitialConditionCommandBase {
 };
 
 struct DensityInitialConditionCommandBase : InitialConditionCommandBase {
-    int component = -1;
 };
 
 struct MomentumInitialConditionCommandBase : InitialConditionCommandBase {
+    int direction = -1;
+};
+
+struct OrderParameterInitialConditionCommandBase : InitialConditionCommandBase {
     int component = -1;
 };
 
@@ -65,7 +69,6 @@ public:
     virtual const std::string& type_name() const = 0;
 
     virtual std::shared_ptr<DensityInitialConditionCommandBase> parse_command(
-        int component,
         const InitialConditionArgs& args,
         const Params& params
     ) const = 0;
@@ -82,7 +85,7 @@ public:
     virtual const std::string& type_name() const = 0;
 
     virtual std::shared_ptr<MomentumInitialConditionCommandBase> parse_command(
-        int components,
+        int directions,
         const InitialConditionArgs& args,
         const Params& params
     ) const = 0;
@@ -93,11 +96,28 @@ public:
     ) const = 0;
 };
 
+class OrderParameterInitialConditionStyle {
+public:
+    virtual ~OrderParameterInitialConditionStyle() = default;
+    virtual const std::string& type_name() const = 0;
+
+    virtual std::shared_ptr<OrderParameterInitialConditionCommandBase> parse_command(
+        int components,
+        const InitialConditionArgs& args,
+        const Params& params
+    ) const = 0;
+
+    virtual std::unique_ptr<OrderParameterInitialCondition> create_initial_condition(
+        const Params& params,
+        std::shared_ptr<const OrderParameterInitialConditionCommandBase> command
+    ) const = 0;
+};
 
 class InitialConditionRegistry {
 private:
     std::unordered_map<std::string, std::unique_ptr<DensityInitialConditionStyle>> density_styles;
     std::unordered_map<std::string, std::unique_ptr<MomentumInitialConditionStyle>> momentum_styles;
+    std::unordered_map<std::string, std::unique_ptr<OrderParameterInitialConditionStyle>> order_parameter_styles;
 
 public:
     void register_density_style(std::unique_ptr<DensityInitialConditionStyle> style) {
@@ -116,6 +136,14 @@ public:
         }
     }
 
+    void register_order_parameter_style(std::unique_ptr<OrderParameterInitialConditionStyle> style) {
+        const std::string name = style->type_name();
+        auto result = order_parameter_styles.emplace(name, std::move(style));
+        if (!result.second) {
+            throw std::runtime_error("Duplicate order-parameter initial condition style registration: " + name);
+        }
+    }
+
     const DensityInitialConditionStyle& get_density(const std::string& type) const {
         auto it = density_styles.find(type);
         if (it == density_styles.end()) {
@@ -128,6 +156,14 @@ public:
         auto it = momentum_styles.find(type);
         if (it == momentum_styles.end()) {
             throw std::runtime_error("Unknown momentum initial condition type: " + type);
+        }
+        return *(it->second);
+    }
+
+    const OrderParameterInitialConditionStyle& get_order_parameter(const std::string& type) const {
+        auto it = order_parameter_styles.find(type);
+        if (it == order_parameter_styles.end()) {
+            throw std::runtime_error("Unknown order-parameter initial condition type: " + type);
         }
         return *(it->second);
     }

@@ -9,7 +9,8 @@
 
 class SnapshotMeasure: public Measure {
 private:
-     int num_components_ = 0;
+     int num_order_parameters_ = 0;
+     int num_fields_ = 0;
      int nevery_ = 0;
      std::string file_;
      std::string space_;
