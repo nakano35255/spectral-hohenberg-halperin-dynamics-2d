@@ -134,37 +134,81 @@ void SnapshotMeasure::write_spectral_snapshot(const std::string& filename, const
      }
 }
 // ---------------------------------------------------------------------- //
-void SnapshotMeasure::observe_physical(const State& state, PhysicalStateBuffer& physical, FourierTransform2D& fft, const Domain2D& domain, int step, double time) const {
+void SnapshotMeasure::observe_physical(
+     const State& state,
+     PhysicalStateBuffer& physical,
+     FourierTransform2D& fft,
+     const Domain2D& domain,
+     int step,
+     double time
+) const {
      const int nfields = num_fields_;
      const int nx = domain.nx_global();
-     const int local_ny = domain.physical_box().size[1];
-     const int local_count = nfields * nx * local_ny;
+     const int ny = domain.ny_global();
 
      fft.backward_many(nfields, state.data(), physical.data());
 
-     std::vector<double> gathered;
+     const Box2D& local_box = domain.physical_box();
+     const int local_count = nfields * local_box.size[0] * local_box.size[1];
+
+     std::vector<int> counts;
      if (domain.rank() == 0) {
-          gathered.resize(static_cast<std::size_t>(local_count * domain.size()));
+          counts.resize(static_cast<std::size_t>(domain.size()));
      }
 
-     MPI_Gather(physical.data(), local_count, MPI_DOUBLE, gathered.data(), local_count, MPI_DOUBLE, 0, domain.comm());
+     MPI_Gather(
+          &local_count, 1, MPI_INT,
+          counts.data(), 1, MPI_INT,
+          0, domain.comm()
+     );
+
+     std::vector<int> displs;
+     std::vector<double> gathered;
+
+     if (domain.rank() == 0) {
+          displs.resize(static_cast<std::size_t>(domain.size()), 0);
+          int total = 0;
+          for (int rank = 0; rank < domain.size(); ++rank) {
+               displs[rank] = total;
+               total += counts[rank];
+          }
+          gathered.resize(static_cast<std::size_t>(total));
+     }
+
+     MPI_Gatherv(
+          physical.data(), local_count, MPI_DOUBLE,
+          gathered.data(), counts.data(), displs.data(), MPI_DOUBLE,
+          0, domain.comm()
+     );
 
      if (domain.rank() != 0) {
           return;
      }
 
-     std::vector<double> global_data(static_cast<std::size_t>(nfields * nx * domain.ny_global()));
-     const int local_field_size = nx * local_ny;
-     const int global_field_size = nx * domain.ny_global();
+     std::vector<double> global_data(static_cast<std::size_t>(nfields * nx * ny));
+     const int global_field_size = nx * ny;
 
      for (int rank = 0; rank < domain.size(); ++rank) {
-          const int y0 = rank * local_ny;
+          const Box2D box = domain.physical_box_for_rank(rank);
+          const int local_nx = box.size[0];
+          const int local_ny = box.size[1];
+          const int local_field_size = local_nx * local_ny;
+          const int rank_offset = displs[rank];
+
           for (int field = 0; field < nfields; ++field) {
                for (int ly = 0; ly < local_ny; ++ly) {
-                    for (int gx = 0; gx < nx; ++gx) {
-                         const int local_index = rank * local_count + field * local_field_size + ly * nx + gx;
-                         const int global_index = field * global_field_size + (y0 + ly) * nx + gx;
-                         global_data[global_index] = gathered[local_index];
+                    const int gy = box.low[1] + ly;
+
+                    for (int lx = 0; lx < local_nx; ++lx) {
+                         const int gx = box.low[0] + lx;
+
+                         const int local_index =
+                              field * local_field_size + ly * local_nx + lx;
+                         const int global_index =
+                              field * global_field_size + gy * nx + gx;
+
+                         global_data[global_index] =
+                              gathered[rank_offset + local_index];
                     }
                }
           }
@@ -173,44 +217,93 @@ void SnapshotMeasure::observe_physical(const State& state, PhysicalStateBuffer& 
      write_physical_snapshot(snapshot_filename(step), global_data, domain, step, time);
 }
 // ---------------------------------------------------------------------- //
-void SnapshotMeasure::observe_spectral(const State& state, const Domain2D& domain, int step, double time) const {
+void SnapshotMeasure::observe_spectral(
+     const State& state,
+     const Domain2D& domain,
+     int step,
+     double time
+) const {
      const int nfields = num_fields_;
      const int nkx = domain.nx_global() / 2 + 1;
-     const int local_ny = domain.spectral_box().size[1];
-     const int local_complex_count = nfields * nkx * local_ny;
+     const int nky = domain.ny_global();
+
+     const Box2D& local_box = domain.spectral_box();
+     const int local_complex_count =
+          nfields * local_box.size[0] * local_box.size[1];
 
      std::vector<double> local_data(static_cast<std::size_t>(2 * local_complex_count));
+
      const Complex* spectral = state.data();
      for (int i = 0; i < local_complex_count; ++i) {
           local_data[2 * i] = spectral[i].real();
           local_data[2 * i + 1] = spectral[i].imag();
      }
 
-     std::vector<double> gathered;
+     const int local_double_count = 2 * local_complex_count;
+
+     std::vector<int> counts;
      if (domain.rank() == 0) {
-          gathered.resize(static_cast<std::size_t>(2 * local_complex_count * domain.size()));
+          counts.resize(static_cast<std::size_t>(domain.size()));
      }
 
-     MPI_Gather(local_data.data(), 2 * local_complex_count, MPI_DOUBLE, gathered.data(), 2 * local_complex_count, MPI_DOUBLE, 0,  domain.comm());
+     MPI_Gather(
+          &local_double_count, 1, MPI_INT,
+          counts.data(), 1, MPI_INT,
+          0, domain.comm()
+     );
+
+     std::vector<int> displs;
+     std::vector<double> gathered;
+
+     if (domain.rank() == 0) {
+          displs.resize(static_cast<std::size_t>(domain.size()), 0);
+          int total = 0;
+          for (int rank = 0; rank < domain.size(); ++rank) {
+               displs[rank] = total;
+               total += counts[rank];
+          }
+          gathered.resize(static_cast<std::size_t>(total));
+     }
+
+     MPI_Gatherv(
+          local_data.data(), local_double_count, MPI_DOUBLE,
+          gathered.data(), counts.data(), displs.data(), MPI_DOUBLE,
+          0, domain.comm()
+     );
 
      if (domain.rank() != 0) {
           return;
      }
 
-     std::vector<double> global_data(static_cast<std::size_t>(2 * nfields * nkx * domain.ny_global()));
-     const int local_field_size = nkx * local_ny;
-     const int global_field_size = nkx * domain.ny_global();
-     const int local_double_count = 2 * local_complex_count;
+     std::vector<double> global_data(
+          static_cast<std::size_t>(2 * nfields * nkx * nky)
+     );
+
+     const int global_field_size = nkx * nky;
 
      for (int rank = 0; rank < domain.size(); ++rank) {
-          const int y0 = rank * local_ny;
+          const Box2D box = domain.spectral_box_for_rank(rank);
+          const int local_nkx = box.size[0];
+          const int local_nky = box.size[1];
+          const int local_field_size = local_nkx * local_nky;
+          const int rank_offset = displs[rank];
+
           for (int field = 0; field < nfields; ++field) {
-               for (int ly = 0; ly < local_ny; ++ly) {
-                    for (int kx = 0; kx < nkx; ++kx) {
-                         const int local_complex_index = field * local_field_size + ly * nkx + kx;
-                         const int global_complex_index = field * global_field_size + (y0 + ly) * nkx + kx;
-                         global_data[2 * global_complex_index] = gathered[rank * local_double_count + 2 * local_complex_index];
-                         global_data[2 * global_complex_index + 1] = gathered[rank * local_double_count + 2 * local_complex_index + 1];
+               for (int ly = 0; ly < local_nky; ++ly) {
+                    const int ky = box.low[1] + ly;
+
+                    for (int lx = 0; lx < local_nkx; ++lx) {
+                         const int kx = box.low[0] + lx;
+
+                         const int local_complex_index =
+                              field * local_field_size + ly * local_nkx + lx;
+                         const int global_complex_index =
+                              field * global_field_size + ky * nkx + kx;
+
+                         global_data[2 * global_complex_index] =
+                              gathered[rank_offset + 2 * local_complex_index];
+                         global_data[2 * global_complex_index + 1] =
+                              gathered[rank_offset + 2 * local_complex_index + 1];
                     }
                }
           }

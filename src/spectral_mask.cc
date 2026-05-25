@@ -43,12 +43,12 @@ int SpectralMask2D::signed_ky(int gy) const {
 }
 // ---------------------------------------------------------------------- //
 bool SpectralMask2D::is_active_mode(int gx, int gy) const {
-     if (gx < 0 || gx > active_nx_ / 2) {
+     if (gx < 0 || gx >= active_nx_ / 2) {
           return false;
      }
 
      const int ky = signed_ky(gy);
-     return std::abs(ky) <= active_ny_ / 2;
+     return std::abs(ky) < active_ny_ / 2;
 }
 // ---------------------------------------------------------------------- //
 void SpectralMask2D::apply(Complex* field) const {

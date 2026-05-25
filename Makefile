@@ -38,7 +38,7 @@ SRCS := \
 	src/state.cc \
 	src/simulationinfo.cc
 
-INPUT ?= examples/01_two_component_ideal_gas/input.script
+INPUT ?= examples/01_phi4_phase_separation/input.script
 
 .PHONY: all run clean
 

@@ -31,11 +31,10 @@ private:
 
     static int mpi_rank(MPI_Comm comm);
     static int mpi_size(MPI_Comm comm);
-    static void validate_grid(int gnx, int gny, double glx, double gly, int size);
-    static Box2D make_physical_y_slab_box(
-        int gnx, int gny, double glx, double gly, int rank, int size
-    );
-    static Box2D make_r2c_spectral_box(const Box2D& physical_box);
+    static void validate_grid(int gnx, int gny, int size);
+    static Box2D make_x_slab_box(int nx, int ny, int rank, int size);
+    static Box2D make_physical_x_slab_box(int gnx, int gny, int rank, int size);
+    static Box2D make_r2c_spectral_x_slab_box(int gnx, int gny, int rank, int size);
 
 public:
     Domain2D(int gnx, int gny, double glx, double gly, MPI_Comm comm = MPI_COMM_WORLD);
@@ -53,6 +52,8 @@ public:
 
     const Box2D& physical_box() const { return physical_box_; }
     const Box2D& spectral_box() const { return spectral_box_; }
+    Box2D physical_box_for_rank(int rank) const;
+    Box2D spectral_box_for_rank(int rank) const;
 
     std::size_t physical_size() const;
     std::size_t spectral_size() const;

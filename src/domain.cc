@@ -11,10 +11,6 @@ namespace {
     // ---------------------------------------------------------------------- //
     constexpr double PI = 3.14159265358979323846;
     // ---------------------------------------------------------------------- //
-    bool is_power_of_two(int value) {
-        return value > 0 && (value & (value - 1)) == 0;
-    }
-    // ---------------------------------------------------------------------- //
     std::size_t box_size_2d(const Box2D& box) {
         if (box.empty()) {
             return 0;
@@ -47,47 +43,53 @@ int Domain2D::mpi_size(MPI_Comm comm) {
     return size;
 }
 // ---------------------------------------------------------------------- //
-void Domain2D::validate_grid(int gnx, int gny, double glx, double gly, int size) {
+void Domain2D::validate_grid(int gnx, int gny, int size) {
     if (gnx <= 0 || gny <= 0) {
         throw std::runtime_error("Domain2D requires positive grid sizes.");
-    }
-    if (!is_power_of_two(gnx) || !is_power_of_two(gny)) {
-        throw std::runtime_error("Domain2D requires power-of-two grid sizes.");
-    }
-    if (glx <= 0.0 || gly <= 0.0) {
-        throw std::runtime_error("Domain2D requires positive domain lengths.");
     }
     if (size <= 0) {
         throw std::runtime_error("Domain2D received an invalid MPI size.");
     }
-    if (!is_power_of_two(size)) {
-        throw std::runtime_error("Domain2D requires a power-of-two MPI size.");
+
+    const int spectral_nx = gnx / 2 + 1;
+
+    if (size > gnx) {
+        throw std::runtime_error("Domain2D x-slab decomposition requires size <= Nx.");
     }
-    if (size > gny) {
-        throw std::runtime_error("Domain2D y-slab decomposition requires size <= Ny.");
-    }
-    if (gny % size != 0) {
-        throw std::runtime_error("Domain2D y-slab decomposition requires Ny to be divisible by MPI size.");
-    }
-    if (gny / size < 2) {
-        throw std::runtime_error("Domain2D y-slab decomposition requires at least 2 local y grid points per rank.");
+    if (size > spectral_nx) {
+        throw std::runtime_error("Domain2D spectral x-slab decomposition requires size <= Nx/2+1.");
     }
 }
 // ---------------------------------------------------------------------- //
-Box2D Domain2D::make_physical_y_slab_box(
-    int gnx, int gny, double glx, double gly, int rank, int size
-) {
-    validate_grid(gnx, gny, glx, gly, size);
+Box2D Domain2D::make_x_slab_box(int nx, int ny, int rank, int size) {
+    if (nx <= 0 || ny <= 0) {
+        throw std::runtime_error("x-slab box requires positive sizes.");
+    }
+    if (rank < 0 || rank >= size) {
+        throw std::runtime_error("x-slab box received invalid rank.");
+    }
+    if (size > nx) {
+        throw std::runtime_error("x-slab box requires size <= nx.");
+    }
 
-    const int local_ny = gny / size;
-    const int y0 = rank * local_ny;
-    const int y1 = y0 + local_ny - 1;
+    const int base = nx / size;
+    const int remainder = nx % size;
 
-    return {{0, y0, 0}, {gnx - 1, y1, 0}};
+    const int local_nx = base + (rank < remainder ? 1 : 0);
+    const int x0 = rank * base + std::min(rank, remainder);
+    const int x1 = x0 + local_nx - 1;
+
+    return {{x0, 0, 0}, {x1, ny - 1, 0}};
 }
 // ---------------------------------------------------------------------- //
-Box2D Domain2D::make_r2c_spectral_box(const Box2D& physical_box) {
-    return physical_box.r2c(R2C_DIRECTION);
+Box2D Domain2D::make_physical_x_slab_box(int gnx, int gny, int rank, int size) {
+    validate_grid(gnx, gny, size);
+    return make_x_slab_box(gnx, gny, rank, size);
+}
+// ---------------------------------------------------------------------- //
+Box2D Domain2D::make_r2c_spectral_x_slab_box(int gnx, int gny, int rank, int size) {
+    const int spectral_nx = gnx / 2 + 1;
+    return make_x_slab_box(spectral_nx, gny, rank, size);
 }
 // ---------------------------------------------------------------------- //
 Domain2D::Domain2D(int gnx, int gny, double glx, double gly, MPI_Comm comm)
@@ -98,8 +100,8 @@ Domain2D::Domain2D(int gnx, int gny, double glx, double gly, MPI_Comm comm)
       global_ny_(gny),
       global_lx_(glx),
       global_ly_(gly),
-      physical_box_(make_physical_y_slab_box(gnx, gny, glx, gly, rank_, size_)),
-      spectral_box_(make_r2c_spectral_box(physical_box_)) {}
+      physical_box_(make_physical_x_slab_box(gnx, gny, rank_, size_)),
+      spectral_box_(make_r2c_spectral_x_slab_box(gnx, gny, rank_, size_)) {}
 // ---------------------------------------------------------------------- //
 Domain2D::Domain2D(const Params& params, MPI_Comm comm)
     : Domain2D(
@@ -124,6 +126,14 @@ std::size_t Domain2D::physical_local_index(int gx, int gy) const {
 // ---------------------------------------------------------------------- //
 std::size_t Domain2D::spectral_local_index(int gx, int gy) const {
     return box_local_index_2d(spectral_box_, gx, gy);
+}
+// ---------------------------------------------------------------------- //
+Box2D Domain2D::physical_box_for_rank(int rank) const {
+    return make_physical_x_slab_box(global_nx_, global_ny_, rank, size_);
+}
+// ---------------------------------------------------------------------- //
+Box2D Domain2D::spectral_box_for_rank(int rank) const {
+    return make_r2c_spectral_x_slab_box(global_nx_, global_ny_, rank, size_);
 }
 // ---------------------------------------------------------------------- //
 double Domain2D::kx(int gx) const {

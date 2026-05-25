@@ -61,23 +61,45 @@ protected:
         return state.data()[static_cast<std::size_t>(field) * local_spectral_size_ + domain_.spectral_local_index(gx, gy)];
     }
 
-    void enforce_real_symmetry(State& state) const {
-        const int nx = domain_.nx_global();
-        const int ny = domain_.ny_global();
-        const int kx_candidates[2] = {0, nx / 2};
-        const int ky_candidates[2] = {0, ny / 2};
+    void enforce_self_conjugate_line(State& state, int kx) const {
+        if (!owns_spectral_mode(kx, 0)) {
+            return;
+        }
 
-        for (int kx : kx_candidates) {
-            for (int ky : ky_candidates) {
-                if (!owns_spectral_mode(kx, ky)) {
+        const int ny = domain_.ny_global();
+
+        for (int field = 0; field < num_fields_; ++field) {
+            for (int gy = 0; gy < ny; ++gy) {
+                if (!spectral_mask_.active(kx, gy)) {
                     continue;
                 }
-                for (int field = 0; field < num_fields_; ++field) {
-                    Complex& value = spectral_field(state, field, kx, ky);
+
+                const int conjugate_gy = (ny - gy) % ny;
+
+                if (conjugate_gy == gy) {
+                    Complex& value = spectral_field(state, field, kx, gy);
                     value = Complex(value.real(), 0.0);
+                    continue;
                 }
+
+                if (gy > conjugate_gy) {
+                    continue;
+                }
+
+                Complex& a = spectral_field(state, field, kx, gy);
+                Complex& b = spectral_field(state, field, kx, conjugate_gy);
+
+                const Complex projected = 0.5 * (a + std::conj(b));
+                a = projected;
+                b = std::conj(projected);
             }
         }
+    }
+
+    void enforce_real_symmetry(State& state) const {
+        spectral_mask_.apply_many(num_fields_, state.data());
+
+        enforce_self_conjugate_line(state, 0);
     }
 
 public:

@@ -56,20 +56,14 @@ public:
         if (cmd->base - std::abs(cmd->amplitude) < 0.0) {
             throw std::runtime_error("set density sine requires base >= abs(amplitude)");
         }
-        if (cmd->nkx < 0 || cmd->nkx > params.grid.active_num_grid[0] / 2) {
-            throw std::runtime_error("set density sine requires 0 <= nkx <= Nx/2");
+        if (cmd->nkx < 0 || cmd->nkx >= params.grid.active_num_grid[0] / 2) {
+            throw std::runtime_error("set density sine requires 0 <= nkx < Nx/2; Nyquist line is fixed to zero");
         }
-        if (cmd->nky < -params.grid.active_num_grid[1] / 2 || cmd->nky > params.grid.active_num_grid[1] / 2) {
-            throw std::runtime_error("set density sine requires -Ny/2 <= nky <= Ny/2");
+        if (cmd->nky <= -params.grid.active_num_grid[1] / 2 || cmd->nky >=  params.grid.active_num_grid[1] / 2) {
+            throw std::runtime_error("set density sine requires -Ny/2 < nky < Ny/2; Nyquist line is fixed to zero");
         }
         if (cmd->nkx == 0 && cmd->nky == 0) {
             throw std::runtime_error("set density sine requires a nonzero wave number");
-        }
-
-        const bool self_conjugate_kx = (cmd->nkx == 0 || cmd->nkx == params.grid.active_num_grid[0] / 2);
-        const bool self_conjugate_ky = (cmd->nky == 0 || std::abs(cmd->nky) == params.grid.active_num_grid[1] / 2);
-        if (self_conjugate_kx && self_conjugate_ky) {
-            throw std::runtime_error("set density sine mode is zero on the grid; choose a non-self-conjugate wave number");
         }
 
         return cmd;
