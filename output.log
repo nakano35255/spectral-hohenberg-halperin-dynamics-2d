@@ -1,0 +1,75 @@
+======================================================================
+Spectral Fluctuating Isothermal Fluid Solver (v0.0)
+======================================================================
+
+[Grid Setup]
+  Grid points              : 128 128
+  Dealias rule             : two
+  Domain Length            : 128 128
+  dx, dy                   : 1 1
+
+----------------------------------------------------------------------
+
+[Runtime Setup]
+  Time step (dt)           : 0.001
+  Time evolution           : srk3/quiescent
+
+----------------------------------------------------------------------
+
+[Physics]
+  order_parameters         : 1
+  thermodynamics           : none
+  Free Energy              : phi4 k0[0] -1 k2[0] 1 phi4[0] 1
+  Transport Coefficients   : constant eta 0 zeta 0 M[0,0] 1
+
+----------------------------------------------------------------------
+
+[Fix]
+  noise                    : ON
+    Seed                   : 24680
+    kBT                    : 2e-05
+  shear                    : OFF
+    Rate                   : 0
+    Flow direction         : x
+  nonlinear                : OFF
+  barodiffusion            : OFF
+  quiescent                : OFF
+  incompressible           : OFF
+  interface                : OFF
+
+----------------------------------------------------------------------
+
+[Initial Condition]
+  Density                   uniform value 1
+  Momentum                 : Component x uniform value 0
+  Momentum                 : Component y uniform value 0
+  Order parameter          : Component 0 uniform value 0
+
+----------------------------------------------------------------------
+
+[Thermo]
+  Observe                  : OFF
+  Progress                 : ON
+  Nevery                   : 25000
+
+----------------------------------------------------------------------
+
+[Restart Output]
+  Enabled                  : OFF
+
+----------------------------------------------------------------------
+Starting Simulation...
+
+  Measure on               : id=1 type=snapshot Nevery=5000 file=/private/tmp/sfi_phi4_uniform_noise_srk3_dt0001_t500 space=physical
+
+
+Run 1 finished: global step 500000 time 500
+
+----------------------------------------------------------------------
+
+
+============================================================
+Simulation finished.
+Total execution time : 798.141 seconds
+Performance          : 626.456 steps/sec
+======================================================================
