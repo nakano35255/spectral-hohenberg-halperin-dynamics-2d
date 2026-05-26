@@ -136,11 +136,20 @@ public:
           rhs_.j_det = [this](const State& state, Complex* out_jx, Complex* out_jy, double time) {
                fcalculator_.j_det(state, out_jx, out_jy, time);
           };
+          if (params_.fix.noise.enabled) {
+               if (params_.physics.num_order_parameters > 0) {
+                    rhs_.psi_sto = [this](int order_parameter, const State& state, Complex* out) {
+                         fcalculator_.psi_sto(order_parameter, state, out);
+                    };
+               }
 
-          if (fix_enabled(params_.fix.flags, FixFlag::Noise)) {
-               rhs_.psi_sto = [this](int order_parameter, const State& state, Complex* out) {
-                    fcalculator_.psi_sto(order_parameter, state, out);
-               };
+               const bool quiescent = params_.runtime.time_evolution_type == "euler/quiescent" || params_.runtime.time_evolution_type == "srk3/quiescent";
+
+               if (!quiescent) {
+                    rhs_.j_sto = [this](const State& state, Complex* out_jx, Complex* out_jy) {
+                         fcalculator_.j_sto(state, out_jx, out_jy);
+                    };
+               }
           }
      }
 

@@ -12,6 +12,7 @@ SRCS := \
 	src/buffer_physical_state.cc \
 	src/domain.cc \
 	src/fcalculator.cc \
+	src/fcalculator_workspace.cc \
 	src/initial_condition_registry_builtin.cc \
 	src/initial_condition_gaussian_density.cc \
 	src/initial_condition_sine_density.cc \

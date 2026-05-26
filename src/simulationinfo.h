@@ -8,7 +8,6 @@
 #include <vector>
 #include <stdexcept>
 
-#include "fix_flag.h"
 #include "model_free_energy_registry.h"
 #include "model_thermodynamics_registry.h"
 #include "model_transport_coefficient_registry.h"
@@ -89,26 +88,15 @@ struct PhysicsConfig {
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
-struct NoiseSpec {
+struct NoiseFixConfig {
+    bool enabled = false;
     int seed = 12345;
     double kBT = 1.0;
 };
-struct ShearSpec {
-    double rate = 0.0;
-    std::string flow_direction = "x";
-};
 struct FixConfig {
-    std::uint32_t flags = 0;
-    NoiseSpec noise;
-    ShearSpec shear;
-
-    void set(FixFlag flag, bool value) {
-        if (value) {
-            flags |= fix_bit(flag);
-        } else {
-            flags &= ~fix_bit(flag);
-        }
-    }
+    NoiseFixConfig noise;
+    bool momentum_advection = false;
+    bool order_parameter_advection = false;
 
     void print_config(std::ostream& os) const;
 };
@@ -152,8 +140,8 @@ struct Params {
     GridConfig grid;
     RuntimeConfig runtime;
     PhysicsConfig physics;
-    InitialConditionConfig initial;
     FixConfig fix;
+    InitialConditionConfig initial;
     ThermoConfig thermo;
     RestartOutputConfig restart_output;
     std::vector<Command> commands;

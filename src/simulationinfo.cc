@@ -9,8 +9,6 @@
 namespace {
     // ---------------------------------------------------------------------- //
     constexpr int LABEL_WIDTH = 25;
-    constexpr int VARIABLE_LABEL_WIDTH = 23;
-    constexpr int MATRIX_COL_WIDTH = 17;
     constexpr int RULE_WIDTH = 70;
 
     void print_rule(std::ostream& os) {
@@ -97,24 +95,18 @@ void PhysicsConfig::print_config(std::ostream& os) const {
 void FixConfig::print_config(std::ostream& os) const {
     print_section(os, "Fix");
 
-    for (const auto& spec : FIX_SPECS) {
-        print_entry(os, spec.name, fix_enabled(flags, spec.flag) ? "ON" : "OFF");
-
-        if (spec.flag == FixFlag::Noise) {
-            print_entry(os, "  Seed", noise.seed);
-            print_entry(os, "  kBT", noise.kBT);
-        }
-
-        if (spec.flag == FixFlag::Shear) {
-            print_entry(os, "  Rate", shear.rate);
-            print_entry(os, "  Flow direction", shear.flow_direction);
-        }
+    print_entry(os, "noise", noise.enabled ? "ON" : "OFF");
+    if (noise.enabled) {
+        print_entry(os, "  Seed", noise.seed);
+        print_entry(os, "  kBT", noise.kBT);
     }
+
+    print_entry(os, "momentum_advection", momentum_advection ? "ON" : "OFF");
+    print_entry(os, "order_parameter_advection", order_parameter_advection ? "ON" : "OFF");
 
     os << "\n";
     print_rule(os);
 }
-
 // ---------------------------------------------------------------------- //
 void InitialConditionConfig::print_config(std::ostream& os) const {
     print_section(os, "Initial Condition");

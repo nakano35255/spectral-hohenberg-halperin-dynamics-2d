@@ -110,6 +110,9 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
     else if (cmd == "model") {
         parse_model_command(tokens);
     }
+    else if (cmd == "fix") {
+        parse_fix_command(tokens);
+    }
 
     // --------------------------------------------------
     // 4. 初期条件 (set) と 出力 (dump)
@@ -125,11 +128,8 @@ void ParamParser::execute_command(const std::vector<std::string>& tokens) {
     }
 
     // --------------------------------------------------
-    // 6. フラグ管理と実行 (run)
+    // 6. 実行 (run)
     // --------------------------------------------------
-    else if (cmd == "fix") {
-        parse_fix_command(tokens);
-    }
     else if (cmd == "measure") {
         parse_measure_command(tokens);
     }
@@ -272,6 +272,7 @@ void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
     throw std::runtime_error("unknown model category: " + category);
 }
 // ---------------------------------------------------------------------- //
+// ---------------------------------------------------------------------- //
 void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
     if (tokens.size() < 5) {
         throw std::runtime_error("fix syntax: fix <ID> all <type> <on|off> ...");
@@ -288,55 +289,91 @@ void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
         throw std::runtime_error("only group 'all' is supported for now");
     }
 
-    const FixSpec& spec = find_fix_spec(type);
-    const bool enabled = parse_on_off(tokens[4], "fix");
+    const bool enabled = parse_on_off(tokens[4], "fix " + type);
 
-    if (spec.arg_kind == FixArgKind::None) {
-        if (tokens.size() != 5) {
-            throw std::runtime_error(std::string("fix ") + spec.name + " syntax: fix <ID> all " + spec.name + " <on|off>");
-        }
-    }
-    else if (spec.arg_kind == FixArgKind::Seed) {
-        if (enabled) {
-            if ((tokens.size() - 5) % 2 != 0) {
-                throw std::runtime_error("fix noise syntax: fix <ID> all noise on [seed <integer>] [kBT <value>]");
+    if (type == "noise") {
+        if (!enabled) {
+            if (tokens.size() != 5) {
+                throw std::runtime_error("fix noise off syntax: fix <ID> all noise off");
             }
 
-            for (std::size_t i = 5; i < tokens.size(); i += 2) {
-                const std::string& key = tokens[i];
-                const std::string& value = tokens[i + 1];
+            params.fix.noise.enabled = false;
+            return;
+        }
 
-                if (key == "seed") {
-                    params.fix.noise.seed = std::stoi(value);
-                    continue;
+        if ((tokens.size() - 5) % 2 != 0) {
+            throw std::runtime_error("fix noise syntax: fix <ID> all noise on [seed <integer>] [kBT <value>]");
+        }
+
+        params.fix.noise.enabled = true;
+
+        for (std::size_t i = 5; i < tokens.size(); i += 2) {
+            const std::string& key = tokens[i];
+            const std::string& value = tokens[i + 1];
+
+            if (key == "seed") {
+                params.fix.noise.seed = std::stoi(value);
+                continue;
+            }
+
+            if (key == "kBT" || key == "temperature") {
+                params.fix.noise.kBT = std::stod(value);
+                if (params.fix.noise.kBT < 0.0) {
+                    throw std::runtime_error("fix noise requires nonnegative kBT.");
                 }
-
-                if (key == "kBT" || key == "kbt" || key == "temperature") {
-                    params.fix.noise.kBT = std::stod(value);
-                    if (params.fix.noise.kBT < 0.0) {
-                        throw std::runtime_error("fix noise requires nonnegative kBT.");
-                    }
-                    continue;
-                }
-
-                throw std::runtime_error("unknown fix noise argument: " + key);
+                continue;
             }
-        } else if (tokens.size() != 5) {
-            throw std::runtime_error("fix noise off syntax: fix <ID> all noise off");
+
+            throw std::runtime_error("unknown fix noise argument: " + key);
         }
-    }
-    else if (spec.arg_kind == FixArgKind::Rate) {
-        if (enabled) {
-            if (tokens.size() != 7 || tokens[5] != "rate") {
-                throw std::runtime_error("fix shear syntax: fix <ID> all shear on rate <value>");
-            }
-            params.fix.shear.rate = std::stod(tokens[6]);
-        } else if (tokens.size() != 5) {
-            throw std::runtime_error("fix shear off syntax: fix <ID> all shear off");
-        }
+
+        return;
     }
 
-    params.fix.set(spec.flag, enabled);
+    if (type == "nonlinear") {
+        if (tokens.size() < 6) {
+            throw std::runtime_error(
+                "fix nonlinear syntax: fix <ID> all nonlinear <on|off> <momentum|j|order_parameter|psi|all>..."
+            );
+        }
+
+        bool saw_target = false;
+
+        for (std::size_t i = 5; i < tokens.size(); ++i) {
+            const std::string& target = tokens[i];
+
+            if (target == "momentum" || target == "j") {
+                params.fix.momentum_advection = enabled;
+                saw_target = true;
+                continue;
+            }
+
+            if (target == "order_parameter" || target == "psi") {
+                params.fix.order_parameter_advection = enabled;
+                saw_target = true;
+                continue;
+            }
+
+            if (target == "all") {
+                params.fix.momentum_advection = enabled;
+                params.fix.order_parameter_advection = enabled;
+                saw_target = true;
+                continue;
+            }
+
+            throw std::runtime_error("unknown fix nonlinear target: " + target);
+        }
+
+        if (!saw_target) {
+            throw std::runtime_error(
+                "fix nonlinear requires at least one target: momentum, j, order_parameter, psi, or all"
+            );
+        }
+
+        return;
+    }
+
+    throw std::runtime_error("unknown fix style: " + type);
 }
 // ---------------------------------------------------------------------- //
 void ParamParser::parse_set_command(const std::vector<std::string>& tokens) {
@@ -558,6 +595,19 @@ void ParamParser::validate_configuration() const {
         throw std::runtime_error("model transport must be specified");
     }
 
+    const bool quiescent = params.runtime.time_evolution_type == "euler/quiescent" || params.runtime.time_evolution_type == "srk3/quiescent";
+
+    if (params.fix.order_parameter_advection && params.physics.num_order_parameters == 0) {
+        throw std::runtime_error("fix nonlinear order_parameter requires at least one order parameter.");
+    }
+
+    if (quiescent && params.fix.momentum_advection) {
+        throw std::runtime_error("quiescent time evolution cannot use momentum nonlinear advection.");
+    }
+
+    if (quiescent && params.fix.order_parameter_advection) {
+        throw std::runtime_error("quiescent time evolution cannot use order_parameter nonlinear advection.");
+    }
 }
 // ---------------------------------------------------------------------- //
 void ParamParser::check_order_parameter_index(int index, const std::string& command_name) const {
