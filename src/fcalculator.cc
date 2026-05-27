@@ -1,10 +1,11 @@
 #include "fcalculator.h"
 
 #include <algorithm>
-#include <vector>
 #include <cmath>
+#include <cstdint>
 #include <random>
 #include <stdexcept>
+#include <vector>
 
 // ---------------------------------------------------------------------- //
 int FCalculator::temporary_field_capacity(const Params& params) {
@@ -14,7 +15,7 @@ int FCalculator::temporary_field_capacity(const Params& params) {
         throw std::runtime_error("FCalculator requires nonnegative num_order_parameters.");
     }
 
-    return std::max(q, 4);
+    return std::max(q, 7);
 }
 // ---------------------------------------------------------------------- //
 FCalculator::FCalculator(
@@ -31,110 +32,29 @@ FCalculator::FCalculator(
       thermodynamics_(thermodynamics),
       free_energy_(free_energy),
       transport_coefficient_(transport_coefficient),
+      dynamics_mode_(parse_dynamics_mode(params.runtime.time_evolution_type)),
+      physical_field_requests_(PhysicalRHSFieldRequests::build(
+          params,
+          dynamics_mode_,
+          free_energy,
+          thermodynamics,
+          transport_coefficient
+      )),
       num_order_parameters_(params.physics.num_order_parameters),
       local_spectral_size_(domain.spectral_size()),
+      workspace_(domain, params, dynamics_mode_, physical_field_requests_, temporary_field_capacity(params)),
       noise_rng_(),
-      normal_noise_(0.0, 1.0),
-      physical_rhs_plan_(make_physical_rhs_plan()),
-      workspace_(domain, params, physical_rhs_plan_, temporary_field_capacity(params))
+      normal_noise_(0.0, 1.0)
 {
-    if (num_order_parameters_ > 0 && free_energy_.has_physical_chemical_potential()) {
-        const std::size_t rhs_size =
-            static_cast<std::size_t>(num_order_parameters_) * local_spectral_size_;
-
-        psi_nonlinear_rhs_.resize(rhs_size, Complex(0.0, 0.0));
-        psi_point_.resize(static_cast<std::size_t>(num_order_parameters_), 0.0);
-    }
-
     std::seed_seq noise_seed_sequence{
         static_cast<std::uint32_t>(params_.fix.noise.seed),
         static_cast<std::uint32_t>(domain_.rank())
     };
     noise_rng_.seed(noise_seed_sequence);
-
 }
 // ---------------------------------------------------------------------- //
 void FCalculator::clear(Complex* out) const {
     std::fill(out, out + local_spectral_size_, Complex(0.0, 0.0));
-}
-// ---------------------------------------------------------------------- //
-bool FCalculator::is_incompressible_time_evolution() const {
-    return params_.runtime.time_evolution_type == "euler/incompressible"
-        || params_.runtime.time_evolution_type == "srk3/incompressible";
-}
-bool FCalculator::is_compressible_time_evolution() const {
-    return params_.runtime.time_evolution_type == "euler/compressible"
-        || params_.runtime.time_evolution_type == "srk3/compressible";
-}
-bool FCalculator::is_quiescent_time_evolution() const {
-    return params_.runtime.time_evolution_type == "euler/quiescent"
-        || params_.runtime.time_evolution_type == "srk3/quiescent";
-}
-// ---------------------------------------------------------------------- //
-PhysicalRHSPlan FCalculator::make_physical_rhs_plan() const {
-    PhysicalRHSPlan plan;
-    plan.psi_det = make_psi_det_physical_request();
-    plan.j_det = make_j_det_physical_request();
-    return plan;
-}
-// ---------------------------------------------------------------------- //
-PhysicalFieldRequestPlan FCalculator::make_psi_det_physical_request() const {
-    PhysicalFieldRequestPlan request;
-
-    if (num_order_parameters_ <= 0) {
-        return request;
-    }
-
-    if (free_energy_.has_physical_chemical_potential()) {
-        request.need_psi = true;
-    }
-
-    if (params_.fix.order_parameter_advection) {
-        request.need_psi = true;
-        request.need_j = true;
-        request.need_velocity = true;
-
-        if (is_compressible_time_evolution()) {
-            request.need_rho = true;
-        }
-    }
-
-    return request;
-}
-// ---------------------------------------------------------------------- //
-PhysicalFieldRequestPlan FCalculator::make_j_det_physical_request() const {
-    PhysicalFieldRequestPlan request;
-
-    if (is_quiescent_time_evolution()) {
-        return request;
-    }
-
-    const bool needs_physical_viscosity =
-        transport_coefficient_.has_physical_shear_viscosity()
-     || transport_coefficient_.has_physical_bulk_viscosity();
-
-    if (needs_physical_viscosity) {
-        throw std::runtime_error("physical viscosity is not implemented yet.");
-    }
-
-    if (is_compressible_time_evolution()) {
-        request.need_rho = true;
-        request.need_j = true;
-        request.need_velocity = true;
-    }
-
-    if (params_.fix.momentum_advection) {
-        request.need_j = true;
-        request.need_velocity = true;
-    }
-
-    if (thermodynamics_.has_physical_pressure()) {
-        if (!is_compressible_time_evolution()) {
-            throw std::runtime_error("physical pressure requires compressible time evolution.");
-        }
-    }
-
-    return request;
 }
 // ---------------------------------------------------------------------- //
 void FCalculator::rho_det(const State& current, Complex* out, double /*t*/) const {
@@ -149,128 +69,23 @@ void FCalculator::rho_det(const State& current, Complex* out, double /*t*/) cons
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::ensure_psi_nonlinear_rhs(const State& current, double time) const {
-    if (num_order_parameters_ == 0 || !free_energy_.has_physical_chemical_potential()) {
-        return;
-    }
-
-    if (psi_nonlinear_rhs_ready_ && psi_nonlinear_state_ == &current && psi_nonlinear_time_ == time) {
-        return;
-    }
-
-    psi_nonlinear_state_ = &current;
-    psi_nonlinear_time_ = time;
-    psi_nonlinear_rhs_ready_ = true;
-    
-    const std::size_t rhs_size = static_cast<std::size_t>(num_order_parameters_) * local_spectral_size_;
-    std::fill(psi_nonlinear_rhs_.begin(), psi_nonlinear_rhs_.begin() + rhs_size, Complex(0.0, 0.0));
-
-    const std::size_t local_physical_size = workspace_.local_physical_size();
-    workspace_.ensure_physical_fields(current, time);
-    const double* psi_physical = workspace_.physical_psi_data();
-    double* mu_physical = workspace_.temporary_physical_fields(num_order_parameters_);
-    Complex* mu_spectral = workspace_.temporary_spectral_fields(num_order_parameters_);
-
-    for (std::size_t i = 0; i < local_physical_size; ++i) {
-        for (int op = 0; op < num_order_parameters_; ++op) {
-            psi_point_[static_cast<std::size_t>(op)] = psi_physical[static_cast<std::size_t>(op) * local_physical_size + i];
-        }
-
-        for (int op = 0; op < num_order_parameters_; ++op) {
-            mu_physical[static_cast<std::size_t>(op) * local_physical_size + i] = free_energy_.physical_chemical_potential(op, psi_point_.data());
-        }
-    }
-
-    workspace_.forward_many(num_order_parameters_, mu_physical, mu_spectral);
-
-    const std::vector<double>& mobility = transport_coefficient_.order_parameter_mobility();
-
-    for (int op = 0; op < num_order_parameters_; ++op) {
-        const double mobility_op = mobility[static_cast<std::size_t>(op)];
-
-        if (mobility_op == 0.0) {
-            continue;
-        }
-
-        const std::size_t offset = static_cast<std::size_t>(op) * local_spectral_size_;
-
-        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
-            const std::size_t i = mode.index;
-            psi_nonlinear_rhs_[offset + i] = -mobility_op * mode.k2 * mu_spectral[offset + i];
-        }
-    }
-}
-// ---------------------------------------------------------------------- //
 void FCalculator::psi_det(int order_parameter, const State& current, Complex* out, double t) const {
     clear(out);
 
-    const std::vector<double>& mobility = transport_coefficient_.order_parameter_mobility();
-    const double mobility_op = mobility[static_cast<std::size_t>(order_parameter)];
+    const double mobility = transport_coefficient_.order_parameter_mobility()[static_cast<std::size_t>(order_parameter)];
+    const bool has_advection = params_.fix.order_parameter_advection;
+    const bool has_physical_mu = free_energy_.has_physical_chemical_potential();
 
-    const bool order_parameter_advection = params_.fix.order_parameter_advection;
-
-    if (mobility_op == 0.0 && !order_parameter_advection) {
+    if (mobility == 0.0 && !has_advection) {
         return;
     }
 
-    const double mu_k0 = free_energy_.chemical_potential_k0_coefficient(order_parameter);
-    const double mu_k2 = free_energy_.chemical_potential_k2_coefficient(order_parameter);
-    const double mu_k4 = free_energy_.chemical_potential_k4_coefficient(order_parameter);
-
-    const bool has_linear_mu = mu_k0 != 0.0 || mu_k2 != 0.0 || mu_k4 != 0.0;
-
-    const Complex* psi = current.psi_hat_data(order_parameter);
-
-    if (mobility_op != 0.0 && has_linear_mu) {
-        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
-            const std::size_t i = mode.index;
-            const double k2 = mode.k2;
-            const double k4 = k2 * k2;
-
-            const double mu_coefficient = mu_k0 + mu_k2 * k2 + mu_k4 * k4;
-
-            out[i] += -mobility_op * k2 * mu_coefficient * psi[i];
-        }
+    if (mobility != 0.0) {
+        add_order_parameter_linear_term(order_parameter, mobility, current, out);
     }
 
-    if (mobility_op != 0.0 && free_energy_.has_physical_chemical_potential()) {
-        ensure_psi_nonlinear_rhs(current, t);
-
-        const std::size_t offset = static_cast<std::size_t>(order_parameter) * local_spectral_size_;
-
-        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
-            const std::size_t i = mode.index;
-            out[i] += psi_nonlinear_rhs_[offset + i];
-        }
-    }
-
-    if (order_parameter_advection) {
-        workspace_.ensure_physical_fields(current, t);
-
-        const std::size_t local_physical_size = workspace_.local_physical_size();
-
-        const double* psi_physical = workspace_.physical_psi_data() + static_cast<std::size_t>(order_parameter) * local_physical_size;
-
-        const double* vx = workspace_.physical_vx_data();
-        const double* vy = workspace_.physical_vy_data();
-
-        double* flux_physical = workspace_.temporary_physical_fields(2);
-        Complex* flux_spectral = workspace_.temporary_spectral_fields(2);
-
-        for (std::size_t i = 0; i < local_physical_size; ++i) {
-            flux_physical[i] = psi_physical[i] * vx[i];
-            flux_physical[local_physical_size + i] = psi_physical[i] * vy[i];
-        }
-
-        workspace_.forward_many(2, flux_physical, flux_spectral);
-
-        const Complex* flux_x = flux_spectral;
-        const Complex* flux_y = flux_spectral + local_spectral_size_;
-
-        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
-            const std::size_t i = mode.index;
-            out[i] += -Complex(0.0, 1.0) * (mode.kx * flux_x[i] + mode.ky * flux_y[i]);
-        }
+    if (has_advection || has_physical_mu) {
+        add_order_parameter_physical_terms(order_parameter, mobility, current, out, t);
     }
 }
 // ---------------------------------------------------------------------- //
@@ -278,38 +93,145 @@ void FCalculator::j_det(const State& current, Complex* out_jx, Complex* out_jy, 
     clear(out_jx);
     clear(out_jy);
 
+    if (is_quiescent_mode(dynamics_mode_)) {
+        return;
+    }
+
     const double pressure_coefficient = thermodynamics_.linear_pressure_coefficient();
     const double eta = transport_coefficient_.shear_viscosity();
     const double zeta = transport_coefficient_.bulk_viscosity();
 
-    const bool has_pressure = pressure_coefficient != 0.0;
+    const bool has_linear_pressure = pressure_coefficient != 0.0;
+    const bool has_physical_pressure = thermodynamics_.has_physical_pressure();
     const bool has_viscosity = eta != 0.0 || zeta != 0.0;
-    const bool momentum_advection = params_.fix.momentum_advection;
+    const bool has_compressible_viscosity = has_viscosity && is_compressible_mode(dynamics_mode_);
+    const bool has_incompressible_viscosity = has_viscosity && is_incompressible_mode(dynamics_mode_);
+    const bool has_advection = params_.fix.momentum_advection;
 
-    if (!has_pressure && !has_viscosity && !momentum_advection) {
+    if (!has_linear_pressure && !has_physical_pressure && !has_viscosity && !has_advection) {
         return;
     }
 
-    const Complex* rho = current.rho_hat_data();
-    const Complex* jx = current.jx_hat_data();
-    const Complex* jy = current.jy_hat_data();
+    if (has_linear_pressure) {
+        add_linear_pressure_term(pressure_coefficient, current, out_jx, out_jy);
+    }
 
-    const bool compressible = is_compressible_time_evolution();
+    if (has_incompressible_viscosity) {
+        add_incompressible_viscous_term(eta, zeta, current, out_jx, out_jy);
+    }
 
-    Complex* velocity_spectral = nullptr;
-    double rho0 = 1.0;
+    if (has_compressible_viscosity) {
+        add_compressible_viscous_term(eta, zeta, current, out_jx, out_jy, t);
+    }
 
-    if (has_viscosity) {
-        if (compressible) {
-            workspace_.ensure_physical_fields(current, t);
-            velocity_spectral = workspace_.temporary_spectral_fields(2);
+    if (has_physical_pressure || has_advection)
+        add_momentum_physical_terms(eta, zeta, current, out_jx, out_jy, t
+    );
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_order_parameter_linear_term(int order_parameter, double mobility, const State& current, Complex* out) const {
+    const double mu_k0 = free_energy_.chemical_potential_k0_coefficient(order_parameter);
+    const double mu_k2 = free_energy_.chemical_potential_k2_coefficient(order_parameter);
+    const double mu_k4 = free_energy_.chemical_potential_k4_coefficient(order_parameter);
 
-            workspace_.forward_many(2, workspace_.physical_vx_data(), velocity_spectral);
-        }
-        else {
-            rho0 = workspace_.reference_density(current);
+    if (mu_k0 == 0.0 && mu_k2 == 0.0 && mu_k4 == 0.0) {
+        return;
+    }
+
+    const Complex* psi = current.psi_hat_data(order_parameter);
+
+    for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+        const std::size_t i = mode.index;
+        const double k2 = mode.k2;
+        const double mu_coefficient = mu_k0 + mu_k2 * k2 + mu_k4 * k2 * k2;
+
+        out[i] += -mobility * k2 * mu_coefficient * psi[i];
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_order_parameter_physical_terms(int order_parameter, double mobility, const State& current, Complex* out, double time) const {
+    const bool has_physical_mu = mobility != 0.0 && free_energy_.has_physical_chemical_potential();
+    const bool has_advection = params_.fix.order_parameter_advection;
+
+    workspace_.ensure_physical_fields(current, time);
+
+    const std::size_t local_physical_size = workspace_.local_physical_size();
+
+    int nfields = 0;
+    const int mu_field = has_physical_mu ? nfields++ : -1;
+    const int flux_x_field = has_advection ? nfields++ : -1;
+    const int flux_y_field = has_advection ? nfields++ : -1;
+
+    double* physical_fields = workspace_.temporary_physical_fields(nfields);
+
+    if (has_physical_mu) {
+        const double* psi_physical = workspace_.physical_psi_data();
+        double* mu_physical = physical_fields + static_cast<std::size_t>(mu_field) * local_physical_size;
+
+        std::vector<double> psi_point(static_cast<std::size_t>(num_order_parameters_), 0.0);
+
+        for (std::size_t i = 0; i < local_physical_size; ++i) {
+            for (int op = 0; op < num_order_parameters_; ++op) {
+                psi_point[static_cast<std::size_t>(op)] = psi_physical[static_cast<std::size_t>(op) * local_physical_size + i];
+            }
+            mu_physical[i] = free_energy_.physical_chemical_potential(order_parameter, psi_point.data());
         }
     }
+
+    if (has_advection) {
+        const double* psi_physical = workspace_.physical_psi_data() + static_cast<std::size_t>(order_parameter) * local_physical_size;
+
+        const double* vx = workspace_.physical_vx_data();
+        const double* vy = workspace_.physical_vy_data();
+
+        double* flux_x = physical_fields + static_cast<std::size_t>(flux_x_field) * local_physical_size;
+        double* flux_y = physical_fields + static_cast<std::size_t>(flux_y_field) * local_physical_size;
+
+        for (std::size_t i = 0; i < local_physical_size; ++i) {
+            flux_x[i] = psi_physical[i] * vx[i];
+            flux_y[i] = psi_physical[i] * vy[i];
+        }
+    }
+
+    Complex* spectral_fields = workspace_.temporary_spectral_fields(nfields);
+    workspace_.forward_many(nfields, physical_fields, spectral_fields);
+
+    if (has_physical_mu) {
+        const Complex* mu_hat = spectral_fields + static_cast<std::size_t>(mu_field) * local_spectral_size_;
+
+        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+            const std::size_t i = mode.index;
+            out[i] += -mobility * mode.k2 * mu_hat[i];
+        }
+    }
+
+    if (has_advection) {
+        const Complex* flux_x_hat = spectral_fields + static_cast<std::size_t>(flux_x_field) * local_spectral_size_;
+        const Complex* flux_y_hat = spectral_fields + static_cast<std::size_t>(flux_y_field) * local_spectral_size_;
+
+        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+            const std::size_t i = mode.index;
+            out[i] += -Complex(0.0, 1.0) * (mode.kx * flux_x_hat[i] + mode.ky * flux_y_hat[i]);
+        }
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_linear_pressure_term(double pressure_coefficient, const State& current, Complex* out_jx, Complex* out_jy) const {
+    const Complex* rho = current.rho_hat_data();
+
+    for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+        const std::size_t i = mode.index;
+
+        out_jx[i] += -Complex(0.0, mode.kx) * pressure_coefficient * rho[i];
+        out_jy[i] += -Complex(0.0, mode.ky) * pressure_coefficient * rho[i];
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_incompressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy) const {
+    const double rho0 = workspace_.reference_density(current);
+
+    const Complex* jx = current.jx_hat_data();
+    const Complex* jy = current.jy_hat_data();
 
     for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
         const std::size_t i = mode.index;
@@ -317,60 +239,131 @@ void FCalculator::j_det(const State& current, Complex* out_jx, Complex* out_jy, 
         const double ky = mode.ky;
         const double k2 = mode.k2;
 
-        if (has_pressure) {
-            out_jx[i] += -Complex(0.0, kx) * pressure_coefficient * rho[i];
-            out_jy[i] += -Complex(0.0, ky) * pressure_coefficient * rho[i];
+        const Complex vx_hat = jx[i] / rho0;
+        const Complex vy_hat = jy[i] / rho0;
+
+        if (eta != 0.0) {
+            out_jx[i] += -eta * k2 * vx_hat;
+            out_jy[i] += -eta * k2 * vy_hat;
         }
 
-        if (has_viscosity) {
-            const Complex vx_hat = compressible ? velocity_spectral[i] : jx[i] / rho0;
+        if (zeta != 0.0) {
+            const Complex div_v = Complex(0.0, 1.0) * (kx * vx_hat + ky * vy_hat);
+            out_jx[i] += zeta * Complex(0.0, kx) * div_v;
+            out_jy[i] += zeta * Complex(0.0, ky) * div_v;
+        }
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_compressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time) const {
+    workspace_.ensure_physical_fields(current, time);
 
-            const Complex vy_hat = compressible ? velocity_spectral[local_spectral_size_ + i] : jy[i] / rho0;
+    const std::size_t local_physical_size = workspace_.local_physical_size();
 
-            if (eta != 0.0) {
-                out_jx[i] += -eta * k2 * vx_hat;
-                out_jy[i] += -eta * k2 * vy_hat;
-            }
+    int nfields = 2;
+    const int vx_field = 0;
+    const int vy_field = 1;
 
-            if (zeta != 0.0) {
-                const Complex div_v = Complex(0.0, 1.0) * (kx * vx_hat + ky * vy_hat);
-                out_jx[i] += zeta * Complex(0.0, kx) * div_v;
-                out_jy[i] += zeta * Complex(0.0, ky) * div_v;
-            }
+    const double* vx = workspace_.physical_vx_data();
+    const double* vy = workspace_.physical_vy_data();
+
+    double* physical_fields = workspace_.temporary_physical_fields(nfields);
+    double* vx_physical = physical_fields + static_cast<std::size_t>(vx_field) * local_physical_size;
+    double* vy_physical = physical_fields + static_cast<std::size_t>(vy_field) * local_physical_size;
+
+    std::copy(vx, vx + local_physical_size, vx_physical);
+    std::copy(vy, vy + local_physical_size, vy_physical);
+
+    Complex* spectral_fields = workspace_.temporary_spectral_fields(nfields);
+    workspace_.forward_many(nfields, physical_fields, spectral_fields);
+
+    const Complex* vx_hat = spectral_fields + static_cast<std::size_t>(vx_field) * local_spectral_size_;
+    const Complex* vy_hat = spectral_fields + static_cast<std::size_t>(vy_field) * local_spectral_size_;
+
+    for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+        const std::size_t i = mode.index;
+        const double kx = mode.kx;
+        const double ky = mode.ky;
+        const double k2 = mode.k2;
+
+        if (eta != 0.0) {
+            out_jx[i] += -eta * k2 * vx_hat[i];
+            out_jy[i] += -eta * k2 * vy_hat[i];
+        }
+
+        if (zeta != 0.0) {
+            const Complex div_v = Complex(0.0, 1.0) * (kx * vx_hat[i] + ky * vy_hat[i]);
+            out_jx[i] += zeta * Complex(0.0, kx) * div_v;
+            out_jy[i] += zeta * Complex(0.0, ky) * div_v;
+        }
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_momentum_physical_terms(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time) const {
+    workspace_.ensure_physical_fields(current, time);
+
+    const bool has_advection = params_.fix.momentum_advection;
+    const bool has_physical_pressure = thermodynamics_.has_physical_pressure();
+
+    const std::size_t local_physical_size = workspace_.local_physical_size();
+
+    int nfields = 0;
+    const int pressure_field = has_physical_pressure ? nfields++ : -1;
+    const int jx_vx_field = has_advection ? nfields++ : -1;
+    const int jx_vy_field = has_advection ? nfields++ : -1;
+    const int jy_vx_field = has_advection ? nfields++ : -1;
+    const int jy_vy_field = has_advection ? nfields++ : -1;
+
+    double* physical_fields = workspace_.temporary_physical_fields(nfields);
+
+    if (has_physical_pressure) {
+        const double* rho = workspace_.physical_rho_data();
+        double* pressure =
+            physical_fields + static_cast<std::size_t>(pressure_field) * local_physical_size;
+
+        for (std::size_t i = 0; i < local_physical_size; ++i) {
+            pressure[i] = thermodynamics_.physical_pressure(rho[i]);
         }
     }
 
-    if (momentum_advection) {
-        workspace_.ensure_physical_fields(current, t);
-
-        const std::size_t local_physical_size = workspace_.local_physical_size();
-
-        const double* jx_physical = workspace_.physical_jx_data();
-        const double* jy_physical = workspace_.physical_jy_data();
+    if (has_advection) {
+        const double* jx = workspace_.physical_jx_data();
+        const double* jy = workspace_.physical_jy_data();
         const double* vx = workspace_.physical_vx_data();
         const double* vy = workspace_.physical_vy_data();
 
-        double* flux_physical = workspace_.temporary_physical_fields(4);
-        Complex* flux_spectral = workspace_.temporary_spectral_fields(4);
-
-        double* jx_vx = flux_physical;
-        double* jx_vy = flux_physical + local_physical_size;
-        double* jy_vx = flux_physical + 2 * local_physical_size;
-        double* jy_vy = flux_physical + 3 * local_physical_size;
+        double* jx_vx = physical_fields + static_cast<std::size_t>(jx_vx_field) * local_physical_size;
+        double* jx_vy = physical_fields + static_cast<std::size_t>(jx_vy_field) * local_physical_size;
+        double* jy_vx = physical_fields + static_cast<std::size_t>(jy_vx_field) * local_physical_size;
+        double* jy_vy = physical_fields + static_cast<std::size_t>(jy_vy_field) * local_physical_size;
 
         for (std::size_t i = 0; i < local_physical_size; ++i) {
-            jx_vx[i] = jx_physical[i] * vx[i];
-            jx_vy[i] = jx_physical[i] * vy[i];
-            jy_vx[i] = jy_physical[i] * vx[i];
-            jy_vy[i] = jy_physical[i] * vy[i];
+            jx_vx[i] = jx[i] * vx[i];
+            jx_vy[i] = jx[i] * vy[i];
+            jy_vx[i] = jy[i] * vx[i];
+            jy_vy[i] = jy[i] * vy[i];
         }
+    }
 
-        workspace_.forward_many(4, flux_physical, flux_spectral);
+    Complex* spectral_fields = workspace_.temporary_spectral_fields(nfields);
+    workspace_.forward_many(nfields, physical_fields, spectral_fields);
 
-        const Complex* jx_vx_hat = flux_spectral;
-        const Complex* jx_vy_hat = flux_spectral + local_spectral_size_;
-        const Complex* jy_vx_hat = flux_spectral + 2 * local_spectral_size_;
-        const Complex* jy_vy_hat = flux_spectral + 3 * local_spectral_size_;
+    if (has_physical_pressure) {
+        const Complex* pressure_hat =
+            spectral_fields + static_cast<std::size_t>(pressure_field) * local_spectral_size_;
+
+        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+            const std::size_t i = mode.index;
+            out_jx[i] += -Complex(0.0, mode.kx) * pressure_hat[i];
+            out_jy[i] += -Complex(0.0, mode.ky) * pressure_hat[i];
+        }
+    }
+
+    if (has_advection) {
+        const Complex* jx_vx_hat = spectral_fields + static_cast<std::size_t>(jx_vx_field) * local_spectral_size_;
+        const Complex* jx_vy_hat = spectral_fields + static_cast<std::size_t>(jx_vy_field) * local_spectral_size_;
+        const Complex* jy_vx_hat = spectral_fields + static_cast<std::size_t>(jy_vx_field) * local_spectral_size_;
+        const Complex* jy_vy_hat = spectral_fields + static_cast<std::size_t>(jy_vy_field) * local_spectral_size_;
 
         for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
             const std::size_t i = mode.index;
@@ -428,19 +421,18 @@ void FCalculator::psi_sto(int order_parameter, const State& current, Complex* ou
             const Complex gaussian(normal_noise_(noise_rng_), normal_noise_(noise_rng_));
             const Complex value = sigma * gaussian;
 
-            const std::size_t i = static_cast<std::size_t>(gy - box.low[1]) * local_nkx + local_kx0;
-            const std::size_t ic = static_cast<std::size_t>(conjugate_gy - box.low[1]) * local_nkx + local_kx0;
+            const std::size_t i =
+                static_cast<std::size_t>(gy - box.low[1]) * local_nkx + local_kx0;
+            const std::size_t ic =
+                static_cast<std::size_t>(conjugate_gy - box.low[1]) * local_nkx + local_kx0;
+
             out[i] = value;
             out[ic] = std::conj(value);
         }
     }
 
     for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
-        if (mode.gx == 0) {
-            continue;
-        }
-
-        if (mode.k2 == 0.0) {
+        if (mode.gx == 0 || mode.k2 == 0.0) {
             continue;
         }
 
@@ -471,7 +463,6 @@ void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy) 
     const double stress_sigma = std::sqrt(0.5 * prefactor);
     const double sqrt_eta = std::sqrt(eta);
     const double sqrt_zeta = std::sqrt(zeta);
-
 
     const Box2D& box = domain_.spectral_box();
     const int ny = domain_.ny_global();
@@ -510,8 +501,10 @@ void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy) 
             const Complex value_x = Complex(0.0, 1.0) * (kx * sigma_xx + ky * sigma_xy);
             const Complex value_y = Complex(0.0, 1.0) * (kx * sigma_xy + ky * sigma_yy);
 
-            const std::size_t i = static_cast<std::size_t>(gy - box.low[1]) * local_nkx + local_kx0;
-            const std::size_t ic = static_cast<std::size_t>(conjugate_gy - box.low[1]) * local_nkx + local_kx0;
+            const std::size_t i =
+                static_cast<std::size_t>(gy - box.low[1]) * local_nkx + local_kx0;
+            const std::size_t ic =
+                static_cast<std::size_t>(conjugate_gy - box.low[1]) * local_nkx + local_kx0;
 
             out_jx[i] = value_x;
             out_jy[i] = value_y;
@@ -541,4 +534,3 @@ void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy) 
     }
 }
 // ---------------------------------------------------------------------- //
-

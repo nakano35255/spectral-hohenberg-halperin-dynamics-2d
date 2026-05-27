@@ -2,18 +2,19 @@
 #define SFI_FCALCULATOR_H
 
 #include "domain.h"
+#include "fcalculator_dynamics_mode.h"
+#include "fcalculator_field_requests_and_layout.h"
+#include "fcalculator_workspace.h"
 #include "model_free_energy.h"
 #include "model_thermodynamics.h"
 #include "model_transport_coefficient.h"
 #include "simulationinfo.h"
-#include "state.h"
 #include "spectral_mask.h"
-#include "fcalculator_workspace.h"
+#include "state.h"
 
 #include <cstddef>
-#include <cstdint>
-#include <vector>
 #include <random>
+#include <vector>
 
 class FCalculator {
 private:
@@ -24,36 +25,26 @@ private:
     const FreeEnergy& free_energy_;
     const TransportCoefficient& transport_coefficient_;
 
+    DynamicsMode dynamics_mode_;
+    PhysicalRHSFieldRequests physical_field_requests_;
+
     int num_order_parameters_ = 0;
     std::size_t local_spectral_size_ = 0;
 
-    // for noise
+    mutable FCalculatorWorkspace workspace_;
+
     mutable std::mt19937_64 noise_rng_;
     mutable std::normal_distribution<double> normal_noise_;
 
-    // for ifft plan
-    bool is_quiescent_time_evolution() const;
-    bool is_incompressible_time_evolution() const;
-    bool is_compressible_time_evolution() const;
-    PhysicalRHSPlan physical_rhs_plan_;
-    PhysicalRHSPlan make_physical_rhs_plan() const;
-    PhysicalFieldRequestPlan make_psi_det_physical_request() const;
-    PhysicalFieldRequestPlan make_j_det_physical_request() const;
-
-    void clear(Complex* out) const;
-    mutable FCalculatorWorkspace workspace_;
-    
-    // for nonlinear term
-    mutable const State* psi_nonlinear_state_ = nullptr;
-    mutable double psi_nonlinear_time_ = 0.0;
-    mutable bool psi_nonlinear_rhs_ready_ = false;
-    mutable std::vector<Complex> psi_nonlinear_rhs_;
-    mutable std::vector<double> psi_point_;
-
     static int temporary_field_capacity(const Params& params);
+    void clear(Complex* out) const;
 
-    void ensure_psi_nonlinear_rhs(const State& current, double time) const;
-
+    void add_order_parameter_linear_term(int order_parameter, double mobility, const State& current, Complex* out) const;
+    void add_order_parameter_physical_terms(int order_parameter, double mobility, const State& current, Complex* out, double time) const;
+    void add_linear_pressure_term(double pressure_coefficient, const State& current, Complex* out_jx, Complex* out_jy) const;
+    void add_incompressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy) const;
+    void add_compressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time) const;
+    void add_momentum_physical_terms(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time) const;
 
 public:
     FCalculator(

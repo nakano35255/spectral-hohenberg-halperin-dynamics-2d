@@ -2,6 +2,8 @@
 #define SFI_FCALCULATOR_WORKSPACE_H
 
 #include "domain.h"
+#include "fcalculator_dynamics_mode.h"
+#include "fcalculator_field_requests_and_layout.h"
 #include "fourier_transform.h"
 #include "simulationinfo.h"
 #include "state.h"
@@ -9,40 +11,13 @@
 #include <cstddef>
 #include <vector>
 
-struct PhysicalFieldRequestPlan {
-     bool need_psi = false;
-     bool need_rho = false;
-     bool need_j = false;
-     bool need_velocity = false;
-
-     bool any() const {
-          return need_psi || need_rho || need_j || need_velocity;
-     }
-};
-
-struct PhysicalRHSPlan {
-     PhysicalFieldRequestPlan psi_det;
-     PhysicalFieldRequestPlan j_det;
-};
-
-struct PhysicalFieldOffsets {
-     int psi = -1;
-     int rho = -1;
-     int jx = -1;
-     int jy = -1;
-     int vx = -1;
-     int vy = -1;
-};
-
 class FCalculatorWorkspace {
 private:
      const Domain2D& domain_;
-     const Params& params_;
      FourierTransform2D fourier_;
 
-     PhysicalRHSPlan physical_rhs_plan_;
-     PhysicalFieldRequestPlan request_;
-     PhysicalFieldOffsets offsets_;
+     DynamicsMode dynamics_mode_;
+     PhysicalFieldLayout field_layout_;
 
      int num_order_parameters_ = 0;
      int temporary_field_capacity_ = 0;
@@ -50,18 +25,10 @@ private:
      std::size_t local_physical_size_ = 0;
      std::size_t local_spectral_size_ = 0;
 
-     int ntransform_ = 0;
-     int nphysical_ = 0;
-
-     bool is_quiescent_ = false;
-     bool is_incompressible_ = false;
-     bool is_compressible_ = false;
-
      const State* cached_state_ = nullptr;
      double cached_time_ = 0.0;
      bool physical_fields_ready_ = false;
 
-     bool reference_density_needed_ = false;
      bool reference_density_ready_ = false;
      double reference_density_ = 0.0;
 
@@ -75,7 +42,8 @@ public:
      FCalculatorWorkspace(
           const Domain2D& domain,
           const Params& params,
-          const PhysicalRHSPlan& physical_rhs_plan,
+          DynamicsMode dynamics_mode,
+          const PhysicalRHSFieldRequests& physical_field_requests,
           int temporary_field_capacity
      );
 
