@@ -17,7 +17,7 @@ model thermo linear_eos
 model thermo coeff cT 10.0
 
 model free_energy phi4
-model free_energy coeff k0[0] -3.0 k2[0] 1.0 phi4[0] 1.0
+model free_energy coeff a[0] -3.0 b[0] 1.0 u[0] 1.0
 
 model transport constant eta 1.0
 model transport coeff zeta 1.0 M[0,0] 0.5
@@ -49,7 +49,7 @@ model transport constant zeta 1.0
 のように `model <category> <type>` を再度指定すると、そのカテゴリの設定はデフォルト値から作り直されます。
 この例では、2行目で `eta` はデフォルト値 `0.0` に戻ります。
 
-既存のモデルに係数を足していきたい場合は、次のように書きます。
+既存のモデルの係数を追加・更新したい場合は、次のように書きます。
 
 ```sh
 model transport constant eta 1.0

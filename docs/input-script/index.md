@@ -99,7 +99,7 @@ time_evolution      srk3/compressible
 
 # 3. models
 model thermo        linear_eos cT 10.0
-model free_energy   phi4 k0[0] -3.0 k2[0] 1.0 phi4[0] 1.0
+model free_energy   phi4 a[0] -3.0 b[0] 1.0 u[0] 1.0
 model transport     constant eta 1.0 zeta 1.0 M[0,0] 1.0
 
 # 4. optional terms
@@ -229,7 +229,7 @@ order_parameters    1
 timestep            0.005
 time_evolution      srk3/quiescent
 
-model free_energy   phi4 k0[0] -3.0 k2[0] 1.0 phi4[0] 1.0
+model free_energy   phi4 a[0] -3.0 b[0] 1.0 u[0] 1.0
 model transport     constant M[0,0] 1.0
 
 fix                 1 all noise on seed 12345 kBT 1.0

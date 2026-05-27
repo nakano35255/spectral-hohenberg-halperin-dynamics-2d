@@ -17,7 +17,7 @@ if (!exists("DT"))     DT     = 1.0e-3
 if (!exists("NX")) NX = 128
 if (!exists("NY")) NY = 128
 
-# For k0=-3, phi4=1, the homogeneous minima are psi = +/- sqrt(3).
+# For a=-3, u=1, the homogeneous minima are psi = +/- sqrt(3).
 if (!exists("CBMIN")) CBMIN = -sqrt(3.0)
 if (!exists("CBMAX")) CBMAX =  sqrt(3.0)
 

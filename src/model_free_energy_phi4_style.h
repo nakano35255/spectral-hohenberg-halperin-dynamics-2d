@@ -20,9 +20,9 @@ namespace phi4_free_energy {
 
 struct Phi4FreeEnergyCommand : FreeEnergyCommandBase {
     int num_order_parameters = 0;
-    std::vector<double> k0;
-    std::vector<double> k2;
-    std::vector<double> phi4;
+    std::vector<double> a;
+    std::vector<double> b;
+    std::vector<double> u;
 
     void print(std::ostream& os) const override {
         os << "  "
@@ -31,9 +31,9 @@ struct Phi4FreeEnergyCommand : FreeEnergyCommandBase {
 
         for (int q = 0; q < num_order_parameters; ++q) {
             const std::size_t index = static_cast<std::size_t>(q);
-            os << " k0[" << q << "] " << k0[index]
-               << " k2[" << q << "] " << k2[index]
-               << " phi4[" << q << "] " << phi4[index];
+            os << " a[" << q << "] " << a[index]
+               << " b[" << q << "] " << b[index]
+               << " u[" << q << "] " << u[index];
         }
 
         os << '\n';
@@ -76,9 +76,9 @@ public:
         auto cmd = std::make_shared<Phi4FreeEnergyCommand>();
         cmd->type = phi4_free_energy::TYPE_NAME;
         cmd->num_order_parameters = params.physics.num_order_parameters;
-        cmd->k0.assign(static_cast<std::size_t>(cmd->num_order_parameters), 0.0);
-        cmd->k2.assign(static_cast<std::size_t>(cmd->num_order_parameters), 0.0);
-        cmd->phi4.assign(static_cast<std::size_t>(cmd->num_order_parameters), 0.0);
+        cmd->a.assign(static_cast<std::size_t>(cmd->num_order_parameters), 0.0);
+        cmd->b.assign(static_cast<std::size_t>(cmd->num_order_parameters), 0.0);
+        cmd->u.assign(static_cast<std::size_t>(cmd->num_order_parameters), 0.0);
         return cmd;
     }
 
@@ -92,30 +92,30 @@ public:
             int order_parameter = -1;
             const double value = std::stod(kv.second);
 
-            if (parse_indexed_key(kv.first, "k0", order_parameter)) {
+            if (parse_indexed_key(kv.first, "a", order_parameter)) {
                 if (order_parameter < 0 || order_parameter >= cmd->num_order_parameters) {
                     throw std::runtime_error("model free_energy phi4 coefficient index out of range: " + kv.first);
                 }
-                cmd->k0[static_cast<std::size_t>(order_parameter)] = value;
+                cmd->a[static_cast<std::size_t>(order_parameter)] = value;
                 continue;
             }
 
-            if (parse_indexed_key(kv.first, "k2", order_parameter)) {
+            if (parse_indexed_key(kv.first, "b", order_parameter)) {
                 if (order_parameter < 0 || order_parameter >= cmd->num_order_parameters) {
                     throw std::runtime_error("model free_energy phi4 coefficient index out of range: " + kv.first);
                 }
-                cmd->k2[static_cast<std::size_t>(order_parameter)] = value;
+                cmd->b[static_cast<std::size_t>(order_parameter)] = value;
                 continue;
             }
 
-            if (parse_indexed_key(kv.first, "phi4", order_parameter)) {
+            if (parse_indexed_key(kv.first, "u", order_parameter)) {
                 if (order_parameter < 0 || order_parameter >= cmd->num_order_parameters) {
                     throw std::runtime_error("model free_energy phi4 coefficient index out of range: " + kv.first);
                 }
                 if (value < 0.0) {
                     throw std::runtime_error("model free_energy phi4 requires nonnegative " + kv.first + ".");
                 }
-                cmd->phi4[static_cast<std::size_t>(order_parameter)] = value;
+                cmd->u[static_cast<std::size_t>(order_parameter)] = value;
                 continue;
             }
 
@@ -133,9 +133,9 @@ public:
 
         return std::make_unique<Phi4FreeEnergy>(
             cmd->num_order_parameters,
-            cmd->k0,
-            cmd->k2,
-            cmd->phi4
+            cmd->a,
+            cmd->b,
+            cmd->u
         );
     }
 };

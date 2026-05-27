@@ -60,7 +60,7 @@
 また、時間積分スキーム、初期条件、および観測量の出力は、入力スクリプトから柔軟に設定・切り替えが可能です。
 
 > [!NOTE]
-> **詳細なマニュアル、各コマンドの仕様、チュートリアルについては [Wiki (WIKI.md)](WIKI.md) をご覧ください。**
+> **方程式と符号規約については [docs/equations.md](docs/equations.md)、各コマンドの仕様については [docs/input-script/index.md](docs/input-script/index.md) をご覧ください。**
 
 
 ## 主な機能
@@ -118,11 +118,10 @@ mpirun -np 2 ./src/out.exe path/to/input.script
 
 ## ドキュメント
 
-- [WIKI.md](WIKI.md)
 - [方程式と符号規約](docs/equations.md)
 - [ビルド方法](docs/build.md)
 - [入力スクリプト仕様](docs/input-script/index.md)
-- [新しい機能の追加手順](docs/developer/user-add.md)
+- [開発環境の準備](dev_env/README.md)
 
 
 ## ライセンス

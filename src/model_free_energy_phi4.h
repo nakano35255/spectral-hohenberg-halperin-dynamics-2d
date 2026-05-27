@@ -7,17 +7,17 @@
 
 class Phi4FreeEnergy : public FreeEnergy {
 private:
-    std::vector<double> k0_;
-    std::vector<double> k2_;
-    std::vector<double> phi4_;
+    std::vector<double> a_;
+    std::vector<double> b_;
+    std::vector<double> u_;
     bool has_physical_chemical_potential_ = false;
 
 public:
     Phi4FreeEnergy(
         int num_order_parameters,
-        std::vector<double> k0,
-        std::vector<double> k2,
-        std::vector<double> phi4
+        std::vector<double> a,
+        std::vector<double> b,
+        std::vector<double> u
     );
 
     double chemical_potential_k0_coefficient(int order_parameter) const override;

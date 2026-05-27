@@ -44,7 +44,7 @@ private:
         if (key.size() < 4 || key.back() != ']') {
             return false;
         }
-        if (!(key.rfind("a[", 0) == 0 || key.rfind("A[", 0) == 0)) {
+        if (key.rfind("a[", 0) != 0) {
             return false;
         }
 
