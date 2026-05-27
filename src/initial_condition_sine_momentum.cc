@@ -1,6 +1,7 @@
 #include "initial_condition_sine_momentum.h"
 #include "initial_condition_sine_momentum_style.h"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace {
@@ -43,6 +44,7 @@ void SineMomentumInitialCondition::apply(
     if (direction_ == 0) momentum = state.jx_hat_data();
     else if (direction_ == 1) momentum = state.jy_hat_data();
     else throw std::runtime_error("SineMomentumInitialCondition: direction must be 0 or 1.");
+    std::fill(momentum, momentum + domain.spectral_size(), Complex(0.0, 0.0));
 
     for (const SpectralMode2D& mode : spectral_mask.active_modes()) {
         if (mode.gx == 0 && mode.gy == 0) {
@@ -50,11 +52,11 @@ void SineMomentumInitialCondition::apply(
         }
 
         if (mode.gx == nkx_ && mode.gy == ky) {
-            momentum[mode.index] += positive_mode;
+            momentum[mode.index] = positive_mode;
         }
 
         if (conjugate_ky != ky && mode.gx == nkx_ && mode.gy == conjugate_ky) {
-            momentum[mode.index] += std::conj(positive_mode);
+            momentum[mode.index] = std::conj(positive_mode);
         }
     }
 }

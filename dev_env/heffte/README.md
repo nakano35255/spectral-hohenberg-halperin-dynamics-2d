@@ -47,7 +47,7 @@ From inside the Docker container, at the repository root:
 
 ```bash
 make -C dev_env/heffte
-make -C dev_env/heffte run
+mpirun --allow-run-as-root -np 2 dev_env/heffte/out.exe
 ```
 
 To inspect the include and library paths:

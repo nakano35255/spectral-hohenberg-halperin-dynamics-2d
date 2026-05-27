@@ -166,7 +166,7 @@ From inside the container, at the repository root:
 
 ```bash
 make -C dev_env/docker
-make -C dev_env/docker run
+mpirun --allow-run-as-root -np 4 dev_env/docker/out.exe
 ```
 
 To inspect the paths used by the Makefile:

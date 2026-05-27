@@ -1,6 +1,7 @@
 #include "initial_condition_uniform_order_parameter.h"
 #include "initial_condition_uniform_order_parameter_style.h"
 
+#include <algorithm>
 #include <stdexcept>
 
 UniformOrderParameterInitialCondition::UniformOrderParameterInitialCondition(
@@ -25,6 +26,7 @@ void UniformOrderParameterInitialCondition::apply(
     const double amplitude = value_ * static_cast<double>(domain.nx_global()) * static_cast<double>(domain.ny_global());
 
     Complex* psi = state.psi_hat_data(component_);
+    std::fill(psi, psi + domain.spectral_size(), Complex(0.0, 0.0));
 
     for (const SpectralMode2D& mode : spectral_mask.active_modes()) {
         if (mode.gx == 0 && mode.gy == 0) {

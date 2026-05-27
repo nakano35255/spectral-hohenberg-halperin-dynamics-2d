@@ -1,6 +1,7 @@
 #include "initial_condition_uniform_momentum.h"
 #include "initial_condition_uniform_momentum_style.h"
 
+#include <algorithm>
 #include <stdexcept>
 
 
@@ -26,6 +27,7 @@ void UniformMomentumInitialCondition::apply(
     if (direction_ == 0) momentum = state.jx_hat_data();
     else if (direction_ == 1) momentum = state.jy_hat_data();
     else throw std::runtime_error("UniformMomentumInitialCondition: direction must be 0 or 1.");
+    std::fill(momentum, momentum + domain.spectral_size(), Complex(0.0, 0.0));
 
     for (const SpectralMode2D& mode : spectral_mask.active_modes()) {
         if (mode.gx == 0 && mode.gy == 0) {

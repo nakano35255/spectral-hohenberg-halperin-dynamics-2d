@@ -1,134 +1,130 @@
-# Spectral Fluctuating Isothermal Fluid
+# Spectral Hohenberg-Halperin Dynamics 2D
 
-本リポジトリは、2次元・等温・多成分混合流体の「揺らぐ流体力学（Fluctuating Hydrodynamics, FHD）方程式」を解くための数値計算ソルバーです。熱揺らぎを含む流体の挙動を、周期境界条件を持つ長方形領域 $\Omega = [0, L_x) \times [0, L_y)$ において疑似スペクトル法を用いて高精度にシミュレーションすることを目的としています。
+本リポジトリは、2次元周期領域上の Hohenberg-Halperin 型の確率的場のダイナミクスと、等温の揺らぐ Navier-Stokes 型ダイナミクスを、Fourier 擬スペクトル法で時間発展させるための C++/MPI ソルバーです。
 
-本ソルバーのアーキテクチャは、理想気体から、強い非理想性を持つ実在液体混合物まで、幅広い非線形な物性モデルをシームレスに拡張できるよう設計されています。
+## 概要
 
-
-## 支配方程式 (Governing Equations)
-
-本ソルバーは、$N$ 成分の質量密度 $\rho_k(\boldsymbol{x}, t)$ および、全運動量密度 $\boldsymbol{j}(\boldsymbol{x}, t)$ を基礎変数として時間発展を行います。
-全密度を $\rho = \sum_{k=1}^N \rho_k$、流速を $\boldsymbol{v} = \frac{\boldsymbol{j}}{\rho}$ と定義します。
-
-### 1. 連続の式（成分質量の保存）
-
-各成分 $k$ の密度は、移流と拡散（決定論的および確率的）によって変化します。
+本ソルバーは、2次元周期境界条件
 
 ```math
-\frac{\partial \rho_k}{\partial t} = -\nabla \cdot (\rho_k \boldsymbol{v}) + \nabla \cdot \boldsymbol{F}_k + \nabla \cdot \widetilde{\boldsymbol{F}}_k
+\Omega = [0, L_x) \times [0, L_y)
 ```
 
-### 2. 運動量方程式
+のもとで、以下の場を時間発展させます。
 
-全運動量密度は、移流、圧力勾配、および粘性応力（決定論的および確率的）によって変化します。
+- 密度場 $\rho(\boldsymbol{x}, t)$
+- 運動量密度場 $\boldsymbol{j}(\boldsymbol{x}, t)$ 
+- $N$ 成分スカラー場 $\psi_{\alpha}(\boldsymbol{x}, t)$ ( $\alpha = 0,1,\cdots,N-1$ )
+
+具体的には、以下の確率偏微分方程式を数値的に解きます。
 
 ```math
-\frac{\partial \boldsymbol{j}}{\partial t} = -\nabla \cdot (\boldsymbol{j} \otimes \boldsymbol{v}) - \nabla p + \nabla \cdot \boldsymbol{\tau} + \nabla \cdot \widetilde{\boldsymbol{\Sigma}}
+\partial_t \rho = -\nabla \cdot \boldsymbol{j}
+```
+```math
+\partial_t \boldsymbol{j} = -\nabla \cdot (\boldsymbol{j} \otimes \boldsymbol{v}) - \nabla p + \eta \nabla^2 \boldsymbol{v} + \zeta \nabla (\nabla \cdot \boldsymbol{v}) + \nabla \cdot \widetilde{\boldsymbol{\Sigma}}
+```
+```math
+\partial_t \psi_{\alpha} = -\nabla \cdot (\psi_{\alpha} \boldsymbol{v}) + M_{\alpha} \nabla^2 \mu_{\alpha} + \nabla \cdot \widetilde{\boldsymbol{F}}_{\alpha}
 ```
 
-## 物理モデルの詳細
-
-### 熱力学と状態方程式 (Thermodynamics & EOS)
-
-すべての熱力学変数は、体積あたりのヘルムホルツ自由エネルギー密度 $f(\rho_1, \dots, \rho_N)$ から一貫して導出されます。これにより、ギブス・デュエムの式 $\nabla p = \sum_{k=1}^N \rho_k \nabla \mu_k$ が満たされ、熱力学的整合性が保証されます。
-
-- 化学ポテンシャル: $\mu_k = \frac{\partial f}{\partial \rho_k}$
-- 熱力学的圧力: $p = -f + \sum_{k=1}^N \rho_k \mu_k$
-
-**【ベースラインモデル：理想気体混合物】**
-
-等温の理想気体混合物（$k_B$: ボルツマン定数, $T$: 絶対温度, $m_k$: 分子質量, $\rho_{k0}$: 基準密度）をデフォルトとしています。
+ここで、速度場 $\boldsymbol{v}(\boldsymbol{x},t)$ は
 
 ```math
-f = k_B T \sum_{k=1}^N \frac{\rho_k}{m_k} \left[ \ln\left(\frac{\rho_k}{\rho_{k0}}\right) - 1 \right]
+\boldsymbol{v}(\boldsymbol{x},t) = \frac{\boldsymbol{j}(\boldsymbol{x},t)}{\rho(\boldsymbol{x},t)}
 ```
 
-対応する化学ポテンシャルと圧力は次のように与えられます。
+によって定義されます。
+
+現在の実装では、スカラー場の移動度 $M_{\alpha}$、せん断粘性 $\eta$、体積粘性 $\zeta$ は空間的に一様な定数として扱い、ノイズは加法的な白色ガウスノイズとして導入します。
+スカラー場の確率フラックスの統計性は以下で与えられます。
 
 ```math
-\mu_k = \frac{k_B T}{m_k} \ln\left(\frac{\rho_k}{\rho_{k0}}\right)
+\left\langle \widetilde{F}_{\alpha,a}(\boldsymbol{x},t) \widetilde{F}_{\beta,b}(\boldsymbol{x}',t') \right\rangle
+=
+2 k_B T M_{\alpha} \delta_{\alpha\beta}\delta_{ab} \delta(\boldsymbol{x}-\boldsymbol{x}') \delta(t-t')
 ```
+
+確率応力テンソルの統計性は以下で与えられます。
 
 ```math
-p = k_B T \sum_{k=1}^N \frac{\rho_k}{m_k}
+\left\langle \widetilde{\Sigma}_{ab}(\boldsymbol{x},t) \widetilde{\Sigma}_{cd}(\boldsymbol{x}',t') \right\rangle
+=
+2 k_B T \left[\eta(\delta_{ac}\delta_{bd}+\delta_{ad}\delta_{bc}) + (\zeta-\eta)\delta_{ab}\delta_{cd} \right]
+\delta(\boldsymbol{x}-\boldsymbol{x}') \delta(t-t')
 ```
 
-**【拡張性：非理想液体への対応】**
+ここで、$a,b \in \{x,y\}$ は空間方向を表します。
 
-アルコール水溶液などの実在液体を扱う場合、自由エネルギーに Redlich-Kister 多項式などの「過剰自由エネルギー（Excess Free Energy）」を追加することで、活量係数を伴う非線形な熱力学モデルへと容易に拡張可能です。
+圧力 $p$ および各成分の化学ポテンシャル $\mu_{\alpha}$ は、ユーザーがコードに独自の定義を容易に追加できる設計となっています。
+また、時間積分スキーム、初期条件、および観測量の出力は、入力スクリプトから柔軟に設定・切り替えが可能です。
+
+> [!NOTE]
+> **詳細なマニュアル、各コマンドの仕様、チュートリアルについては [Wiki (WIKI.md)](WIKI.md) をご覧ください。**
 
 
-### 成分拡散フラックス (Species Diffusion)
+## 主な機能
 
-化学ポテンシャル勾配を駆動力とし、オンサーガーの移動度行列 $L_{kl}(\boldsymbol{\rho})$ を介して拡散フラックスが決まります。質量保存則を満たすため、$\sum_{k=1}^N L_{kl} = 0$ が課されます。
+- 2次元周期境界条件
+- 多成分オーダーパラメータ対応（スカラー場が0成分の場合は揺らぐNavier-Stokes方程式に帰着）
+- 圧力 / 化学ポテンシャルのユーザー定義および追加実装が容易なアーキテクチャ
+- 圧縮性 / 非圧縮性 / 静止流体モードの切り替え
+- heFFTeを用いたMPI並列
+- Fourierスペクトル法による空間微分
+- 3/2ルール（padding）を用いた擬スペクトル法による非線形項評価
+- 時間積分スキーム: Euler法、SRK3法（確率的Runge-Kutta法）
+- 保存型加法ノイズ
+- 観測量出力: `snapshot`
+- 今後の実装予定 (Future works): リスタート機能（状態の保存と読み込み）
 
-```math
-\boldsymbol{F}_k = \sum_{l=1}^N L_{kl} \nabla \mu_l
+
+## 必要環境
+
+- C++17対応コンパイラ
+- MPI
+- FFTW3
+- heFFTe
+
+必要環境の準備については [dev_env/README.md](dev_env/README.md) も参照してください。
+Dockerを用いたローカル開発環境の構築セットも dev_env ディレクトリに同梱されています。
+
+
+## ビルド
+
+ビルド方法の詳細は [docs/build.md](docs/build.md) に記載しています。
+
+通常はリポジトリ直下で以下を実行します。
+
+```sh
+make
 ```
 
-ここでは、連続の式に現れる $+\nabla \cdot \boldsymbol{F}_k$ に合わせて
-$\boldsymbol{F}_k$ の符号を定義しています。
+このコマンドにより、`mpic++` を用いて実行ファイル `src/out.exe` が生成されます。
 
-**【ベースラインモデル：2成分理想拡散】**
 
-相互拡散係数 $D$ を用いたベースラインは以下の通りです。
+## 実行
 
-```math
-L_{11} = L_{22} = -L_{12} = -L_{21} = \frac{m_1 m_2 \rho_1 \rho_2}{k_B T (m_1 \rho_2 + m_2 \rho_1)} D
+作成した実行ファイルに、入力スクリプトのパスを引数として渡して実行します。
+
+```sh
+./src/out.exe path/to/input.script
 ```
 
-【拡張性：実在液体の複雑な拡散】
+MPIを用いた並列計算を行う場合は、以下のように実行します（例: 2プロセス）。
 
-非理想液体では、熱力学的因子（活量係数の対数微分）や、Vignes則に基づく指数関数的な拡散係数の変化が現れます。本ソルバーは物性値評価を独立させているため、これらの複雑な対数・指数・べき乗モデルをそのまま組み込むことができます。
-
-### 粘性応力 (Viscous Stress)
-
-せん断粘性を $\eta(\boldsymbol{\rho})$、体積粘性を $\zeta(\boldsymbol{\rho})$ とします。2次元における決定論的な粘性応力テンソルは以下の通りです。
-
-```math
-\tau_{xx} = 2 \eta \frac{\partial v_x}{\partial x} + (\zeta - \eta) (\nabla \cdot \boldsymbol{v})
+```sh
+mpirun -np 2 ./src/out.exe path/to/input.script
 ```
 
-```math
-\tau_{yy} = 2 \eta \frac{\partial v_y}{\partial y} + (\zeta - \eta) (\nabla \cdot \boldsymbol{v})
-```
+## ドキュメント
 
-```math
-\tau_{xy} = \tau_{yx} = \eta \left( \frac{\partial v_x}{\partial y} + \frac{\partial v_y}{\partial x} \right)
-```
+- [WIKI.md](WIKI.md)
+- [方程式と符号規約](docs/equations.md)
+- [ビルド方法](docs/build.md)
+- [入力スクリプト仕様](docs/input-script/index.md)
+- [新しい機能の追加手順](docs/developer/user-add.md)
 
-**【ベースラインモデル：単原子理想気体】**
 
-気体分子運動論に基づき、等温理想気体におけるせん断粘性は密度に依存しない定数 $\eta_0$ とし、体積粘性はゼロ（ストークスの仮説）とします。$$\eta(\boldsymbol{\rho}) = \eta_0, \quad \zeta(\boldsymbol{\rho}) = 0$$
+## ライセンス
 
-**【拡張性：実在液体の非線形粘性】**
-
-ガラス形成液体やアルコール水溶液などでは、粘性が密度や濃度に対して指数関数的（Doolittle式）や対数的（Grunberg-Nissan式）に増大します。本アーキテクチャでは、これらの極めて強い非線形性も物理空間で安定して評価可能です。
-
-### 確率的フラックスと応力ノイズ (Stochastic Terms)
-
-熱力学第二法則（半正定値性）を満たすよう、独立な標準正規分布ノイズ $\boldsymbol{W}_m$ および $\xi$ を用いて構成します。スケーリング係数を $C = \sqrt{\frac{2 k_B T}{\Delta V \Delta t}}$ とします（$\Delta V$: セル体積, $\Delta t$: 時間刻み）。
-
-**質量フラックスノイズ:**
-
-コレスキー分解行列 $B$ （$L_{kl} = \sum_m B_{km} B_{lm}$）を用いて構成します。
-
-```math
-\widetilde{\boldsymbol{F}}_k = C \sum_{m=1}^{N-1} B_{km} \boldsymbol{W}_m
-```
-
-**応力テンソルノイズ:**
-
-$\eta \ge 0, \zeta \ge 0$ の熱力学的制約下で半正定値性が明示されるよう、等方成分と偏差成分に分解して構成します。
- 
-```math
-\widetilde{\Sigma}_{xx} = C \left( \sqrt{\zeta}\,\xi_1 + \sqrt{\eta}\,\xi_2 \right)
-```
-
-```math
-\widetilde{\Sigma}_{yy} = C \left( \sqrt{\zeta}\,\xi_1 - \sqrt{\eta}\,\xi_2 \right)
-```
-
-```math
-\widetilde{\Sigma}_{xy} = \widetilde{\Sigma}_{yx} = C \sqrt{\eta}\,\xi_3
-```
+このプロジェクトは MIT License のもとで公開されています。詳細は [LICENSE](LICENSE) を参照してください。

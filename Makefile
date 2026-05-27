@@ -6,7 +6,7 @@ LDLIBS := -lheffte \
           -lfftw3f_mpi -lfftw3f \
           -lfftw3l_mpi -lfftw3l
 
-TARGET := out.exe
+TARGET := src/out.exe
 SRCS := \
 	src/main.cc \
 	src/buffer_physical_state.cc \
@@ -39,17 +39,12 @@ SRCS := \
 	src/state.cc \
 	src/simulationinfo.cc
 
-INPUT ?= examples/01_phi4_phase_separation/input.script
-
-.PHONY: all run clean
+.PHONY: all clean
 
 all: $(TARGET)
 
 $(TARGET): $(SRCS)
 	$(CXX) $(CXXFLAGS) $(SRCS) $(LDFLAGS) $(LDLIBS) -o $@
-
-run: $(TARGET)
-	./$(TARGET) $(INPUT)
 
 clean:
 	rm -f $(TARGET)

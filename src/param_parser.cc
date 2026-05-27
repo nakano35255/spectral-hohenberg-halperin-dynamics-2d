@@ -356,7 +356,8 @@ void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
 
             if (target == "all") {
                 params.fix.momentum_advection = enabled;
-                params.fix.order_parameter_advection = enabled;
+                params.fix.order_parameter_advection =
+                    enabled && params.physics.num_order_parameters > 0;
                 saw_target = true;
                 continue;
             }

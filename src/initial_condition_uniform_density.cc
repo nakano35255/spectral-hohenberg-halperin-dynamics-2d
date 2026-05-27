@@ -1,6 +1,7 @@
 #include "initial_condition_uniform_density.h"
 #include "initial_condition_uniform_density_style.h"
 
+#include <algorithm>
 
 UniformDensityInitialCondition::UniformDensityInitialCondition(const Params& params, std::shared_ptr<const DensityInitialConditionCommandBase> command) :
     DensityInitialCondition(params, command)
@@ -21,6 +22,7 @@ void UniformDensityInitialCondition::apply(
     const double amplitude = value_ * static_cast<double>(domain.nx_global()) * static_cast<double>(domain.ny_global());
 
     Complex* rho = state.rho_hat_data();
+    std::fill(rho, rho + domain.spectral_size(), Complex(0.0, 0.0));
 
     for (const SpectralMode2D& mode : spectral_mask.active_modes()) {
         if (mode.gx == 0 && mode.gy == 0) {

@@ -1,6 +1,7 @@
 #include "initial_condition_gaussian_density.h"
 #include "initial_condition_gaussian_density_style.h"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
@@ -42,6 +43,7 @@ void GaussianDensityInitialCondition::apply(
     const double gaussian_prefactor = amplitude_ * grid_size * 2.0 * PI * sigma_x_ * sigma_y_ / (lx * ly);
 
     Complex* rho = state.rho_hat_data();
+    std::fill(rho, rho + domain.spectral_size(), Complex(0.0, 0.0));
 
     for (const SpectralMode2D& spectral_mode : spectral_mask.active_modes()) {
         const int gx = spectral_mode.gx;

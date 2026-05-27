@@ -1,6 +1,7 @@
 #include "initial_condition_sine_order_parameter.h"
 #include "initial_condition_sine_order_parameter_style.h"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace {
@@ -40,6 +41,7 @@ void SineOrderParameterInitialCondition::apply(
     const Complex positive_mode(0.0, -0.5 * amplitude_ * grid_size);
 
     Complex* psi = state.psi_hat_data(component_);
+    std::fill(psi, psi + domain.spectral_size(), Complex(0.0, 0.0));
 
     for (const SpectralMode2D& mode : spectral_mask.active_modes()) {
         if (mode.gx == 0 && mode.gy == 0) {
@@ -47,11 +49,11 @@ void SineOrderParameterInitialCondition::apply(
         }
 
         if (mode.gx == nkx_ && mode.gy == ky) {
-            psi[mode.index] += positive_mode;
+            psi[mode.index] = positive_mode;
         }
 
         if (conjugate_ky != ky && mode.gx == nkx_ && mode.gy == conjugate_ky) {
-            psi[mode.index] += std::conj(positive_mode);
+            psi[mode.index] = std::conj(positive_mode);
         }
     }
 }

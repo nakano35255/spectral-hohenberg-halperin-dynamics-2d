@@ -13,8 +13,13 @@ environment.
 From inside the Docker container, at the repository root:
 
 ```bash
-make -C dev_env/docker clean run
-make -C dev_env/heffte clean run
+make -C dev_env/docker clean
+make -C dev_env/docker
+mpirun --allow-run-as-root -np 4 dev_env/docker/out.exe
+
+make -C dev_env/heffte clean
+make -C dev_env/heffte
+mpirun --allow-run-as-root -np 2 dev_env/heffte/out.exe
 ```
 
 Expected output includes:

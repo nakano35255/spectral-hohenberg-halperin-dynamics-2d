@@ -1,6 +1,7 @@
 #include "initial_condition_sine_density.h"
 #include "initial_condition_sine_density_style.h"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace {
@@ -40,6 +41,7 @@ void SineDensityInitialCondition::apply(
     const Complex positive_mode(0.0, -0.5 * amplitude_ * grid_size);
 
     Complex* rho = state.rho_hat_data();
+    std::fill(rho, rho + domain.spectral_size(), Complex(0.0, 0.0));
 
     for (const SpectralMode2D& mode : spectral_mask.active_modes()) {
         if (mode.gx == 0 && mode.gy == 0) {
@@ -47,11 +49,11 @@ void SineDensityInitialCondition::apply(
         }
 
         if (mode.gx == nkx_ && mode.gy == ky) {
-            rho[mode.index] += positive_mode;
+            rho[mode.index] = positive_mode;
         }
 
         if (conjugate_ky != ky && mode.gx == nkx_ && mode.gy == conjugate_ky) {
-            rho[mode.index] += std::conj(positive_mode);
+            rho[mode.index] = std::conj(positive_mode);
         }
     }
 }
