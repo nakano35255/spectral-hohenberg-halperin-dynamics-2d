@@ -5,6 +5,8 @@ src/*.o
 dev_env/out.exe
 dev_env/docker/out.exe
 dev_env/heffte/out.exe
+__pycache__/
+*.pyc
 
 # Simulation outputs
 *.snapshot

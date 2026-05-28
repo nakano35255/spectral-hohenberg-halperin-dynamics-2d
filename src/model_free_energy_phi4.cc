@@ -54,3 +54,15 @@ double Phi4FreeEnergy::physical_chemical_potential(
     return u_[static_cast<std::size_t>(order_parameter)] * value * value * value;
 }
 // ---------------------------------------------------------------------- //
+double Phi4FreeEnergy::physical_free_energy_density(const double* psi) const {
+    double density = 0.0;
+
+    for (int order_parameter = 0; order_parameter < num_order_parameters(); ++order_parameter) {
+        const double value = psi[order_parameter];
+        const double value2 = value * value;
+        density += 0.25 * u_[static_cast<std::size_t>(order_parameter)] * value2 * value2;
+    }
+
+    return density;
+}
+// ---------------------------------------------------------------------- //

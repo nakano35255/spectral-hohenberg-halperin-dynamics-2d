@@ -43,11 +43,7 @@ f(\boldsymbol{x}) = \sum_{\boldsymbol{k}} \hat{f}_{\boldsymbol{k}} \exp(i\boldsy
 ## 2. 支配方程式（動作モード）
 
 対象とする物理系に応じ、3つの動作モード（圧縮性・非圧縮性・静止流体）を選択可能です。
-モードの選択については
-
-- [モード選択](WIKI.md)
-
-を参照してください。
+モードの選択については [入力スクリプト仕様の `time_evolution`](input-script/time_evolution.md) を参照してください。
 
 
 ### 2.1 圧縮性モード

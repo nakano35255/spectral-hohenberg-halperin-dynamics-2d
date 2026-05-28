@@ -25,6 +25,8 @@ public:
 
     bool has_physical_chemical_potential() const override;
     double physical_chemical_potential(int order_parameter, const double* psi) const override;
+
+    double physical_free_energy_density(const double* psi) const override;
 };
 
 #endif

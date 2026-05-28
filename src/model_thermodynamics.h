@@ -34,6 +34,11 @@ public:
         (void)rho;
         return 0.0;
     }
+
+    virtual double physical_thermodynamic_energy(double rho) const {
+        (void)rho;
+        return 0.0;
+    }
 };
 
 #endif

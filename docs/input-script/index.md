@@ -237,8 +237,8 @@ fix                 1 all noise on seed 12345 kBT 1.0
 set                 order_parameter 0 uniform value 0.0
 
 thermo              observe on progress on nevery 1000
-measure             phys snapshot on nevery 1000 file examples/01_phi4_phase_separation/phase_separation_physical space physical
-measure             spec snapshot on nevery 1000 file examples/01_phi4_phase_separation/phase_separation_spectral space spectral
+measure             phys snapshot on nevery 1000 file examples/02_phi4_phase_separation/phase_separation_physical space physical
+measure             spec snapshot on nevery 1000 file examples/02_phi4_phase_separation/phase_separation_spectral space spectral
 restart             off
 
 run                 200000
@@ -272,8 +272,8 @@ set                 momentum x uniform value 0.0
 set                 momentum y uniform value 0.0
 
 thermo              observe on progress on nevery 1000
-measure             phys snapshot on nevery 1000 file examples/02_compressible_navier_stokes/compressible_ns_physical space physical
-measure             spec snapshot on nevery 1000 file examples/02_compressible_navier_stokes/compressible_ns_spectral space spectral
+measure             phys snapshot on nevery 1000 file examples/09_compressible_navier_stokes/compressible_ns_physical space physical
+measure             spec snapshot on nevery 1000 file examples/09_compressible_navier_stokes/compressible_ns_spectral space spectral
 restart             off
 
 run                 50000

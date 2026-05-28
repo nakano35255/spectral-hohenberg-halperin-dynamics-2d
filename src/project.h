@@ -8,6 +8,14 @@
 #include "buffer_physical_state.h"
 #include "fourier_transform.h"
 #include "monitor.h"
+#include "model_free_energy.h"
+#include "model_free_energy_null.h"
+#include "model_free_energy_registry_builtin.h"
+#include "model_thermodynamics.h"
+#include "model_thermodynamics_null.h"
+#include "model_thermodynamics_registry_builtin.h"
+#include "model_transport_coefficient.h"
+#include "model_transport_coefficient_registry_builtin.h"
 #include "fluid_solver.h"
 #include "measure_registry_builtin.h"
 #include "measure_manager.h"
@@ -33,9 +41,11 @@ private:
     Domain2D domain;
     SpectralMask2D spectral_mask;
     State state;
-    PhysicalStateBuffer buf_physical_state;
     FourierTransform2D fourier;
 
+    std::unique_ptr<Thermodynamics> thermodynamics_;
+    std::unique_ptr<FreeEnergy> free_energy_;
+    std::unique_ptr<TransportCoefficient> transport_coefficient_;
     FluidSolver solver;
 
     MeasurementManager measurements;
@@ -44,6 +54,39 @@ private:
     int step;
     int run_index;
     double time;
+
+    static std::unique_ptr<Thermodynamics> create_thermodynamics(const Params& params) {
+        if (!params.physics.thermo) {
+            return std::make_unique<NullThermodynamics>();
+        }
+
+        ThermodynamicsRegistry registry = build_thermodynamics_registry();
+        const std::string& thermo_type = params.physics.thermo->type;
+        const ThermodynamicsStyle& style = registry.get_thermo(thermo_type);
+        return style.create(params, params.physics.thermo);
+    }
+
+    static std::unique_ptr<FreeEnergy> create_free_energy(const Params& params) {
+        if (!params.physics.free_energy) {
+            return std::make_unique<NullFreeEnergy>(params.physics.num_order_parameters);
+        }
+
+        FreeEnergyRegistry registry = build_free_energy_registry();
+        const std::string& free_energy_type = params.physics.free_energy->type;
+        const FreeEnergyStyle& style = registry.get_free_energy(free_energy_type);
+        return style.create(params, params.physics.free_energy);
+    }
+
+    static std::unique_ptr<TransportCoefficient> create_transport_coefficient(const Params& params) {
+        if (!params.physics.transport) {
+            throw std::runtime_error("Project requires model transport.");
+        }
+
+        TransportCoefficientRegistry registry = build_transport_coefficient_registry();
+        const std::string& transport_type = params.physics.transport->type;
+        const TransportCoefficientStyle& style = registry.get_transport(transport_type);
+        return style.create(params, params.physics.transport);
+    }
 
     void apply_initial_conditions() {
         state.clear();
@@ -87,7 +130,7 @@ private:
             time += params.runtime.dt;
 
             monitor.print_progress(run_index, local_step, nsteps, step, time);
-            measurements.observe(state, buf_physical_state, fourier, domain, step, time);
+            measurements.observe(state, fourier, step, time);
         }
 
         monitor.finish_run_segment(run_index, step, time);
@@ -101,10 +144,25 @@ public:
           domain(params),
           spectral_mask(domain, params),
           state(domain, params),
-          buf_physical_state(domain, params),
           fourier(domain),
-          solver(params, domain),
-          measurements(params, measure_registry),
+          thermodynamics_(create_thermodynamics(params)),
+          free_energy_(create_free_energy(params)),
+          transport_coefficient_(create_transport_coefficient(params)),
+          solver(
+              params,
+              domain,
+              *thermodynamics_,
+              *free_energy_,
+              *transport_coefficient_
+            ),
+          measurements(
+              params,
+              domain,
+              measure_registry,
+              *thermodynamics_,
+              *free_energy_,
+              *transport_coefficient_
+          ),
           monitor(params, "output.log", domain.rank() == 0),
           step(0),
           run_index(0),

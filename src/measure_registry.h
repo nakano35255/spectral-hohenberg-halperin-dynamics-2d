@@ -10,7 +10,12 @@
 #include <vector>
 
 struct Params;
+class Domain2D;
 class Measure;
+
+class Thermodynamics;
+class FreeEnergy;
+class TransportCoefficient;
 
 struct MeasureCommandBase {
     std::string id;
@@ -67,6 +72,10 @@ public:
 
     virtual std::unique_ptr<Measure> create_measure(
         const Params& params,
+        const Domain2D& domain,
+        const Thermodynamics& thermodynamics,
+        const FreeEnergy& free_energy,
+        const TransportCoefficient& transport_coefficient,
         std::shared_ptr<const MeasureCommandBase> command
     ) const = 0;
 };

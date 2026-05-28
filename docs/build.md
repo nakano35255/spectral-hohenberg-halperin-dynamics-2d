@@ -90,19 +90,19 @@ make
 example を実行する場合は、実行ファイルに入力スクリプトを明示的に渡します。
 
 ```sh
-./src/out.exe examples/01_phi4_phase_separation/input.script
+./src/out.exe examples/02_phi4_phase_separation/input.script
 ```
 
 MPI 並列で実行する場合も同様です。
 
 ```sh
-mpirun -np 2 ./src/out.exe examples/02_compressible_navier_stokes/input.script
+mpirun -np 2 ./src/out.exe examples/09_compressible_navier_stokes/input.script
 ```
 
 Docker container 内で root user として `mpirun` する場合は、OpenMPI の設定により次のように実行します。
 
 ```sh
-mpirun --allow-run-as-root -np 2 ./src/out.exe examples/02_compressible_navier_stokes/input.script
+mpirun --allow-run-as-root -np 2 ./src/out.exe examples/09_compressible_navier_stokes/input.script
 ```
 
 

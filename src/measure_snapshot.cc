@@ -9,11 +9,14 @@
 #include <vector>
 
 // ---------------------------------------------------------------------- //
-SnapshotMeasure::SnapshotMeasure(const Params& params, std::shared_ptr<const MeasureCommandBase> command) :
-       Measure(params, command),
-       num_order_parameters_(params.physics.num_order_parameters),
-       num_fields_(params.physics.num_order_parameters + 3),
-       step_width_(compute_step_width(params.total_run_steps()))
+SnapshotMeasure::SnapshotMeasure(
+    const Params& params,
+    const Domain2D& domain,
+    std::shared_ptr<const MeasureCommandBase> command
+) : Measure(params, domain, command),
+    num_order_parameters_(params.physics.num_order_parameters),
+    num_fields_(params.physics.num_order_parameters + 3),
+    step_width_(compute_step_width(params.total_run_steps()))
 {
      if (num_order_parameters_ < 0) {
           throw std::runtime_error("SnapshotMeasure requires a nonnegative number of order parameters.");
@@ -135,9 +138,7 @@ void SnapshotMeasure::write_spectral_snapshot(const std::string& filename, const
 }
 // ---------------------------------------------------------------------- //
 void SnapshotMeasure::observe_physical(
-     const State& state,
      PhysicalStateBuffer& physical,
-     FourierTransform2D& fft,
      const Domain2D& domain,
      int step,
      double time
@@ -145,8 +146,6 @@ void SnapshotMeasure::observe_physical(
      const int nfields = num_fields_;
      const int nx = domain.nx_global();
      const int ny = domain.ny_global();
-
-     fft.backward_many(nfields, state.data(), physical.data());
 
      const Box2D& local_box = domain.physical_box();
      const int local_count = nfields * local_box.size[0] * local_box.size[1];
@@ -312,16 +311,23 @@ void SnapshotMeasure::observe_spectral(
      write_spectral_snapshot(snapshot_filename(step), global_data, domain, step, time);
 }
 // ---------------------------------------------------------------------- //
-void SnapshotMeasure::observe(const State& state, PhysicalStateBuffer& physical, FourierTransform2D& fft, const Domain2D& domain, int step, double time) {
+void SnapshotMeasure::observe(
+     const State& state,
+     FourierTransform2D& fft,
+     MeasureWorkspace& workspace,
+     int step,
+     double time
+) {
      if (nevery_ <= 0 || step % nevery_ != 0) {
           return;
      }
 
      if (space_ == "physical") {
-          observe_physical(state, physical, fft, domain, step, time);
+          PhysicalStateBuffer& physical = workspace.ensure_physical(state, fft);
+          observe_physical(physical, domain_, step, time);
      }
      else if (space_ == "spectral") {
-          observe_spectral(state, domain, step, time);
+          observe_spectral(state, domain_, step, time);
      }
      else {
           throw std::runtime_error("Unknown snapshot space: " + space_);

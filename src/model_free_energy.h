@@ -23,27 +23,30 @@ public:
         return num_order_parameters_;
     }
 
+    // for chemical potential
     virtual double chemical_potential_k0_coefficient(int order_parameter) const {
         check_order_parameter_index(order_parameter);
         return 0.0;
     }
-
     virtual double chemical_potential_k2_coefficient(int order_parameter) const {
         check_order_parameter_index(order_parameter);
         return 0.0;
     }
-
     virtual double chemical_potential_k4_coefficient(int order_parameter) const {
         check_order_parameter_index(order_parameter);
         return 0.0;
     }
-
     virtual bool has_physical_chemical_potential() const {
         return false;
     }
-
     virtual double physical_chemical_potential(int order_parameter, const double* psi) const {
         check_order_parameter_index(order_parameter);
+        (void)psi;
+        return 0.0;
+    }
+
+    // for free energy
+    virtual double physical_free_energy_density(const double* psi) const {
         (void)psi;
         return 0.0;
     }

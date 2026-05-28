@@ -1,14 +1,14 @@
 #ifndef MEASURE_SNAPSHOT_STYLE_H
 #define MEASURE_SNAPSHOT_STYLE_H
 
+#include "measure_registry.h"
+#include "measure_snapshot.h"
+
 #include <memory>
 #include <ostream>
 #include <stdexcept>
 #include <string>
 #include <iomanip>
-
-#include "measure_registry.h"
-#include "measure_snapshot.h"
 
 namespace snapshot_measure {
     inline const std::string TYPE_NAME = "snapshot";
@@ -16,7 +16,7 @@ namespace snapshot_measure {
 
 // ---------------------------------------------------------------------- //
 struct SnapshotMeasureCommand : public MeasureCommandBase {
-    int nevery = 100;
+    int nevery = 1000;
     std::string file;
     std::string space = "physical";
 
@@ -77,12 +77,19 @@ public:
         return cmd;
     }
 
-    std::unique_ptr<Measure> create_measure(const Params& params, std::shared_ptr<const MeasureCommandBase> command) const override {
+    std::unique_ptr<Measure> create_measure(
+        const Params& params,
+        const Domain2D& domain,
+        const Thermodynamics& /*thermodynamics*/,
+        const FreeEnergy& /*free_energy*/,
+        const TransportCoefficient& /*transport_coefficient*/,
+        std::shared_ptr<const MeasureCommandBase> command
+    ) const override {
         auto snapshot_cmd = std::dynamic_pointer_cast<const SnapshotMeasureCommand>(command);
         if (!snapshot_cmd) {
             throw std::runtime_error("SnapshotMeasureStyle: invalid command type.");
         }
-        return std::make_unique<SnapshotMeasure>(params, snapshot_cmd);
+        return std::make_unique<SnapshotMeasure>(params, domain, snapshot_cmd);
     }
 };
 // ---------------------------------------------------------------------- //

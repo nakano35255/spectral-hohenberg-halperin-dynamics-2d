@@ -21,12 +21,12 @@ private:
      std::string snapshot_filename(int step) const;
      void write_physical_snapshot(const std::string& filename, const std::vector<double>& global_data, const Domain2D& domain, int step, double time) const;
      void write_spectral_snapshot(const std::string& filename, const std::vector<double>& global_data, const Domain2D& domain, int step, double time) const;
-     void observe_physical(const State& state, PhysicalStateBuffer& physical, FourierTransform2D& fft, const Domain2D& domain, int step, double time) const;
+     void observe_physical(PhysicalStateBuffer& physical, const Domain2D& domain, int step, double time) const;
      void observe_spectral(const State& state, const Domain2D& domain, int step, double time) const;
     
 public:
-     SnapshotMeasure(const Params& params, std::shared_ptr<const MeasureCommandBase> command);
-     void observe(const State& state, PhysicalStateBuffer& physical, FourierTransform2D& fft, const Domain2D& domain, int step, double time) override;
+     SnapshotMeasure(const Params& params, const Domain2D& domain, std::shared_ptr<const MeasureCommandBase> command);
+     void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, int step, double time) override;
 };
 
 #endif

@@ -299,7 +299,7 @@ void FCalculator::add_compressible_viscous_term(double eta, double zeta, const S
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::add_momentum_physical_terms(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time) const {
+void FCalculator::add_momentum_physical_terms(double /*eta*/, double /*zeta*/, const State& current, Complex* out_jx, Complex* out_jy, double time) const {
     workspace_.ensure_physical_fields(current, time);
 
     const bool has_advection = params_.fix.momentum_advection;
