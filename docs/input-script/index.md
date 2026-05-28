@@ -182,7 +182,7 @@ run                 100000
 | --- | --- | --- |
 | `set density` | `set density <uniform\|sine\|gaussian> [key value ...]` | [詳細](./set_density.md) |
 | `set momentum` | `set momentum <x\|y\|0\|1\|all> <uniform\|sine> [key value ...]` | [詳細](./set_momentum.md) |
-| `set order_parameter` | `set order_parameter <component\|all> <uniform\|sine> [key value ...]` | [詳細](./set_order_parameter.md) |
+| `set order_parameter` | `set order_parameter <component\|all> <uniform\|sine\|gaussian> [key value ...]` | [詳細](./set_order_parameter.md) |
 
 ### Output
 

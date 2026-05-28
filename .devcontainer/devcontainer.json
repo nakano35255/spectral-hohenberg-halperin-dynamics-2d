@@ -1,10 +1,10 @@
 {
-  "name": "spectral-fluctuating-isothermal-fluid",
+  "name": "spectral-hohenberg-halperin-dynamics-2d",
   "build": {
     "dockerfile": "../Dockerfile",
     "context": ".."
   },
-  "workspaceFolder": "/workspaces/spectral-fluctuating-isothermal-fluid",
+  "workspaceFolder": "/workspaces/spectral-hohenberg-halperin-dynamics-2d",
   "customizations": {
     "vscode": {
       "extensions": [

@@ -1,5 +1,5 @@
 CXX := mpic++
-CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -pedantic -Isrc -I/usr/local/include
+CXXFLAGS := -std=c++17 -O3 -Wall -Wextra -pedantic -Isrc -I/usr/local/include
 LDFLAGS := -L/usr/local/lib
 LDLIBS := -lheffte \
           -lfftw3_mpi -lfftw3 \
@@ -15,6 +15,7 @@ SRCS := \
 	src/fcalculator_workspace.cc \
 	src/initial_condition_registry_builtin.cc \
 	src/initial_condition_gaussian_density.cc \
+	src/initial_condition_gaussian_order_parameter.cc \
 	src/initial_condition_sine_density.cc \
 	src/initial_condition_sine_momentum.cc \
 	src/initial_condition_sine_order_parameter.cc \

@@ -1,0 +1,36 @@
+# ==========================================================
+# Example 02: compressible Navier-Stokes without order parameters
+# ==========================================================
+
+dimension           2
+boundary            p p
+
+grid                64 64
+length              64.0 64.0
+dealias             3/2
+
+order_parameters    0
+
+timestep            0.005
+time_evolution      srk3/compressible
+
+model thermo        linear_eos cT 10.0
+model transport     constant eta 1.00 zeta 1.00
+
+fix                 1 all nonlinear on momentum
+fix                 2 all noise on kBT 1.0 seed 12345
+# fix                 2 all noise off
+
+# set                 density sine base 1.0 amplitude 0.01 nkx 1 nky 0
+# set                 momentum x sine base 0.0 amplitude 1.0 nkx 1 nky 0
+# set                 momentum y sine base 0.0 amplitude 1.0 nkx 1 nky 0
+set                 density uniform value 1.0
+set                 momentum x uniform value 0.0
+set                 momentum y uniform value 0.0
+
+thermo              observe on progress on nevery 1000
+measure             phys snapshot on nevery 1000 file examples/02_compressible_navier_stokes/compressible_ns_physical space physical
+measure             spec snapshot on nevery 1000 file examples/02_compressible_navier_stokes/compressible_ns_spectral space spectral
+restart             off
+
+run                 50000

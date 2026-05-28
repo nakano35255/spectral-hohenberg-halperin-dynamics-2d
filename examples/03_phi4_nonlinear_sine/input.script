@@ -1,0 +1,28 @@
+# ==========================================================
+# Example 03: nonlinear phi4 harmonic generation from a sine field
+# ==========================================================
+
+dimension           2
+boundary            p p
+
+grid                64 64
+length              6.283185307179586 6.283185307179586
+dealias             none
+
+order_parameters    1
+
+timestep            0.001
+time_evolution      euler/quiescent
+
+model free_energy   phi4 a[0] 0.0 b[0] 0.0 u[0] 1.0
+model transport     constant M[0,0] 1.0
+
+fix                 1 all noise off
+
+set                 order_parameter 0 sine base 0.0 amplitude 1.0 nkx 3 nky 2
+
+thermo              observe on progress on nevery 1
+measure             spec snapshot on nevery 1 file examples/03_phi4_nonlinear_sine/nonlinear_sine_spectral space spectral
+restart             off
+
+run                 1

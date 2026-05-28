@@ -6,6 +6,10 @@ dev_env/out.exe
 dev_env/docker/out.exe
 dev_env/heffte/out.exe
 
+# Simulation outputs
+*.snapshot
+output.log
+
 # Editor and OS files
 .DS_Store
 .vscode/

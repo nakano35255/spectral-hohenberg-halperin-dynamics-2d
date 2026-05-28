@@ -5,6 +5,9 @@ RUN apt-get update && apt-get install -y \
     gfortran \
     git \
     cmake \
+    python3 \
+    python3-numpy \
+    python3-matplotlib \
     openmpi-bin \
     libopenmpi-dev \
     libfftw3-dev \

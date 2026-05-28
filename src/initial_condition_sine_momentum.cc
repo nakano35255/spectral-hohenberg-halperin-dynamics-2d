@@ -55,7 +55,7 @@ void SineMomentumInitialCondition::apply(
             momentum[mode.index] = positive_mode;
         }
 
-        if (conjugate_ky != ky && mode.gx == nkx_ && mode.gy == conjugate_ky) {
+        if (nkx_ == 0 && conjugate_ky != ky && mode.gx == 0 && mode.gy == conjugate_ky) {
             momentum[mode.index] = std::conj(positive_mode);
         }
     }

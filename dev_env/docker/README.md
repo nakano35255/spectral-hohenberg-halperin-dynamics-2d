@@ -1,7 +1,7 @@
 # Docker Environment
 
 This directory records how to set up and test the Docker-based development
-environment for `spectral-fluctuating-isothermal-fluid`.
+environment for `spectral-hohenberg-halperin-dynamics-2d`.
 
 The goal is to keep the host machine clean while using the same Linux-based
 C++/MPI/FFTW/heFFTe environment on different Macs.
@@ -28,8 +28,8 @@ If `Hello from Docker!` appears, Docker is working.
 From the repository root:
 
 ```bash
-cd /Users/nakano/github/spectral-fluctuating-isothermal-fluid
-docker build -t spectral-fluctuating-isothermal-fluid .
+cd /Users/nakano/github/spectral-hohenberg-halperin-dynamics-2d
+docker build -t spectral-hohenberg-halperin-dynamics-2d .
 ```
 
 This reads the repository `Dockerfile` and builds an image containing:
@@ -40,6 +40,9 @@ This reads the repository `Dockerfile` and builds an image containing:
 - FFTW3
 - FFTW3 MPI support
 - heFFTe with the FFTW backend
+- Python 3
+- NumPy
+- Matplotlib
 
 Check the image:
 
@@ -55,7 +58,7 @@ From the repository root:
 docker run --rm -it \
   -v "$PWD":/work \
   -w /work \
-  spectral-fluctuating-isothermal-fluid \
+  spectral-hohenberg-halperin-dynamics-2d \
   bash
 ```
 
@@ -189,7 +192,7 @@ user is root. This is normal for this simple development image.
 Open the repository in VS Code:
 
 ```bash
-cd /Users/nakano/github/spectral-fluctuating-isothermal-fluid
+cd /Users/nakano/github/spectral-hohenberg-halperin-dynamics-2d
 code .
 ```
 
@@ -231,7 +234,7 @@ On a different Mac:
 2. Install VS Code.
 3. Install the VS Code Dev Containers extension.
 4. Clone this repository.
-5. Run `docker build -t spectral-fluctuating-isothermal-fluid .`.
+5. Run `docker build -t spectral-hohenberg-halperin-dynamics-2d .`.
 6. Open the repository in VS Code.
 7. Use `Dev Containers: Reopen in Container`.
 8. Run the environment tests.

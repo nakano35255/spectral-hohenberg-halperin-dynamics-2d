@@ -5,6 +5,7 @@
 #include "initial_condition_uniform_momentum_style.h"
 #include "initial_condition_sine_momentum_style.h"
 #include "initial_condition_uniform_order_parameter_style.h"
+#include "initial_condition_gaussian_order_parameter_style.h"
 #include "initial_condition_sine_order_parameter_style.h"
 
 
@@ -16,6 +17,7 @@ InitialConditionRegistry build_initial_condition_registry() {
     registry.register_momentum_style(std::make_unique<UniformMomentumInitialConditionStyle>());
     registry.register_momentum_style(std::make_unique<SineMomentumInitialConditionStyle>());
     registry.register_order_parameter_style(std::make_unique<UniformOrderParameterInitialConditionStyle>());
+    registry.register_order_parameter_style(std::make_unique<GaussianOrderParameterInitialConditionStyle>());
     registry.register_order_parameter_style(std::make_unique<SineOrderParameterInitialConditionStyle>());
     return registry;
 }
