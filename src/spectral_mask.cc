@@ -4,7 +4,7 @@
 #include <stdexcept>
 
 // ---------------------------------------------------------------------- //
-SpectralMask2D::SpectralMask2D(const Domain2D& domain, const Params& params)
+SpectralMask2D::SpectralMask2D(const Params& params, const Domain2D& domain)
      : domain_(domain),
        active_nx_(params.grid.active_num_grid[0]),
        active_ny_(params.grid.active_num_grid[1])

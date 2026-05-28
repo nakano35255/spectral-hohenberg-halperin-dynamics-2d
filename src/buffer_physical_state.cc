@@ -4,7 +4,7 @@
 #include <string>
 
 // ---------------------------------------------------------------------- //
-PhysicalStateBuffer::PhysicalStateBuffer(const Domain2D& domain, const Params& params)
+PhysicalStateBuffer::PhysicalStateBuffer(const Params& params, const Domain2D& domain)
     : domain_(domain),
       num_order_parameters_(params.physics.num_order_parameters),
       num_fields_(params.physics.num_order_parameters + 3),
@@ -77,7 +77,15 @@ double* PhysicalStateBuffer::rho_data() {
     return physical_data_.data() + rho_offset();
 }
 // ---------------------------------------------------------------------- //
+const double* PhysicalStateBuffer::rho_data() const {
+    return physical_data_.data() + rho_offset();
+}
+// ---------------------------------------------------------------------- //
 double* PhysicalStateBuffer::psi_data(int order_parameter) {
+    return physical_data_.data() + psi_offset(order_parameter);
+}
+// ---------------------------------------------------------------------- //
+const double* PhysicalStateBuffer::psi_data(int order_parameter) const {
     return physical_data_.data() + psi_offset(order_parameter);
 }
 // ---------------------------------------------------------------------- //
@@ -85,7 +93,15 @@ double* PhysicalStateBuffer::jx_data() {
     return physical_data_.data() + jx_offset();
 }
 // ---------------------------------------------------------------------- //
+const double* PhysicalStateBuffer::jx_data() const {
+    return physical_data_.data() + jx_offset();
+}
+// ---------------------------------------------------------------------- //
 double* PhysicalStateBuffer::jy_data() {
+    return physical_data_.data() + jy_offset();
+}
+// ---------------------------------------------------------------------- //
+const double* PhysicalStateBuffer::jy_data() const {
     return physical_data_.data() + jy_offset();
 }
 // ---------------------------------------------------------------------- //

@@ -27,7 +27,7 @@ private:
     void check_order_parameter(int order_parameter) const;
 
 public:
-    State(const Domain2D& domain, const Params& params);
+    State(const Params& params, const Domain2D& domain);
 
     int num_order_parameters() const { return num_order_parameters_; }
     int num_fields() const { return num_fields_; }

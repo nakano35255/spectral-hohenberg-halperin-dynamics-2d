@@ -24,6 +24,7 @@ SRCS := \
 	src/initial_condition_uniform_order_parameter.cc \
 	src/measure_registry_builtin.cc \
 	src/measure_manager.cc \
+	src/measure_energetics.cc \
 	src/measure_snapshot.cc \
 	src/model_free_energy_null.cc \
 	src/model_free_energy_phi4.cc \

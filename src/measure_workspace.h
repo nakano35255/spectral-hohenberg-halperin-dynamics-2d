@@ -13,8 +13,8 @@ private:
     int num_fields_ = 0;
 
 public:
-    MeasureWorkspace(const Domain2D& domain, const Params& params)
-        : physical_(domain, params),
+    MeasureWorkspace(const Params& params, const Domain2D& domain)
+        : physical_(params, domain),
           num_fields_(params.physics.num_order_parameters + 3) {}
 
     void begin_step(int step) {

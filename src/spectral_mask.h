@@ -29,7 +29,7 @@ private:
      bool is_active_mode(int gx, int gy) const;
 
 public:
-     SpectralMask2D(const Domain2D& domain, const Params& params);
+     SpectralMask2D(const Params& params, const Domain2D& domain);
 
      const std::vector<SpectralMode2D>& active_modes() const {
           return active_modes_;

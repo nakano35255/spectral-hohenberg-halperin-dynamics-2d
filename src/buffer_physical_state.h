@@ -24,7 +24,7 @@ private:
     void check_order_parameter(int order_parameter) const;
 
 public:
-    PhysicalStateBuffer(const Domain2D& domain, const Params& params);
+    PhysicalStateBuffer(const Params& params, const Domain2D& domain);
 
     double& rho(int gx, int gy);
     const double& rho(int gx, int gy) const;
@@ -39,9 +39,13 @@ public:
     const double& jy(int gx, int gy) const;
 
     double* rho_data();
+    const double* rho_data() const;
     double* psi_data(int order_parameter);
+    const double* psi_data(int order_parameter) const;
     double* jx_data();
+    const double* jx_data() const;
     double* jy_data();
+    const double* jy_data() const;
 
     double* data();
     const double* data() const;

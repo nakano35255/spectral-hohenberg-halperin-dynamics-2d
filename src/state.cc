@@ -5,7 +5,7 @@
 #include <string>
 
 // ---------------------------------------------------------------------- //
-State::State(const Domain2D& domain, const Params& params)
+State::State(const Params& params, const Domain2D& domain)
     : domain_(domain),
       num_order_parameters_(params.physics.num_order_parameters),
       num_fields_(params.physics.num_order_parameters + 3),

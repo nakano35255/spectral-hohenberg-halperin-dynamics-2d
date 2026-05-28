@@ -61,7 +61,7 @@ public:
           thermodynamics_(thermodynamics),
           free_energy_(free_energy),
           transport_coefficient_(transport_coefficient),
-          spectral_mask_(domain_, params_),
+          spectral_mask_(params_, domain_),
           fcalculator_(params_, domain_, spectral_mask_, thermodynamics_, free_energy_, transport_coefficient_),
           time_integrator_(create_time_integrator(params_, domain_, spectral_mask_))
      {

@@ -16,7 +16,7 @@ MeasurementManager::MeasurementManager(
     free_energy_(free_energy),
     transport_coefficient_(transport_coefficient),
     registry_(registry),
-    workspace_(domain, params) {}
+    workspace_(params, domain) {}
 
 void MeasurementManager::apply_measure_command(std::shared_ptr<MeasureCommandBase> command) {
     if (!command) {

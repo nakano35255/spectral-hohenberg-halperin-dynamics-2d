@@ -65,12 +65,12 @@ public:
         const SpectralMask2D& spectral_mask
     )
         : TimeIntegrator(domain, params, spectral_mask),
-          stochastic_rhs_a_(domain, params),
-          stochastic_rhs_b_(domain, params),
-          deterministic_rhs_(domain, params),
-          u_old_(domain, params),
-          u_stage1_(domain, params),
-          u_stage2_(domain, params) {}
+          stochastic_rhs_a_(params, domain),
+          stochastic_rhs_b_(params, domain),
+          deterministic_rhs_(params, domain),
+          u_old_(params, domain),
+          u_stage1_(params, domain),
+          u_stage2_(params, domain) {}
 
     void step(State& u, double t, const RHSOperators& rhs) override {
         copy_state(u_old_, u);

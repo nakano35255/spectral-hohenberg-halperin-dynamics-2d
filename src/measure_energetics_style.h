@@ -66,6 +66,7 @@ public:
 
     std::unique_ptr<Measure> create_measure(
         const Params& params,
+        const Domain2D& domain,
         const Thermodynamics& thermodynamics,
         const FreeEnergy& free_energy,
         const TransportCoefficient& transport,
@@ -75,7 +76,9 @@ public:
         if (!energetics_cmd) {
             throw std::runtime_error("EnergeticsMeasureStyle: invalid command type.");
         }
-        return std::make_unique<EnergeticsMeasure>(params, thermodynamics, free_energy, transport, energetics_cmd);
+        return std::make_unique<EnergeticsMeasure>(
+            params, domain, thermodynamics, free_energy, transport, energetics_cmd
+        );
     }
 };
 // ---------------------------------------------------------------------- //
