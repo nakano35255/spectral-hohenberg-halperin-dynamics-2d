@@ -9,7 +9,11 @@
 
 class FourierTransform2D {
 public:
+#ifdef SHHD_HEFFTE_BACKEND_MKL
+     using fft_type = heffte::fft3d_r2c<heffte::backend::mkl>;
+#else
      using fft_type = heffte::fft3d_r2c<heffte::backend::fftw>;
+#endif
 
 private:
      const Domain2D& domain_;

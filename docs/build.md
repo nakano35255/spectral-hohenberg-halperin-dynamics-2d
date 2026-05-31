@@ -30,6 +30,7 @@ FFTW3 はコンパイラの標準探索パス、または linker が見つけら
 > - [dev_env/README.md](../dev_env/README.md)
 > - [dev_env/docker/README.md](../dev_env/docker/README.md)
 > - [dev_env/heffte/README.md](../dev_env/heffte/README.md)
+> - [dev_env/ohtaka/README.md](../dev_env/ohtaka/README.md)
 
 
 ## 推奨: Docker 環境でビルドする
@@ -83,6 +84,12 @@ make
 ## ローカル環境でビルドする
 
 工事中
+
+
+## Ohtaka System B でビルドする
+
+Ohtaka System B では、oneAPI compiler、Intel MPI、oneMKL backend 付き heFFTe を使う構成を確認しています。
+heFFTe の user-local install、`Makefile.ohtaka`、Slurm 実行例、実測した推奨 MPI rank 数は [dev_env/ohtaka/README.md](../dev_env/ohtaka/README.md) を参照してください。
 
 
 ## 実行確認
