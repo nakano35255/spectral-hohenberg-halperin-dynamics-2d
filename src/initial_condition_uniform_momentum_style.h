@@ -1,5 +1,5 @@
-#ifndef SFI_INITIAL_CONDITION_UNIFORM_MOMENTUM_STYLE_H
-#define SFI_INITIAL_CONDITION_UNIFORM_MOMENTUM_STYLE_H
+#ifndef SHHD_INITIAL_CONDITION_UNIFORM_MOMENTUM_STYLE_H
+#define SHHD_INITIAL_CONDITION_UNIFORM_MOMENTUM_STYLE_H
 
 #include "initial_condition_registry.h"
 #include "initial_condition_uniform_momentum.h"

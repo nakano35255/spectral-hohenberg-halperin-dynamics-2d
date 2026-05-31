@@ -1,5 +1,5 @@
-#ifndef MONITOR_H
-#define MONITOR_H
+#ifndef SHHD_MONITOR_H
+#define SHHD_MONITOR_H
 
 #include "simulationinfo.h"
 

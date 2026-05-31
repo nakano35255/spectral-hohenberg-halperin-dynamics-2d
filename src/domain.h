@@ -1,5 +1,5 @@
-#ifndef SFI_DOMAIN_H
-#define SFI_DOMAIN_H
+#ifndef SHHD_DOMAIN_H
+#define SHHD_DOMAIN_H
 
 #define OMPI_SKIP_MPICXX 1
 

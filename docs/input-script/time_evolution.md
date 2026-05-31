@@ -70,7 +70,7 @@ time_evolution srk3/incompressible
 - 指定可能な値は、上記の6種類のみです。
 - 未知の `<type>` を指定するとエラーになります。
 - `quiescent` モードでは、流体の移流項を有効化できません。
-- `fix ... nonlinear on momentum` や `fix ... nonlinear on order_parameter` は、`quiescent` モードでは使用できません。
+- `fix ... momentum nonlinear on` や `fix ... order_parameter nonlinear on` は、`quiescent` モードでは使用できません。
 - 通常の本計算では `srk3/...` を推奨します。
 - `euler/...` は実装確認や比較検証に向いています。
 

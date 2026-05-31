@@ -1,5 +1,5 @@
-#ifndef PROJECT_H
-#define PROJECT_H
+#ifndef SHHD_PROJECT_H
+#define SHHD_PROJECT_H
 
 #include "simulationinfo.h"
 #include "domain.h"
@@ -21,6 +21,7 @@
 #include "measure_manager.h"
 #include "initial_condition_registry_builtin.h"
 #include "initial_condition.h"
+#include "fcalculator_dynamics_mode.h"
 
 #include <algorithm>
 #include <cmath>
@@ -108,6 +109,10 @@ private:
             std::unique_ptr<OrderParameterInitialCondition> initial_condition = style.create_initial_condition(params, command);
             initial_condition->apply(state, domain, spectral_mask);
         }
+
+        if (is_incompressible_mode(parse_dynamics_mode(params.runtime.time_evolution_type))) {
+            validate_initial_momentum_is_transverse(state, domain, spectral_mask);
+        }
     }
 
     void execute_command(const Command& command) {
@@ -123,6 +128,9 @@ private:
     void run_steps(int nsteps) {
         ++run_index;
 
+        const FluxRequest flux_request = measurements.flux_request();
+        solver.set_flux_request(flux_request);
+
         for (int local_step = 1; local_step <= nsteps; ++local_step) {
             solver.step(state, time);
 
@@ -130,7 +138,7 @@ private:
             time += params.runtime.dt;
 
             monitor.print_progress(run_index, local_step, nsteps, step, time);
-            measurements.observe(state, fourier, step, time);
+            measurements.observe(state, fourier, solver.flux_buffer(), step, time);
         }
 
         monitor.finish_run_segment(run_index, step, time);

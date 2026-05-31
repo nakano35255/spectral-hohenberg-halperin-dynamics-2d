@@ -1,5 +1,5 @@
-#ifndef SFI_INITIAL_CONDITION_H
-#define SFI_INITIAL_CONDITION_H
+#ifndef SHHD_INITIAL_CONDITION_H
+#define SHHD_INITIAL_CONDITION_H
 
 #include "simulationinfo.h"
 #include "domain.h"
@@ -63,5 +63,7 @@ public:
     virtual void apply(State& state, const Domain2D& domain, const SpectralMask2D& spectral_mask) const = 0;
 
 };
+
+void validate_initial_momentum_is_transverse(const State& state, const Domain2D& domain, const SpectralMask2D& spectral_mask);
 
 #endif

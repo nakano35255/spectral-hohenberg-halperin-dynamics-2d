@@ -1,5 +1,5 @@
-#ifndef SFI_PARAM_PARSER_H
-#define SFI_PARAM_PARSER_H
+#ifndef SHHD_PARAM_PARSER_H
+#define SHHD_PARAM_PARSER_H
 
 #include "simulationinfo.h"
 #include "model_free_energy_registry.h"

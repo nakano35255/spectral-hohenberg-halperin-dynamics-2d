@@ -1,5 +1,5 @@
-#ifndef SFI_STATE_H
-#define SFI_STATE_H
+#ifndef SHHD_STATE_H
+#define SHHD_STATE_H
 
 #include "domain.h"
 #include "simulationinfo.h"

@@ -15,7 +15,7 @@ int FCalculator::temporary_field_capacity(const Params& params) {
         throw std::runtime_error("FCalculator requires nonnegative num_order_parameters.");
     }
 
-    return std::max(q, 7);
+    return std::max(q, 9);
 }
 // ---------------------------------------------------------------------- //
 FCalculator::FCalculator(
@@ -57,19 +57,33 @@ void FCalculator::clear(Complex* out) const {
     std::fill(out, out + local_spectral_size_, Complex(0.0, 0.0));
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::rho_det(const State& current, Complex* out, double /*t*/) const {
+void FCalculator::rho_det(const State& current, Complex* out, double /*t*/, FluxBuffer* flux) const {
     clear(out);
 
     const Complex* jx = current.jx_hat_data();
     const Complex* jy = current.jy_hat_data();
 
+    // optional flux output
+    const bool record_flux = flux && flux->request().density;
+    Complex* density_flux_x = nullptr;
+    Complex* density_flux_y = nullptr;
+    if (record_flux) {
+        density_flux_x = flux->density_flux_x_hat_data();
+        density_flux_y = flux->density_flux_y_hat_data();
+    }
+
     for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
         const std::size_t i = mode.index;
         out[i] = -Complex(0.0, 1.0) * (mode.kx * jx[i] + mode.ky * jy[i]);
+
+        if (record_flux) {
+            density_flux_x[i] += jx[i];
+            density_flux_y[i] += jy[i];
+        }
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::psi_det(int order_parameter, const State& current, Complex* out, double t) const {
+void FCalculator::psi_det(int order_parameter, const State& current, Complex* out, double t, FluxBuffer* flux) const {
     clear(out);
 
     const double mobility = transport_coefficient_.order_parameter_mobility()[static_cast<std::size_t>(order_parameter)];
@@ -81,15 +95,15 @@ void FCalculator::psi_det(int order_parameter, const State& current, Complex* ou
     }
 
     if (mobility != 0.0) {
-        add_order_parameter_linear_term(order_parameter, mobility, current, out);
+        add_order_parameter_linear_term(order_parameter, mobility, current, out, flux);
     }
 
     if (has_advection || has_physical_mu) {
-        add_order_parameter_physical_terms(order_parameter, mobility, current, out, t);
+        add_order_parameter_physical_terms(order_parameter, mobility, current, out, t, flux);
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::j_det(const State& current, Complex* out_jx, Complex* out_jy, double t) const {
+void FCalculator::j_det(const State& current, Complex* out_jx, Complex* out_jy, double t, FluxBuffer* flux) const {
     clear(out_jx);
     clear(out_jy);
 
@@ -113,23 +127,23 @@ void FCalculator::j_det(const State& current, Complex* out_jx, Complex* out_jy, 
     }
 
     if (has_linear_pressure) {
-        add_linear_pressure_term(pressure_coefficient, current, out_jx, out_jy);
+        add_linear_pressure_term(pressure_coefficient, current, out_jx, out_jy, flux);
     }
 
     if (has_incompressible_viscosity) {
-        add_incompressible_viscous_term(eta, zeta, current, out_jx, out_jy);
+        add_incompressible_viscous_term(eta, zeta, current, out_jx, out_jy, flux);
     }
 
     if (has_compressible_viscosity) {
-        add_compressible_viscous_term(eta, zeta, current, out_jx, out_jy, t);
+        add_compressible_viscous_term(eta, zeta, current, out_jx, out_jy, t, flux);
     }
 
-    if (has_physical_pressure || has_advection)
-        add_momentum_physical_terms(eta, zeta, current, out_jx, out_jy, t
-    );
+    if (has_physical_pressure || has_advection) {
+        add_momentum_physical_terms(eta, zeta, current, out_jx, out_jy, t, flux);
+    }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::add_order_parameter_linear_term(int order_parameter, double mobility, const State& current, Complex* out) const {
+void FCalculator::add_order_parameter_linear_term(int order_parameter, double mobility, const State& current, Complex* out, FluxBuffer* flux) const {
     const double mu_k0 = free_energy_.chemical_potential_k0_coefficient(order_parameter);
     const double mu_k2 = free_energy_.chemical_potential_k2_coefficient(order_parameter);
     const double mu_k4 = free_energy_.chemical_potential_k4_coefficient(order_parameter);
@@ -140,20 +154,45 @@ void FCalculator::add_order_parameter_linear_term(int order_parameter, double mo
 
     const Complex* psi = current.psi_hat_data(order_parameter);
 
+    // optional flux output
+    const bool record_flux = flux && flux->request().order_parameter;
+    Complex* order_parameter_flux_x = nullptr;
+    Complex* order_parameter_flux_y = nullptr;
+    if (record_flux) {
+        order_parameter_flux_x = flux->order_parameter_flux_x_hat_data(order_parameter);
+        order_parameter_flux_y = flux->order_parameter_flux_y_hat_data(order_parameter);
+    }
+
     for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
         const std::size_t i = mode.index;
         const double k2 = mode.k2;
-        const double mu_coefficient = mu_k0 + mu_k2 * k2 + mu_k4 * k2 * k2;
+        const Complex mu_hat = (mu_k0 + mu_k2 * k2 + mu_k4 * k2 * k2) * psi[i];
 
-        out[i] += -mobility * k2 * mu_coefficient * psi[i];
+        const Complex jx = -Complex(0.0, mobility * mode.kx) * mu_hat;
+        const Complex jy = -Complex(0.0, mobility * mode.ky) * mu_hat;
+
+        out[i] += -Complex(0.0, 1.0) * (mode.kx * jx + mode.ky * jy);
+
+        if (record_flux) {
+            order_parameter_flux_x[i] += jx;
+            order_parameter_flux_y[i] += jy;
+        }
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::add_order_parameter_physical_terms(int order_parameter, double mobility, const State& current, Complex* out, double time) const {
+void FCalculator::add_order_parameter_physical_terms(int order_parameter, double mobility, const State& current, Complex* out, double time, FluxBuffer* flux) const {
     const bool has_physical_mu = mobility != 0.0 && free_energy_.has_physical_chemical_potential();
     const bool has_advection = params_.fix.order_parameter_advection;
-
     workspace_.ensure_physical_fields(current, time);
+
+    // optional flux output
+    const bool record_flux = flux && flux->request().order_parameter;
+    Complex* order_parameter_flux_x = nullptr;
+    Complex* order_parameter_flux_y = nullptr;
+    if (record_flux) {
+        order_parameter_flux_x = flux->order_parameter_flux_x_hat_data(order_parameter);
+        order_parameter_flux_y = flux->order_parameter_flux_y_hat_data(order_parameter);
+    }
 
     const std::size_t local_physical_size = workspace_.local_physical_size();
 
@@ -201,7 +240,14 @@ void FCalculator::add_order_parameter_physical_terms(int order_parameter, double
 
         for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
             const std::size_t i = mode.index;
-            out[i] += -mobility * mode.k2 * mu_hat[i];
+            const Complex jx = -Complex(0.0, mobility * mode.kx) * mu_hat[i];
+            const Complex jy = -Complex(0.0, mobility * mode.ky) * mu_hat[i];
+            out[i] += -Complex(0.0, 1.0) * (mode.kx * jx + mode.ky * jy);
+
+            if (record_flux) {
+                order_parameter_flux_x[i] += jx;
+                order_parameter_flux_y[i] += jy;
+            }
         }
     }
 
@@ -212,51 +258,95 @@ void FCalculator::add_order_parameter_physical_terms(int order_parameter, double
         for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
             const std::size_t i = mode.index;
             out[i] += -Complex(0.0, 1.0) * (mode.kx * flux_x_hat[i] + mode.ky * flux_y_hat[i]);
+
+            if (record_flux) {
+                order_parameter_flux_x[i] += flux_x_hat[i];
+                order_parameter_flux_y[i] += flux_y_hat[i];
+            }
         }
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::add_linear_pressure_term(double pressure_coefficient, const State& current, Complex* out_jx, Complex* out_jy) const {
+void FCalculator::add_linear_pressure_term(double pressure_coefficient, const State& current, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) const {
     const Complex* rho = current.rho_hat_data();
+
+    // optional flux output
+    const bool record_flux = flux && flux->request().momentum;
+    Complex* momentum_flux_xx = nullptr;
+    Complex* momentum_flux_yy = nullptr;
+    if (record_flux) {
+        momentum_flux_xx = flux->momentum_flux_xx_hat_data();
+        momentum_flux_yy = flux->momentum_flux_yy_hat_data();
+    }
 
     for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
         const std::size_t i = mode.index;
+        const Complex pressure_hat = pressure_coefficient * rho[i];
 
-        out_jx[i] += -Complex(0.0, mode.kx) * pressure_coefficient * rho[i];
-        out_jy[i] += -Complex(0.0, mode.ky) * pressure_coefficient * rho[i];
+        out_jx[i] += -Complex(0.0, mode.kx) * pressure_hat;
+        out_jy[i] += -Complex(0.0, mode.ky) * pressure_hat;
+
+        if (record_flux) {
+            momentum_flux_xx[i] += pressure_hat;
+            momentum_flux_yy[i] += pressure_hat;
+        }
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::add_incompressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy) const {
+void FCalculator::add_incompressible_viscous_term(double eta, double /*zeta*/, const State& current, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) const {
     const double rho0 = workspace_.reference_density(current);
-
     const Complex* jx = current.jx_hat_data();
     const Complex* jy = current.jy_hat_data();
+
+    // optional flux output
+    const bool record_flux = flux && flux->request().momentum;
+    Complex* momentum_flux_xx = nullptr;
+    Complex* momentum_flux_xy = nullptr;
+    Complex* momentum_flux_yy = nullptr;
+    if (record_flux) {
+        momentum_flux_xx = flux->momentum_flux_xx_hat_data();
+        momentum_flux_xy = flux->momentum_flux_xy_hat_data();
+        momentum_flux_yy = flux->momentum_flux_yy_hat_data();
+    }
 
     for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
         const std::size_t i = mode.index;
         const double kx = mode.kx;
         const double ky = mode.ky;
-        const double k2 = mode.k2;
-
-        const Complex vx_hat = jx[i] / rho0;
-        const Complex vy_hat = jy[i] / rho0;
 
         if (eta != 0.0) {
-            out_jx[i] += -eta * k2 * vx_hat;
-            out_jy[i] += -eta * k2 * vy_hat;
-        }
+            const Complex vx_hat = jx[i] / rho0;
+            const Complex vy_hat = jy[i] / rho0;
 
-        if (zeta != 0.0) {
-            const Complex div_v = Complex(0.0, 1.0) * (kx * vx_hat + ky * vy_hat);
-            out_jx[i] += zeta * Complex(0.0, kx) * div_v;
-            out_jy[i] += zeta * Complex(0.0, ky) * div_v;
+            const Complex pi_xx = -Complex(0.0, eta) * (2.0 * kx * vx_hat);
+            const Complex pi_xy = -Complex(0.0, eta) * (ky * vx_hat + kx * vy_hat);
+            const Complex pi_yy = -Complex(0.0, eta) * (2.0 * ky * vy_hat);
+
+            out_jx[i] += -Complex(0.0, 1.0) * (kx * pi_xx + ky * pi_xy);
+            out_jy[i] += -Complex(0.0, 1.0) * (kx * pi_xy + ky * pi_yy);
+
+            if (record_flux) {
+                momentum_flux_xx[i] += pi_xx;
+                momentum_flux_xy[i] += pi_xy;
+                momentum_flux_yy[i] += pi_yy;
+            }
         }
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::add_compressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time) const {
+void FCalculator::add_compressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) const {
     workspace_.ensure_physical_fields(current, time);
+
+    // optional flux output
+    const bool record_flux = flux && flux->request().momentum;
+    Complex* momentum_flux_xx = nullptr;
+    Complex* momentum_flux_xy = nullptr;
+    Complex* momentum_flux_yy = nullptr;
+    if (record_flux) {
+        momentum_flux_xx = flux->momentum_flux_xx_hat_data();
+        momentum_flux_xy = flux->momentum_flux_xy_hat_data();
+        momentum_flux_yy = flux->momentum_flux_yy_hat_data();
+    }
 
     const std::size_t local_physical_size = workspace_.local_physical_size();
 
@@ -284,23 +374,36 @@ void FCalculator::add_compressible_viscous_term(double eta, double zeta, const S
         const std::size_t i = mode.index;
         const double kx = mode.kx;
         const double ky = mode.ky;
-        const double k2 = mode.k2;
+        const Complex k_dot_v = kx * vx_hat[i] + ky * vy_hat[i];
 
-        if (eta != 0.0) {
-            out_jx[i] += -eta * k2 * vx_hat[i];
-            out_jy[i] += -eta * k2 * vy_hat[i];
-        }
+        const Complex pi_xx = -Complex(0.0, 1) * (2.0 * eta * kx * vx_hat[i] - (eta - zeta) * k_dot_v);
+        const Complex pi_xy = -Complex(0.0, eta) * (ky * vx_hat[i] + kx * vy_hat[i]);
+        const Complex pi_yy = -Complex(0.0, 1) * (2.0 * eta * ky * vy_hat[i] - (eta - zeta) * k_dot_v);
 
-        if (zeta != 0.0) {
-            const Complex div_v = Complex(0.0, 1.0) * (kx * vx_hat[i] + ky * vy_hat[i]);
-            out_jx[i] += zeta * Complex(0.0, kx) * div_v;
-            out_jy[i] += zeta * Complex(0.0, ky) * div_v;
+        out_jx[i] += -Complex(0.0, 1.0) * (kx * pi_xx + ky * pi_xy);
+        out_jy[i] += -Complex(0.0, 1.0) * (kx * pi_xy + ky * pi_yy);
+
+        if (record_flux) {
+            momentum_flux_xx[i] += pi_xx;
+            momentum_flux_xy[i] += pi_xy;
+            momentum_flux_yy[i] += pi_yy;
         }
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::add_momentum_physical_terms(double /*eta*/, double /*zeta*/, const State& current, Complex* out_jx, Complex* out_jy, double time) const {
+void FCalculator::add_momentum_physical_terms(double /*eta*/, double /*zeta*/, const State& current, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) const {
     workspace_.ensure_physical_fields(current, time);
+
+    // optional flux output
+    const bool record_flux = flux && flux->request().momentum;
+    Complex* momentum_flux_xx = nullptr;
+    Complex* momentum_flux_xy = nullptr;
+    Complex* momentum_flux_yy = nullptr;
+    if (record_flux) {
+        momentum_flux_xx = flux->momentum_flux_xx_hat_data();
+        momentum_flux_xy = flux->momentum_flux_xy_hat_data();
+        momentum_flux_yy = flux->momentum_flux_yy_hat_data();
+    }
 
     const bool has_advection = params_.fix.momentum_advection;
     const bool has_physical_pressure = thermodynamics_.has_physical_pressure();
@@ -309,10 +412,9 @@ void FCalculator::add_momentum_physical_terms(double /*eta*/, double /*zeta*/, c
 
     int nfields = 0;
     const int pressure_field = has_physical_pressure ? nfields++ : -1;
-    const int jx_vx_field = has_advection ? nfields++ : -1;
-    const int jx_vy_field = has_advection ? nfields++ : -1;
-    const int jy_vx_field = has_advection ? nfields++ : -1;
-    const int jy_vy_field = has_advection ? nfields++ : -1;
+    const int pi_xx_field = has_advection ? nfields++ : -1;
+    const int pi_xy_field = has_advection ? nfields++ : -1;
+    const int pi_yy_field = has_advection ? nfields++ : -1;
 
     double* physical_fields = workspace_.temporary_physical_fields(nfields);
 
@@ -332,16 +434,14 @@ void FCalculator::add_momentum_physical_terms(double /*eta*/, double /*zeta*/, c
         const double* vx = workspace_.physical_vx_data();
         const double* vy = workspace_.physical_vy_data();
 
-        double* jx_vx = physical_fields + static_cast<std::size_t>(jx_vx_field) * local_physical_size;
-        double* jx_vy = physical_fields + static_cast<std::size_t>(jx_vy_field) * local_physical_size;
-        double* jy_vx = physical_fields + static_cast<std::size_t>(jy_vx_field) * local_physical_size;
-        double* jy_vy = physical_fields + static_cast<std::size_t>(jy_vy_field) * local_physical_size;
+        double* pi_xx = physical_fields + static_cast<std::size_t>(pi_xx_field) * local_physical_size;
+        double* pi_xy = physical_fields + static_cast<std::size_t>(pi_xy_field) * local_physical_size;
+        double* pi_yy = physical_fields + static_cast<std::size_t>(pi_yy_field) * local_physical_size;
 
         for (std::size_t i = 0; i < local_physical_size; ++i) {
-            jx_vx[i] = jx[i] * vx[i];
-            jx_vy[i] = jx[i] * vy[i];
-            jy_vx[i] = jy[i] * vx[i];
-            jy_vy[i] = jy[i] * vy[i];
+            pi_xx[i] = jx[i] * vx[i];
+            pi_xy[i] = jx[i] * vy[i];
+            pi_yy[i] = jy[i] * vy[i];
         }
     }
 
@@ -349,48 +449,69 @@ void FCalculator::add_momentum_physical_terms(double /*eta*/, double /*zeta*/, c
     workspace_.forward_many(nfields, physical_fields, spectral_fields);
 
     if (has_physical_pressure) {
-        const Complex* pressure_hat =
-            spectral_fields + static_cast<std::size_t>(pressure_field) * local_spectral_size_;
+        const Complex* pressure_hat = spectral_fields + static_cast<std::size_t>(pressure_field) * local_spectral_size_;
 
         for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
             const std::size_t i = mode.index;
+
             out_jx[i] += -Complex(0.0, mode.kx) * pressure_hat[i];
             out_jy[i] += -Complex(0.0, mode.ky) * pressure_hat[i];
+
+            if (record_flux) {
+                momentum_flux_xx[i] += pressure_hat[i];
+                momentum_flux_yy[i] += pressure_hat[i];
+            }
         }
     }
 
     if (has_advection) {
-        const Complex* jx_vx_hat = spectral_fields + static_cast<std::size_t>(jx_vx_field) * local_spectral_size_;
-        const Complex* jx_vy_hat = spectral_fields + static_cast<std::size_t>(jx_vy_field) * local_spectral_size_;
-        const Complex* jy_vx_hat = spectral_fields + static_cast<std::size_t>(jy_vx_field) * local_spectral_size_;
-        const Complex* jy_vy_hat = spectral_fields + static_cast<std::size_t>(jy_vy_field) * local_spectral_size_;
+        const Complex* pi_xx_hat = spectral_fields + static_cast<std::size_t>(pi_xx_field) * local_spectral_size_;
+        const Complex* pi_xy_hat = spectral_fields + static_cast<std::size_t>(pi_xy_field) * local_spectral_size_;
+        const Complex* pi_yy_hat = spectral_fields + static_cast<std::size_t>(pi_yy_field) * local_spectral_size_;
 
         for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
             const std::size_t i = mode.index;
+            const Complex pi_xx = pi_xx_hat[i];
+            const Complex pi_xy = pi_xy_hat[i];
+            const Complex pi_yy = pi_yy_hat[i];
 
-            out_jx[i] += -Complex(0.0, 1.0) * (mode.kx * jx_vx_hat[i] + mode.ky * jx_vy_hat[i]);
+            out_jx[i] += -Complex(0.0, 1.0) * (mode.kx * pi_xx + mode.ky * pi_xy);
+            out_jy[i] += -Complex(0.0, 1.0) * (mode.kx * pi_xy + mode.ky * pi_yy);
 
-            out_jy[i] += -Complex(0.0, 1.0) * (mode.kx * jy_vx_hat[i] + mode.ky * jy_vy_hat[i]);
+            if (record_flux) {
+                momentum_flux_xx[i] += pi_xx;
+                momentum_flux_xy[i] += pi_xy;
+                momentum_flux_yy[i] += pi_yy;
+            }
         }
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::psi_sto(int order_parameter, const State& current, Complex* out) const {
+void FCalculator::psi_sto(int order_parameter, const State& current, Complex* out, FluxBuffer* flux) const {
     (void)current;
 
     clear(out);
 
+    // optional flux output
+    const bool record_flux = flux && flux->request().order_parameter;
+    Complex* order_parameter_flux_x = nullptr;
+    Complex* order_parameter_flux_y = nullptr;
+    if (record_flux) {
+        order_parameter_flux_x = flux->order_parameter_flux_x_hat_data(order_parameter);
+        order_parameter_flux_y = flux->order_parameter_flux_y_hat_data(order_parameter);
+    }
+
     const std::vector<double>& mobility = transport_coefficient_.order_parameter_mobility();
     const double mobility_op = mobility[static_cast<std::size_t>(order_parameter)];
-    const double kBT = params_.fix.noise.kBT;
+    const double kBT = params_.fix.noise.kBT * params_.fix.noise.order_parameter_noise_chi;
 
     if (mobility_op == 0.0 || kBT == 0.0) {
         return;
     }
 
-    const double active_grid_size = static_cast<double>(params_.grid.active_num_grid[0]) * static_cast<double>(params_.grid.active_num_grid[1]);
+    const double grid_size = static_cast<double>(domain_.nx_global()) * static_cast<double>(domain_.ny_global());
     const double volume = domain_.lx() * domain_.ly();
-    const double prefactor = 2.0 * kBT * active_grid_size * active_grid_size / volume;
+    const double prefactor = 2.0 * kBT * grid_size * grid_size / volume;
 
     const Box2D& box = domain_.spectral_box();
     const int ny = domain_.ny_global();
@@ -419,15 +540,22 @@ void FCalculator::psi_sto(int order_parameter, const State& current, Complex* ou
 
             const double sigma = std::sqrt(0.5 * prefactor * mobility_op * k2);
             const Complex gaussian(normal_noise_(noise_rng_), normal_noise_(noise_rng_));
-            const Complex value = sigma * gaussian;
+            const Complex flux_x(0.0, 0.0);
+            const Complex flux_y = Complex(0.0, ky / k2) * sigma * gaussian;
 
-            const std::size_t i =
-                static_cast<std::size_t>(gy - box.low[1]) * local_nkx + local_kx0;
-            const std::size_t ic =
-                static_cast<std::size_t>(conjugate_gy - box.low[1]) * local_nkx + local_kx0;
+            const std::size_t i = static_cast<std::size_t>(gy - box.low[1]) * local_nkx + local_kx0;
+            const std::size_t ic = static_cast<std::size_t>(conjugate_gy - box.low[1]) * local_nkx + local_kx0;
 
-            out[i] = value;
-            out[ic] = std::conj(value);
+            const Complex value = -Complex(0.0, 1.0) * (0.0 * flux_x + ky * flux_y);
+            out[i] += value;
+            out[ic] += std::conj(value);
+
+            if (record_flux) {
+                order_parameter_flux_x[i] += flux_x;
+                order_parameter_flux_y[i] += flux_y;
+                order_parameter_flux_x[ic] += std::conj(flux_x);
+                order_parameter_flux_y[ic] += std::conj(flux_y);
+            }
         }
     }
 
@@ -438,16 +566,34 @@ void FCalculator::psi_sto(int order_parameter, const State& current, Complex* ou
 
         const double sigma = std::sqrt(0.5 * prefactor * mobility_op * mode.k2);
         const Complex gaussian(normal_noise_(noise_rng_), normal_noise_(noise_rng_));
+        const Complex flux_x = Complex(0.0, mode.kx / mode.k2) * sigma * gaussian;
+        const Complex flux_y = Complex(0.0, mode.ky / mode.k2) * sigma * gaussian;
 
-        out[mode.index] = sigma * gaussian;
+        out[mode.index] += -Complex(0.0, 1.0) * (mode.kx * flux_x + mode.ky * flux_y);
+
+        if (record_flux) {
+            order_parameter_flux_x[mode.index] += flux_x;
+            order_parameter_flux_y[mode.index] += flux_y;
+        }
     }
 }
 // ---------------------------------------------------------------------- //
-void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy) const {
+void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) const {
     (void)current;
 
     clear(out_jx);
     clear(out_jy);
+
+    // optional flux output
+    const bool record_flux = flux && flux->request().momentum;
+    Complex* momentum_flux_xx = nullptr;
+    Complex* momentum_flux_xy = nullptr;
+    Complex* momentum_flux_yy = nullptr;
+    if (record_flux) {
+        momentum_flux_xx = flux->momentum_flux_xx_hat_data();
+        momentum_flux_xy = flux->momentum_flux_xy_hat_data();
+        momentum_flux_yy = flux->momentum_flux_yy_hat_data();
+    }
 
     const double eta = transport_coefficient_.shear_viscosity();
     const double zeta = transport_coefficient_.bulk_viscosity();
@@ -457,9 +603,9 @@ void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy) 
         return;
     }
 
-    const double active_grid_size = static_cast<double>(params_.grid.active_num_grid[0]) * static_cast<double>(params_.grid.active_num_grid[1]);
+    const double grid_size = static_cast<double>(domain_.nx_global()) * static_cast<double>(domain_.ny_global());
     const double volume = domain_.lx() * domain_.ly();
-    const double prefactor = 2.0 * kBT * active_grid_size * active_grid_size / volume;
+    const double prefactor = 2.0 * kBT * grid_size * grid_size / volume;
     const double stress_sigma = std::sqrt(0.5 * prefactor);
     const double sqrt_eta = std::sqrt(eta);
     const double sqrt_zeta = std::sqrt(zeta);
@@ -494,22 +640,29 @@ void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy) 
             const Complex xi2(normal_noise_(noise_rng_), normal_noise_(noise_rng_));
             const Complex xi3(normal_noise_(noise_rng_), normal_noise_(noise_rng_));
 
-            const Complex sigma_xx = stress_sigma * (sqrt_zeta * xi1 + sqrt_eta * xi2);
-            const Complex sigma_yy = stress_sigma * (sqrt_zeta * xi1 - sqrt_eta * xi2);
-            const Complex sigma_xy = stress_sigma * sqrt_eta * xi3;
+            const Complex pi_xx = - stress_sigma * (sqrt_zeta * xi1 + sqrt_eta * xi2);
+            const Complex pi_yy = - stress_sigma * (sqrt_zeta * xi1 - sqrt_eta * xi2);
+            const Complex pi_xy = - stress_sigma * sqrt_eta * xi3;
 
-            const Complex value_x = Complex(0.0, 1.0) * (kx * sigma_xx + ky * sigma_xy);
-            const Complex value_y = Complex(0.0, 1.0) * (kx * sigma_xy + ky * sigma_yy);
+            const Complex value_x = -Complex(0.0, 1.0) * (kx * pi_xx + ky * pi_xy);
+            const Complex value_y = -Complex(0.0, 1.0) * (kx * pi_xy + ky * pi_yy);
 
-            const std::size_t i =
-                static_cast<std::size_t>(gy - box.low[1]) * local_nkx + local_kx0;
-            const std::size_t ic =
-                static_cast<std::size_t>(conjugate_gy - box.low[1]) * local_nkx + local_kx0;
+            const std::size_t i = static_cast<std::size_t>(gy - box.low[1]) * local_nkx + local_kx0;
+            const std::size_t ic = static_cast<std::size_t>(conjugate_gy - box.low[1]) * local_nkx + local_kx0;
 
-            out_jx[i] = value_x;
-            out_jy[i] = value_y;
-            out_jx[ic] = std::conj(value_x);
-            out_jy[ic] = std::conj(value_y);
+            out_jx[i] += value_x;
+            out_jy[i] += value_y;
+            out_jx[ic] += std::conj(value_x);
+            out_jy[ic] += std::conj(value_y);
+
+            if (record_flux) {
+                momentum_flux_xx[i] += pi_xx;
+                momentum_flux_xy[i] += pi_xy;
+                momentum_flux_yy[i] += pi_yy;
+                momentum_flux_xx[ic] += std::conj(pi_xx);
+                momentum_flux_xy[ic] += std::conj(pi_xy);
+                momentum_flux_yy[ic] += std::conj(pi_yy);
+            }
         }
     }
 
@@ -525,12 +678,18 @@ void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy) 
         const Complex xi2(normal_noise_(noise_rng_), normal_noise_(noise_rng_));
         const Complex xi3(normal_noise_(noise_rng_), normal_noise_(noise_rng_));
 
-        const Complex sigma_xx = stress_sigma * (sqrt_zeta * xi1 + sqrt_eta * xi2);
-        const Complex sigma_yy = stress_sigma * (sqrt_zeta * xi1 - sqrt_eta * xi2);
-        const Complex sigma_xy = stress_sigma * sqrt_eta * xi3;
+        const Complex pi_xx = - stress_sigma * (sqrt_zeta * xi1 + sqrt_eta * xi2);
+        const Complex pi_yy = - stress_sigma * (sqrt_zeta * xi1 - sqrt_eta * xi2);
+        const Complex pi_xy = - stress_sigma * sqrt_eta * xi3;
 
-        out_jx[mode.index] = Complex(0.0, 1.0) * (kx * sigma_xx + ky * sigma_xy);
-        out_jy[mode.index] = Complex(0.0, 1.0) * (kx * sigma_xy + ky * sigma_yy);
+        out_jx[mode.index] += -Complex(0.0, 1.0) * (kx * pi_xx + ky * pi_xy);
+        out_jy[mode.index] += -Complex(0.0, 1.0) * (kx * pi_xy + ky * pi_yy);
+
+        if (record_flux) {
+            momentum_flux_xx[mode.index] += pi_xx;
+            momentum_flux_xy[mode.index] += pi_xy;
+            momentum_flux_yy[mode.index] += pi_yy;
+        }
     }
 }
 // ---------------------------------------------------------------------- //

@@ -1,5 +1,5 @@
-#ifndef SFI_MODEL_FREE_ENERGY_QUADRATIC_STYLE_H
-#define SFI_MODEL_FREE_ENERGY_QUADRATIC_STYLE_H
+#ifndef SHHD_MODEL_FREE_ENERGY_QUADRATIC_STYLE_H
+#define SHHD_MODEL_FREE_ENERGY_QUADRATIC_STYLE_H
 
 #include "model_free_energy_quadratic.h"
 #include "model_free_energy_registry.h"

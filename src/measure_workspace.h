@@ -1,5 +1,5 @@
-#ifndef SFI_MEASURE_WORKSPACE_H
-#define SFI_MEASURE_WORKSPACE_H
+#ifndef SHHD_MEASURE_WORKSPACE_H
+#define SHHD_MEASURE_WORKSPACE_H
 
 #include "buffer_physical_state.h"
 #include "fourier_transform.h"

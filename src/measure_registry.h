@@ -1,5 +1,5 @@
-#ifndef MEASURE_REGISTRY_H
-#define MEASURE_REGISTRY_H
+#ifndef SHHD_MEASURE_REGISTRY_H
+#define SHHD_MEASURE_REGISTRY_H
 
 #include <memory>
 #include <ostream>

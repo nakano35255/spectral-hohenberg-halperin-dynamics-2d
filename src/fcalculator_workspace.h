@@ -1,5 +1,5 @@
-#ifndef SFI_FCALCULATOR_WORKSPACE_H
-#define SFI_FCALCULATOR_WORKSPACE_H
+#ifndef SHHD_FCALCULATOR_WORKSPACE_H
+#define SHHD_FCALCULATOR_WORKSPACE_H
 
 #include "domain.h"
 #include "fcalculator_dynamics_mode.h"

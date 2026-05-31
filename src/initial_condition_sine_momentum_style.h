@@ -1,5 +1,5 @@
-#ifndef SFI_INITIAL_CONDITION_SINE_MOMENTUM_STYLE_H
-#define SFI_INITIAL_CONDITION_SINE_MOMENTUM_STYLE_H
+#ifndef SHHD_INITIAL_CONDITION_SINE_MOMENTUM_STYLE_H
+#define SHHD_INITIAL_CONDITION_SINE_MOMENTUM_STYLE_H
 
 #include "initial_condition_registry.h"
 #include "initial_condition_sine_momentum.h"
@@ -55,12 +55,12 @@ public:
         const Params& params
     ) const override {
         auto cmd = std::make_shared<SineMomentumInitialConditionCommand>();
+        cmd->type = sine_momentum_initial_condition::TYPE_NAME;
+        cmd->direction = direction;
         cmd->base = std::stod(args.get_required("base"));
         cmd->amplitude = std::stod(args.get_required("amplitude"));
         cmd->nkx = std::stoi(args.get_required("nkx"));
         cmd->nky = std::stoi(args.get_or("nky", "0"));
-        cmd->type = sine_momentum_initial_condition::TYPE_NAME;
-        cmd->direction = direction;
 
         if (cmd->nkx < 0 || cmd->nkx >= params.grid.active_num_grid[0] / 2) {
             throw std::runtime_error("set momentum sine requires 0 <= nkx < Nx/2; Nyquist line is fixed to zero");

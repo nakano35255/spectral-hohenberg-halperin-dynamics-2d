@@ -9,13 +9,16 @@ LDLIBS := -lheffte \
 TARGET := src/out.exe
 SRCS := \
 	src/main.cc \
+	src/buffer_flux.cc \
 	src/buffer_physical_state.cc \
 	src/domain.cc \
 	src/fcalculator.cc \
 	src/fcalculator_workspace.cc \
+	src/initial_condition.cc \
 	src/initial_condition_registry_builtin.cc \
 	src/initial_condition_gaussian_density.cc \
 	src/initial_condition_gaussian_order_parameter.cc \
+	src/initial_condition_random_vorticity_momentum.cc \
 	src/initial_condition_sine_density.cc \
 	src/initial_condition_sine_momentum.cc \
 	src/initial_condition_sine_order_parameter.cc \

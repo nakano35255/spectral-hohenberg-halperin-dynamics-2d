@@ -1,5 +1,5 @@
-#ifndef SFI_MEASURE_ENERGETICS_H
-#define SFI_MEASURE_ENERGETICS_H
+#ifndef SHHD_MEASURE_ENERGETICS_H
+#define SHHD_MEASURE_ENERGETICS_H
 
 #include "fcalculator_dynamics_mode.h"
 #include "measure.h"
@@ -49,7 +49,7 @@ private:
 
 public:
     EnergeticsMeasure(const Params& params, const Domain2D& domain, const Thermodynamics& thermodynamics, const FreeEnergy& free_energy, const TransportCoefficient& transport, std::shared_ptr<const MeasureCommandBase> command);
-    void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, int step, double time) override;
+    void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, const FluxBuffer& flux, int step, double time) override;
 
     void finalize() override;
 };

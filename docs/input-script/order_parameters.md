@@ -63,7 +63,7 @@ order_parameters 0
 - `<num>` は `0` 以上の整数である必要があります。
 - `model free_energy` や `model transport` は、指定時点の `order_parameters` の値を用いて係数配列を初期化します。
 - そのため、`order_parameters` は `model free_energy` や `model transport` より前に指定してください。
-- `fix ... nonlinear on order_parameter` を使う場合は、`order_parameters` が `1` 以上である必要があります。
+- `fix ... order_parameter nonlinear on` を使う場合は、`order_parameters` が `1` 以上である必要があります。
 
 ## 関連コマンド
 

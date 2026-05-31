@@ -75,11 +75,13 @@ f(\boldsymbol{x}) = \sum_{\boldsymbol{k}} \hat{f}_{\boldsymbol{k}} \exp(i\boldsy
 \widetilde{F}_{\beta,b}(\boldsymbol{x}',t')
 \right\rangle
 =
-2 k_B T M_\alpha
+2 \chi k_B T M_\alpha
 \delta_{\alpha\beta}\delta_{ab}
 \delta(\boldsymbol{x}-\boldsymbol{x}')
 \delta(t-t')
 ```
+
+ここで $\chi$ は `fix ... noise` の `chi` で指定するスカラー場ノイズの倍率です。省略時は $\chi=1$ です。
 
 ```math
 \left\langle

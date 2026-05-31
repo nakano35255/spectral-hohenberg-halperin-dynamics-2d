@@ -1,5 +1,5 @@
-#ifndef SFI_MODEL_THERMODYNAMICS_LINEAR_EOS_STYLE_H
-#define SFI_MODEL_THERMODYNAMICS_LINEAR_EOS_STYLE_H
+#ifndef SHHD_MODEL_THERMODYNAMICS_LINEAR_EOS_STYLE_H
+#define SHHD_MODEL_THERMODYNAMICS_LINEAR_EOS_STYLE_H
 
 #include "model_thermodynamics_linear_eos.h"
 #include "model_thermodynamics_registry.h"

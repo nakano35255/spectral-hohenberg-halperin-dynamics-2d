@@ -1,5 +1,5 @@
-#ifndef SFI_MODEL_TRANSPORT_COEFFICIENT_CONSTANT_STYLE_H
-#define SFI_MODEL_TRANSPORT_COEFFICIENT_CONSTANT_STYLE_H
+#ifndef SHHD_MODEL_TRANSPORT_COEFFICIENT_CONSTANT_STYLE_H
+#define SHHD_MODEL_TRANSPORT_COEFFICIENT_CONSTANT_STYLE_H
 
 #include "model_transport_coefficient_constant.h"
 #include "model_transport_coefficient_registry.h"

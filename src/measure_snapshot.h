@@ -1,5 +1,5 @@
-#ifndef MEASURE_SNAPSHOT_H
-#define MEASURE_SNAPSHOT_H
+#ifndef SHHD_MEASURE_SNAPSHOT_H
+#define SHHD_MEASURE_SNAPSHOT_H
 
 #include <memory>
 #include <string>
@@ -26,7 +26,7 @@ private:
     
 public:
      SnapshotMeasure(const Params& params, const Domain2D& domain, std::shared_ptr<const MeasureCommandBase> command);
-     void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, int step, double time) override;
+     void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, const FluxBuffer& flux, int step, double time) override;
 };
 
 #endif

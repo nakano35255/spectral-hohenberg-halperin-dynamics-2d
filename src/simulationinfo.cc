@@ -97,8 +97,13 @@ void FixConfig::print_config(std::ostream& os) const {
 
     print_entry(os, "noise", noise.enabled ? "ON" : "OFF");
     if (noise.enabled) {
+        print_entry(os, "  momentum", noise.momentum_enabled ? "ON" : "OFF");
+        print_entry(os, "  order_parameter", noise.order_parameter_enabled ? "ON" : "OFF");
         print_entry(os, "  Seed", noise.seed);
         print_entry(os, "  kBT", noise.kBT);
+        if (noise.order_parameter_enabled) {
+            print_entry(os, "  order_parameter_chi", noise.order_parameter_noise_chi);
+        }
     }
 
     print_entry(os, "momentum_advection", momentum_advection ? "ON" : "OFF");

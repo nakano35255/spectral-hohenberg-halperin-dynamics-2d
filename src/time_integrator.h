@@ -1,10 +1,11 @@
-#ifndef SFI_TIME_INTEGRATOR_H
-#define SFI_TIME_INTEGRATOR_H
+#ifndef SHHD_TIME_INTEGRATOR_H
+#define SHHD_TIME_INTEGRATOR_H
 
 #include "simulationinfo.h"
 #include "domain.h"
 #include "state.h"
 #include "spectral_mask.h"
+#include "buffer_flux.h"
 
 #include <algorithm>
 #include <functional>
@@ -13,14 +14,13 @@
 #include <stdexcept>
 #include <vector>
 
-using DensityDetRHSFunc = std::function<void(const State&, Complex*, double)>;
-using OrderParameterDetRHSFunc = std::function<void(int, const State&, Complex*, double)>;
-using MomentumDetRHSFunc = std::function<void(const State&, Complex*, Complex*, double)>;
+using DensityDetRHSFunc = std::function<void(const State&, Complex*, double, FluxBuffer*)>;
+using OrderParameterDetRHSFunc = std::function<void(int, const State&, Complex*, double, FluxBuffer*)>;
+using MomentumDetRHSFunc = std::function<void(const State&, Complex*, Complex*, double, FluxBuffer*)>;
 
-using DensityStoRHSFunc = std::function<void(const State&, Complex*)>;
-using OrderParameterStoRHSFunc = std::function<void(int, const State&, Complex*)>;
-using MomentumStoRHSFunc = std::function<void(const State&, Complex*, Complex*)>;
-
+using DensityStoRHSFunc = std::function<void(const State&, Complex*, FluxBuffer*)>;
+using OrderParameterStoRHSFunc = std::function<void(int, const State&, Complex*, FluxBuffer*)>;
+using MomentumStoRHSFunc = std::function<void(const State&, Complex*, Complex*, FluxBuffer*)>;
 
 struct RHSOperators {
     DensityDetRHSFunc rho_det;
@@ -43,6 +43,12 @@ protected:
     const std::size_t total_spectral_size_;
     const double dt_;
     const double sqrt_dt_;
+
+    // optional flux output
+    FluxBuffer flux_buffer_;
+    FluxBuffer deterministic_flux_;
+    FluxBuffer stochastic_flux_a_;
+
 
     void clear_state(State& state) const {
         std::fill(state.data(), state.data() + total_spectral_size_, Complex(0.0, 0.0));
@@ -102,6 +108,10 @@ protected:
         enforce_self_conjugate_line(state, 0);
     }
 
+    void begin_flux_step() {
+        flux_buffer_.begin_step();
+    }
+
 public:
     TimeIntegrator(
         const Domain2D& domain,
@@ -116,7 +126,10 @@ public:
           local_spectral_size_(domain.spectral_size()),
           total_spectral_size_(static_cast<std::size_t>(num_fields_) * local_spectral_size_),
           dt_(params.runtime.dt),
-          sqrt_dt_(std::sqrt(dt_))
+          sqrt_dt_(std::sqrt(dt_)),
+          flux_buffer_(params, domain),
+          deterministic_flux_(params, domain),
+          stochastic_flux_a_(params, domain)
     {
         if (num_order_parameters_ < 0) {
             throw std::runtime_error("TimeIntegrator requires a nonnegative number of order parameters.");
@@ -126,6 +139,17 @@ public:
     virtual ~TimeIntegrator() = default;
 
     virtual void step(State& u, double t, const RHSOperators& rhs) = 0;
+
+    void set_flux_request(const FluxRequest& request) {
+        flux_buffer_.set_request(request);
+        deterministic_flux_.set_request(request);
+        stochastic_flux_a_.set_request(request);
+    }
+
+    const FluxBuffer& flux_buffer() const {
+        return flux_buffer_;
+    }
+
 
 };
 

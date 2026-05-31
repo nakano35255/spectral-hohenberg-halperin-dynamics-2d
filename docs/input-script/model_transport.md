@@ -92,7 +92,7 @@ M_\alpha \nabla^2 \mu_\alpha
 
 に対応する項が評価されます。
 
-`fix ... noise` を有効にした場合、`eta`, `zeta`, `M[alpha,alpha]` は対応する保存型ノイズの強度にも使われます。
+`fix ... noise` を有効にした場合、`eta`, `zeta`, `M[alpha,alpha]` は対応する保存型ノイズの強度にも使われます。スカラー場ノイズには、`fix ... noise` の `chi` で指定する倍率も掛かります。
 
 ## 制限・注意
 

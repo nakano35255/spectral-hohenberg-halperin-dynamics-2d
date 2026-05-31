@@ -275,101 +275,105 @@ void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
 // ---------------------------------------------------------------------- //
 void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
     if (tokens.size() < 5) {
-        throw std::runtime_error("fix syntax: fix <ID> all <type> <on|off> ...");
+        throw std::runtime_error("fix syntax: fix <ID> <target> <nonlinear|noise> <on|off> ...");
     }
 
     if (!params.commands.empty()) {
         throw std::runtime_error("fix must be specified before run or measure commands");
     }
 
-    const std::string& group = tokens[2];
+    const std::string& target_token = tokens[2];
     const std::string& type = tokens[3];
-
-    if (group != "all") {
-        throw std::runtime_error("only group 'all' is supported for now");
-    }
-
     const bool enabled = parse_on_off(tokens[4], "fix " + type);
 
-    if (type == "noise") {
-        if (!enabled) {
-            if (tokens.size() != 5) {
-                throw std::runtime_error("fix noise off syntax: fix <ID> all noise off");
-            }
+    std::string target;
 
-            params.fix.noise.enabled = false;
-            return;
+    if (target_token == "momentum" || target_token == "j") {
+        target = "momentum";
+    }
+    else if (target_token == "order_parameter" || target_token == "psi") {
+        if (params.physics.num_order_parameters <= 0) {
+            throw std::runtime_error("fix " + type + " " + target_token + " requires order_parameters > 0.");
+        }
+        target = "order_parameter";
+    }
+    else if (target_token == "all") {
+        target = "all";
+    }
+    else {
+        throw std::runtime_error("unknown fix target: " + target_token);
+    }
+
+    if (type == "nonlinear") {
+        if (tokens.size() != 5) {
+            throw std::runtime_error("fix nonlinear syntax: fix <ID> <target> nonlinear <on|off>");
         }
 
-        if ((tokens.size() - 5) % 2 != 0) {
-            throw std::runtime_error("fix noise syntax: fix <ID> all noise on [seed <integer>] [kBT <value>]");
+        if (target == "momentum" || target == "all") {
+            params.fix.momentum_advection = enabled;
         }
-
-        params.fix.noise.enabled = true;
-
-        for (std::size_t i = 5; i < tokens.size(); i += 2) {
-            const std::string& key = tokens[i];
-            const std::string& value = tokens[i + 1];
-
-            if (key == "seed") {
-                params.fix.noise.seed = std::stoi(value);
-                continue;
-            }
-
-            if (key == "kBT" || key == "temperature") {
-                params.fix.noise.kBT = std::stod(value);
-                if (params.fix.noise.kBT < 0.0) {
-                    throw std::runtime_error("fix noise requires nonnegative kBT.");
-                }
-                continue;
-            }
-
-            throw std::runtime_error("unknown fix noise argument: " + key);
+        if (target == "order_parameter" || target == "all") {
+            params.fix.order_parameter_advection = enabled && (params.physics.num_order_parameters > 0);
         }
 
         return;
     }
 
-    if (type == "nonlinear") {
-        if (tokens.size() < 6) {
-            throw std::runtime_error(
-                "fix nonlinear syntax: fix <ID> all nonlinear <on|off> <momentum|j|order_parameter|psi|all>..."
-            );
+    if (type == "noise") {
+        if (!enabled && tokens.size() != 5) {
+            throw std::runtime_error("fix noise off syntax: fix <ID> <target> noise off");
         }
 
-        bool saw_target = false;
-
-        for (std::size_t i = 5; i < tokens.size(); ++i) {
-            const std::string& target = tokens[i];
-
-            if (target == "momentum" || target == "j") {
-                params.fix.momentum_advection = enabled;
-                saw_target = true;
-                continue;
+        if (enabled) {
+            if ((tokens.size() - 5) % 2 != 0) {
+                throw std::runtime_error( "fix noise syntax: fix <ID> <target> noise on [seed <integer>] [kBT <value>]"
+                );
             }
 
-            if (target == "order_parameter" || target == "psi") {
-                params.fix.order_parameter_advection = enabled;
-                saw_target = true;
-                continue;
-            }
+            for (std::size_t i = 5; i < tokens.size(); i += 2) {
+                const std::string& key = tokens[i];
+                const std::string& value = tokens[i + 1];
 
-            if (target == "all") {
-                params.fix.momentum_advection = enabled;
-                params.fix.order_parameter_advection =
-                    enabled && params.physics.num_order_parameters > 0;
-                saw_target = true;
-                continue;
-            }
+                if (key == "seed") {
+                    params.fix.noise.seed = std::stoi(value);
+                    continue;
+                }
 
-            throw std::runtime_error("unknown fix nonlinear target: " + target);
+                if (key == "kBT" || key == "temperature") {
+                    params.fix.noise.kBT = std::stod(value);
+                    if (params.fix.noise.kBT < 0.0) {
+                        throw std::runtime_error("fix noise requires nonnegative kBT.");
+                    }
+                    continue;
+                }
+
+                if (key == "chi" || key == "order_parameter_chi" || key == "psi_chi") {
+                    if (target == "momentum") {
+                        throw std::runtime_error("fix momentum noise does not use chi.");
+                    }
+                    if (params.physics.num_order_parameters <= 0) {
+                        throw std::runtime_error("fix noise chi requires order_parameters > 0.");
+                    }
+
+                    params.fix.noise.order_parameter_noise_chi = std::stod(value);
+                    if (params.fix.noise.order_parameter_noise_chi < 0.0) {
+                        throw std::runtime_error("fix noise requires nonnegative chi.");
+                    }
+                    continue;
+                }
+                
+                throw std::runtime_error("unknown fix noise argument: " + key);
+            }
         }
 
-        if (!saw_target) {
-            throw std::runtime_error(
-                "fix nonlinear requires at least one target: momentum, j, order_parameter, psi, or all"
-            );
+        if (target == "momentum" || target == "all") {
+            params.fix.noise.momentum_enabled = enabled;
         }
+        if (target == "order_parameter" || target == "all") {
+            params.fix.noise.order_parameter_enabled = enabled && (params.physics.num_order_parameters > 0);
+        }
+
+        params.fix.noise.enabled = params.fix.noise.momentum_enabled || params.fix.noise.order_parameter_enabled;
 
         return;
     }

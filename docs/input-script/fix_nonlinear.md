@@ -7,17 +7,17 @@
 ## 形式
 
 ```txt
-fix <ID> all nonlinear <on|off> <target>...
+fix <ID> <target> nonlinear <on|off>
 ```
 
 ## 例
 
 ```sh
-fix 1 all nonlinear on momentum
-fix 1 all nonlinear on order_parameter
-fix 1 all nonlinear on all
+fix 1 momentum nonlinear on
+fix 1 order_parameter nonlinear on
+fix 1 all nonlinear on
 
-fix 1 all nonlinear off momentum
+fix 1 momentum nonlinear off
 ```
 
 ## 引数
@@ -26,21 +26,17 @@ fix 1 all nonlinear off momentum
   - 型: string
   - fix の識別子です。
   - 現在の実装では、値は構文上のラベルとして扱われます。
-- `all`
-  - 対象グループです。
-  - 現在指定できる値は `all` のみです。
-- `<on|off>`
+- `<target>`
   - 型: string
-  - `on` で有効化、`off` で無効化します。
-- `<target>...`
-  - 型: string
-  - 1つ以上指定します。
   - 指定可能な値:
     - `momentum`
     - `j`
     - `order_parameter`
     - `psi`
     - `all`
+- `<on|off>`
+  - 型: string
+  - `on` で有効化、`off` で無効化します。
 
 ## デフォルト値
 
@@ -72,20 +68,19 @@ order_parameter_advection off
 `order_parameters` が `1` 以上の場合は、運動量とスカラー場の両方の移流項を制御します。
 
 ```sh
-fix 1 all nonlinear on all
+fix 1 all nonlinear on
 ```
 
-複数の target を並べることもできます。
+運動量とスカラー場を個別に指定する場合は、複数行に分けます。
 
 ```sh
-fix 1 all nonlinear on momentum order_parameter
+fix 1 momentum nonlinear on
+fix 2 order_parameter nonlinear on
 ```
 
 ## 制限・注意
 
 - `fix` コマンドは、現在の実装では `run` または `measure` より前に指定する必要があります。
-- `<target>` は1つ以上指定する必要があります。
-- `all` 以外の group は未実装です。
 - `quiescent` モードでは、流体速度をゼロとして扱うため `fix ... nonlinear` は使用できません。
 - `order_parameter` または `psi` を明示的に指定する場合、`order_parameters` は `1` 以上である必要があります。
 - `all` は `order_parameters 0` でも使用できます。

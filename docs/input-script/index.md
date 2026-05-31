@@ -103,7 +103,7 @@ model free_energy   phi4 a[0] -3.0 b[0] 1.0 u[0] 1.0
 model transport     constant eta 1.0 zeta 1.0 M[0,0] 1.0
 
 # 4. optional terms
-fix                 1 all nonlinear on momentum order_parameter
+fix                 1 all nonlinear on
 fix                 2 all noise on seed 12345 kBT 1.0
 
 # 5. initial condition
@@ -171,8 +171,8 @@ run                 100000
 
 | コマンド | 形式 | 詳細 |
 | --- | --- | --- |
-| `fix ... nonlinear` | `fix <ID> all nonlinear <on\|off> <momentum\|order_parameter\|all>` | [詳細](./fix_nonlinear.md) |
-| `fix ... noise` | `fix <ID> all noise <on\|off> [seed <integer>] [kBT <value>]` | [詳細](./fix_noise.md) |
+| `fix ... nonlinear` | `fix <ID> <target> nonlinear <on\|off>` | [詳細](./fix_nonlinear.md) |
+| `fix ... noise` | `fix <ID> <target> noise <on\|off> [seed <integer>] [kBT <value>] [chi <value>]` | [詳細](./fix_noise.md) |
 
 ### Initial Condition
 
@@ -264,7 +264,7 @@ time_evolution      srk3/compressible
 model thermo        linear_eos cT 10.0
 model transport     constant eta 1.0 zeta 1.0
 
-fix                 1 all nonlinear on momentum
+fix                 1 momentum nonlinear on
 fix                 2 all noise on kBT 1.0 seed 12345
 
 set                 density uniform value 1.0

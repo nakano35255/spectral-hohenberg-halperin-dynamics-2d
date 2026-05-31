@@ -1,5 +1,5 @@
-#ifndef SFI_FCALCULATOR_H
-#define SFI_FCALCULATOR_H
+#ifndef SHHD_FCALCULATOR_H
+#define SHHD_FCALCULATOR_H
 
 #include "domain.h"
 #include "fcalculator_dynamics_mode.h"
@@ -11,6 +11,7 @@
 #include "simulationinfo.h"
 #include "spectral_mask.h"
 #include "state.h"
+#include "buffer_flux.h"
 
 #include <cstddef>
 #include <random>
@@ -39,12 +40,12 @@ private:
     static int temporary_field_capacity(const Params& params);
     void clear(Complex* out) const;
 
-    void add_order_parameter_linear_term(int order_parameter, double mobility, const State& current, Complex* out) const;
-    void add_order_parameter_physical_terms(int order_parameter, double mobility, const State& current, Complex* out, double time) const;
-    void add_linear_pressure_term(double pressure_coefficient, const State& current, Complex* out_jx, Complex* out_jy) const;
-    void add_incompressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy) const;
-    void add_compressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time) const;
-    void add_momentum_physical_terms(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time) const;
+    void add_order_parameter_linear_term(int order_parameter, double mobility, const State& current, Complex* out, FluxBuffer* flux) const;
+    void add_order_parameter_physical_terms(int order_parameter, double mobility, const State& current, Complex* out, double time, FluxBuffer* flux) const;
+    void add_linear_pressure_term(double pressure_coefficient, const State& current, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) const;
+    void add_incompressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) const;
+    void add_compressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) const;
+    void add_momentum_physical_terms(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) const;
 
 public:
     FCalculator(
@@ -56,12 +57,12 @@ public:
         const TransportCoefficient& transport_coefficient
     );
 
-    void rho_det(const State& current, Complex* out, double t) const;
-    void psi_det(int order_parameter, const State& current, Complex* out, double t) const;
-    void j_det(const State& current, Complex* out_jx, Complex* out_jy, double t) const;
+    void rho_det(const State& current, Complex* out, double t, FluxBuffer* flux) const;
+    void psi_det(int order_parameter, const State& current, Complex* out, double t, FluxBuffer* flux) const;
+    void j_det(const State& current, Complex* out_jx, Complex* out_jy, double t, FluxBuffer* flux) const;
 
-    void psi_sto(int order_parameter, const State& current, Complex* out) const;
-    void j_sto(const State& current, Complex* out_jx, Complex* out_jy) const;
+    void psi_sto(int order_parameter, const State& current, Complex* out, FluxBuffer* flux) const;
+    void j_sto(const State& current, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) const;
 };
 
 #endif

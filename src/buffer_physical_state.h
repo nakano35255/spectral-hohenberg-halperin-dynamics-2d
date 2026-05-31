@@ -1,5 +1,5 @@
-#ifndef SFI_BUFFER_PHYSICAL_STATE_H
-#define SFI_BUFFER_PHYSICAL_STATE_H
+#ifndef SHHD_BUFFER_PHYSICAL_STATE_H
+#define SHHD_BUFFER_PHYSICAL_STATE_H
 
 #include "domain.h"
 #include "simulationinfo.h"

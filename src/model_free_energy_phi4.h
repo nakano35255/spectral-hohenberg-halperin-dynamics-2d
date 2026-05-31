@@ -1,5 +1,5 @@
-#ifndef SFI_MODEL_FREE_ENERGY_PHI4_H
-#define SFI_MODEL_FREE_ENERGY_PHI4_H
+#ifndef SHHD_MODEL_FREE_ENERGY_PHI4_H
+#define SHHD_MODEL_FREE_ENERGY_PHI4_H
 
 #include "model_free_energy.h"
 

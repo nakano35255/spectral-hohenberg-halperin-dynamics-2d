@@ -7,14 +7,15 @@
 ## 形式
 
 ```txt
-fix <ID> all noise <on|off> [seed <integer>] [kBT <value>]
+fix <ID> <target> noise <on|off> [seed <integer>] [kBT <value>] [chi <value>]
 ```
 
 ## 例
 
 ```sh
 fix 2 all noise on seed 12345 kBT 1.0
-fix 2 all noise on temperature 1.0
+fix 2 momentum noise on temperature 1.0
+fix 2 order_parameter noise on seed 12345 kBT 1.0 chi 2.0
 fix 2 all noise off
 ```
 
@@ -24,9 +25,14 @@ fix 2 all noise off
   - 型: string
   - fix の識別子です。
   - 現在の実装では、値は構文上のラベルとして扱われます。
-- `all`
-  - 対象グループです。
-  - 現在指定できる値は `all` のみです。
+- `<target>`
+  - 型: string
+  - 指定可能な値:
+    - `momentum`
+    - `j`
+    - `order_parameter`
+    - `psi`
+    - `all`
 - `<on|off>`
   - 型: string
   - `on` で有効化、`off` で無効化します。
@@ -35,6 +41,9 @@ fix 2 all noise off
 - `kBT <value>`
   - ノイズ強度を決める温度を指定します。
   - `temperature <value>` も同じ意味で使えます。
+- `chi <value>`
+  - スカラー場ノイズだけに掛ける倍率です。
+  - `order_parameter_chi <value>`、`psi_chi <value>` も同じ意味で使えます。
 
 ## デフォルト値
 
@@ -51,24 +60,30 @@ fix 2 all noise off
 ```txt
 seed 12345
 kBT 1.0
+chi 1.0
 ```
 
 ## 詳細
 
 `fix ... noise` は、確率フラックスおよび確率応力に対応する保存型ノイズを有効化します。
 
-スカラー場が存在する場合、スカラー場方程式には移動度に対応した保存型ノイズが加わります。
+`momentum` または `j` を指定すると、運動量方程式の確率応力を制御します。
 
-流体を時間発展する `compressible` / `incompressible` モードでは、運動量方程式にも粘性係数に対応した確率応力が加わります。
+`order_parameter` または `psi` を指定すると、スカラー場方程式の保存型ノイズを制御します。
+
+`all` を指定すると、存在する場のノイズをまとめて制御します。
 `quiescent` モードでは流体場を時間発展しないため、運動量ノイズは使われません。
+
+`chi` はスカラー場ノイズの強度だけを変更します。スカラー場の確率フラックスでは、実効的に `kBT` が `chi * kBT` として使われます。運動量ノイズには影響しません。
 
 ノイズの共分散や方程式上の位置は [基礎方程式](../equations.md) を参照してください。
 
 ## 制限・注意
 
 - `fix` コマンドは、現在の実装では `run` または `measure` より前に指定する必要があります。
-- `all` 以外の group は未実装です。
 - `kBT` は `0` 以上である必要があります。
+- `chi` は `0` 以上である必要があります。
+- `chi` は `momentum` target では指定できません。
 - `fix ... noise off` には追加引数を指定できません。
 - 現在の実装では `<ID>` による個別管理や削除は行いません。
 

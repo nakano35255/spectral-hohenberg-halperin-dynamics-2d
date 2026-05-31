@@ -1,0 +1,35 @@
+# Thermal FDR stationary-distribution check for the compressible model.
+#
+# This example evolves density, momentum, and one conserved scalar field with
+# linear EOS, quadratic free energy, thermal noise, and nonlinear advection.
+# The companion Python script checks only the stationary-distribution
+# equipartition expected from the fluctuation-dissipation relation.
+
+dimension           2
+boundary            p p
+
+grid                16 16
+length              16.0 16.0
+dealias             three_halves
+
+order_parameters    1
+
+timestep            0.002
+time_evolution      srk3/compressible
+
+model thermo        linear_eos cT 10.0
+model free_energy   quadratic a[0] 1.0
+model transport     constant eta 1.0 zeta 1.0 M[0,0] 1.0
+
+fix                 1 all noise on seed 20260529 kBT 1.0
+fix                 2 all nonlinear on
+
+set                 density uniform value 1.0
+set                 momentum all uniform value 0.0
+set                 order_parameter all uniform value 0.0
+
+thermo              observe on progress on nevery 5000
+measure             energy energetics on nevery 50 file examples/01_thermal_fluctuations/results/energetics.dat
+restart             off
+
+run                 60000

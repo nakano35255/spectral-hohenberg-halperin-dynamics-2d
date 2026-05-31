@@ -1,5 +1,5 @@
-#ifndef SFI_SPECTRAL_MASK_H
-#define SFI_SPECTRAL_MASK_H
+#ifndef SHHD_SPECTRAL_MASK_H
+#define SHHD_SPECTRAL_MASK_H
 
 #include "domain.h"
 #include "simulationinfo.h"

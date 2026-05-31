@@ -315,6 +315,7 @@ void SnapshotMeasure::observe(
      const State& state,
      FourierTransform2D& fft,
      MeasureWorkspace& workspace,
+     const FluxBuffer& /*flux*/,
      int step,
      double time
 ) {

@@ -1,5 +1,5 @@
-#ifndef SFI_SIMULATIONINFO_H
-#define SFI_SIMULATIONINFO_H
+#ifndef SHHD_SIMULATIONINFO_H
+#define SHHD_SIMULATIONINFO_H
 
 #include <iosfwd>
 #include <string>
@@ -90,8 +90,11 @@ struct PhysicsConfig {
 // ---------------------------------------------------------------------- //
 struct NoiseFixConfig {
     bool enabled = false;
+    bool momentum_enabled = false;
+    bool order_parameter_enabled = false;
     int seed = 12345;
     double kBT = 1.0;
+    double order_parameter_noise_chi = 1.0;
 };
 struct FixConfig {
     NoiseFixConfig noise;

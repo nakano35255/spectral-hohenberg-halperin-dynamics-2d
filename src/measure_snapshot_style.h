@@ -1,5 +1,5 @@
-#ifndef MEASURE_SNAPSHOT_STYLE_H
-#define MEASURE_SNAPSHOT_STYLE_H
+#ifndef SHHD_MEASURE_SNAPSHOT_STYLE_H
+#define SHHD_MEASURE_SNAPSHOT_STYLE_H
 
 #include "measure_registry.h"
 #include "measure_snapshot.h"

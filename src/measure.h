@@ -1,10 +1,11 @@
-#ifndef MEASURE_H
-#define MEASURE_H
+#ifndef SHHD_MEASURE_H
+#define SHHD_MEASURE_H
 
 #include "simulationinfo.h"
 #include "domain.h"
 #include "state.h"
 #include "buffer_physical_state.h"
+#include "buffer_flux.h"
 #include "fourier_transform.h"
 #include "measure_workspace.h"
 
@@ -26,7 +27,11 @@ public:
 
     virtual ~Measure() = default;
 
-    virtual void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, int step, double time) = 0;
+    virtual FluxRequest flux_request() const {
+        return {};
+    }
+
+    virtual void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, const FluxBuffer& flux, int step, double time) = 0;
     virtual void finalize() {}
 
     const std::string& id() const {

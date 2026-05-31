@@ -1,5 +1,5 @@
-#ifndef SFI_FOURIER_TRANSFORM_H
-#define SFI_FOURIER_TRANSFORM_H
+#ifndef SHHD_FOURIER_TRANSFORM_H
+#define SHHD_FOURIER_TRANSFORM_H
 
 #include "domain.h"
 

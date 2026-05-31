@@ -1,5 +1,5 @@
-#ifndef SFI_FLUID_SOLVER_H
-#define SFI_FLUID_SOLVER_H
+#ifndef SHHD_FLUID_SOLVER_H
+#define SHHD_FLUID_SOLVER_H
 
 #include "domain.h"
 #include "simulationinfo.h"
@@ -65,26 +65,30 @@ public:
           fcalculator_(params_, domain_, spectral_mask_, thermodynamics_, free_energy_, transport_coefficient_),
           time_integrator_(create_time_integrator(params_, domain_, spectral_mask_))
      {
-          rhs_.rho_det = [this](const State& state, Complex* out, double time) {
-               fcalculator_.rho_det(state, out, time);
+          rhs_.rho_det = [this](const State& state, Complex* out, double time, FluxBuffer* flux) {
+               fcalculator_.rho_det(state, out, time, flux);
           };
-          rhs_.psi_det = [this](int order_parameter, const State& state, Complex* out, double time) {
-               fcalculator_.psi_det(order_parameter, state, out, time);
+          rhs_.psi_det = [this](int order_parameter, const State& state, Complex* out, double time, FluxBuffer* flux) {
+               fcalculator_.psi_det(order_parameter, state, out, time, flux);
           };
-          rhs_.j_det = [this](const State& state, Complex* out_jx, Complex* out_jy, double time) {
-               fcalculator_.j_det(state, out_jx, out_jy, time);
+          rhs_.j_det = [this](const State& state, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) {
+               fcalculator_.j_det(state, out_jx, out_jy, time, flux);
           };
+
+
           if (params_.fix.noise.enabled) {
-               if (params_.physics.num_order_parameters > 0) {
-                    rhs_.psi_sto = [this](int order_parameter, const State& state, Complex* out) {
-                         fcalculator_.psi_sto(order_parameter, state, out);
+               if (params_.fix.noise.order_parameter_enabled && params_.physics.num_order_parameters > 0) {
+                    rhs_.psi_sto = [this](int order_parameter, const State& state, Complex* out, FluxBuffer* flux) {
+                         fcalculator_.psi_sto(order_parameter, state, out, flux);
                     };
                }
 
-               const bool quiescent = params_.runtime.time_evolution_type == "euler/quiescent" || params_.runtime.time_evolution_type == "srk3/quiescent";
-               if (!quiescent) {
-                    rhs_.j_sto = [this](const State& state, Complex* out_jx, Complex* out_jy) {
-                         fcalculator_.j_sto(state, out_jx, out_jy);
+               const bool quiescent = params_.runtime.time_evolution_type == "euler/quiescent"
+                                        || params_.runtime.time_evolution_type == "srk3/quiescent";
+
+               if (params_.fix.noise.momentum_enabled && !quiescent) {
+                    rhs_.j_sto = [this](const State& state, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) {
+                         fcalculator_.j_sto(state, out_jx, out_jy, flux);
                     };
                }
           }
@@ -92,6 +96,14 @@ public:
 
      void step(State& state, double time) {
           time_integrator_->step(state, time, rhs_);
+     }
+
+     void set_flux_request(const FluxRequest& request) {
+          time_integrator_->set_flux_request(request);
+     }
+
+     const FluxBuffer& flux_buffer() const {
+          return time_integrator_->flux_buffer();
      }
 };
 

@@ -1,5 +1,5 @@
-#ifndef SFI_TIME_INTEGRATOR_SRK3_QUIESCENT_H
-#define SFI_TIME_INTEGRATOR_SRK3_QUIESCENT_H
+#ifndef SHHD_TIME_INTEGRATOR_SRK3_QUIESCENT_H
+#define SHHD_TIME_INTEGRATOR_SRK3_QUIESCENT_H
 
 #include "time_integrator.h"
 
@@ -10,6 +10,15 @@ private:
     static constexpr double BETA1 = ( 2.0 * SQRT2 + SQRT3)       / 5.0;
     static constexpr double BETA2 = (-4.0 * SQRT2 + 3.0 * SQRT3) / 5.0;
     static constexpr double BETA3 = ( SQRT2 - 2.0 * SQRT3)       / 10.0;
+    static constexpr double STAGE1_BASE_WEIGHT = 0.0;
+    static constexpr double STAGE1_CURRENT_WEIGHT = 1.0;
+    static constexpr double STAGE1_FLUX_WEIGHT = 1.0 / 6.0;
+    static constexpr double STAGE2_BASE_WEIGHT = 3.0 / 4.0;
+    static constexpr double STAGE2_CURRENT_WEIGHT = 1.0 / 4.0;
+    static constexpr double STAGE2_FLUX_WEIGHT = 1.0 / 6.0;
+    static constexpr double STAGE3_BASE_WEIGHT = 1.0 / 3.0;
+    static constexpr double STAGE3_CURRENT_WEIGHT = 2.0 / 3.0;
+    static constexpr double STAGE3_FLUX_WEIGHT = 2.0 / 3.0;
 
     State stochastic_rhs_a_;
     State stochastic_rhs_b_;
@@ -26,13 +35,21 @@ private:
         const RHSOperators& rhs,
         double beta,
         double weight_base,
-        double weight_current
+        double weight_current,
+        double flux_weight
     ) {
         clear_state(deterministic_rhs_);
         copy_state(next, current);
 
+        // optional flux output
+        FluxBuffer* flux_det = nullptr;
+        if (flux_buffer_.requested()) {
+            deterministic_flux_.begin_step();
+            flux_det = &deterministic_flux_;
+        }
+
         for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
-            rhs.psi_det(order_parameter, current, deterministic_rhs_.psi_hat_data(order_parameter), t);
+            rhs.psi_det(order_parameter, current, deterministic_rhs_.psi_hat_data(order_parameter), t, flux_det);
         }
 
         Complex* next_data = next.data();
@@ -56,6 +73,11 @@ private:
         }
 
         enforce_real_symmetry(next);
+
+        // optional flux output
+        if (flux_buffer_.requested()) {
+            flux_buffer_.accumulate_stage_flux(flux_weight, deterministic_flux_);
+        }
     }
 
 public:
@@ -74,28 +96,47 @@ public:
 
     void step(State& u, double t, const RHSOperators& rhs) override {
         copy_state(u_old_, u);
+
+        // optional flux output
+        begin_flux_step();
+
         clear_state(stochastic_rhs_a_);
         clear_state(stochastic_rhs_b_);
 
+        // optional flux output
+        FluxBuffer* flux_sto_a = nullptr;
+        if (flux_buffer_.requested()) {
+            stochastic_flux_a_.begin_step();
+
+            flux_sto_a = &stochastic_flux_a_;
+        }
+
         if (rhs.psi_sto) {
             for (int order_parameter = 0; order_parameter < num_order_parameters_; ++order_parameter) {
-                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_a_.psi_hat_data(order_parameter));
-                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_b_.psi_hat_data(order_parameter));
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_a_.psi_hat_data(order_parameter), flux_sto_a);
+                rhs.psi_sto(order_parameter, u_old_, stochastic_rhs_b_.psi_hat_data(order_parameter), nullptr);
             }
         }
 
         calculate_stage(
             u_stage1_, u_old_, u_old_, t,
-            rhs, BETA1, 0.0, 1.0
+            rhs, BETA1, STAGE1_BASE_WEIGHT, STAGE1_CURRENT_WEIGHT, STAGE1_FLUX_WEIGHT
         );
+
         calculate_stage(
             u_stage2_, u_stage1_, u_old_, t + dt_,
-            rhs, BETA2, 3.0 / 4.0, 1.0 / 4.0
+            rhs, BETA2, STAGE2_BASE_WEIGHT, STAGE2_CURRENT_WEIGHT, STAGE2_FLUX_WEIGHT
         );
+
         calculate_stage(
             u, u_stage2_, u_old_, t + 0.5 * dt_,
-            rhs, BETA3, 1.0 / 3.0, 2.0 / 3.0
+            rhs, BETA3, STAGE3_BASE_WEIGHT, STAGE3_CURRENT_WEIGHT, STAGE3_FLUX_WEIGHT
         );
+
+        // optional flux output
+        if (flux_buffer_.requested()) {
+            flux_buffer_.accumulate_stage_flux(1.0 / sqrt_dt_, stochastic_flux_a_);
+        }
     }
 };
 

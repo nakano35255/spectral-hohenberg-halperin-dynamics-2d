@@ -1,5 +1,5 @@
-#ifndef MEASURE_MANAGER_H
-#define MEASURE_MANAGER_H
+#ifndef SHHD_MEASURE_MANAGER_H
+#define SHHD_MEASURE_MANAGER_H
 
 #include "buffer_physical_state.h"
 #include "domain.h"
@@ -43,7 +43,9 @@ public:
     void apply_measure_command(std::shared_ptr<MeasureCommandBase> command);
     void remove_measure(const std::string& id);
 
-    void observe(const State& state, FourierTransform2D& fft, int step, double time);
+    FluxRequest flux_request() const;
+
+    void observe(const State& state, FourierTransform2D& fft, const FluxBuffer& flux, int step, double time);
 
     void finalize();
 };

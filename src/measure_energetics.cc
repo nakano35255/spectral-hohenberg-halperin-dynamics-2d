@@ -80,7 +80,7 @@ double EnergeticsMeasure::cell_area() const {
         / (static_cast<double>(domain_.nx_global()) * static_cast<double>(domain_.ny_global()));
 }
 // ---------------------------------------------------------------------- //
-void EnergeticsMeasure::observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, int step, double time) {
+void EnergeticsMeasure::observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, const FluxBuffer& /*flux*/, int step, double time) {
     if (nevery_ <= 0 || step % nevery_ != 0) {
         return;
     }

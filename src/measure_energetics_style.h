@@ -1,5 +1,5 @@
-#ifndef SFI_MEASURE_ENERGETICS_STYLE_H
-#define SFI_MEASURE_ENERGETICS_STYLE_H
+#ifndef SHHD_MEASURE_ENERGETICS_STYLE_H
+#define SHHD_MEASURE_ENERGETICS_STYLE_H
 
 #include "measure_energetics.h"
 #include "measure_registry.h"
