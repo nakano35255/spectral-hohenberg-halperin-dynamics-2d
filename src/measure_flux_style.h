@@ -93,9 +93,6 @@ public:
         if (cmd->file.empty()) {
             throw std::runtime_error("flux measure: file is required.");
         }
-        if (!cmd->request.any()) {
-            throw std::runtime_error("flux measure: target requests no flux fields.");
-        }
 
         return cmd;
     }

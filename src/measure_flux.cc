@@ -5,6 +5,7 @@
 #include <mpi.h>
 #include <stdexcept>
 #include <vector>
+#include <optional>
 
 // ---------------------------------------------------------------------- //
 FluxMeasure::FluxMeasure(
@@ -104,18 +105,16 @@ std::vector<FluxMeasure::FluxField> FluxMeasure::selected_fields(const FluxBuffe
     return fields;
 }
 // ---------------------------------------------------------------------- //
-bool FluxMeasure::zero_mode_index(std::size_t& index) const {
+std::optional<std::size_t> FluxMeasure::zero_mode_index() const {
     const Box2D& local_box = domain_.spectral_box();
-    if (local_box.low[0] <= 0 && 0 <= local_box.high[0]
-        && local_box.low[1] <= 0 && 0 <= local_box.high[1]) {
+
+    if (local_box.low[0] <= 0 && 0 <= local_box.high[0] && local_box.low[1] <= 0 && 0 <= local_box.high[1]) {
         const std::size_t local_nkx = static_cast<std::size_t>(local_box.size[0]);
-        index = static_cast<std::size_t>(0 - local_box.low[1]) * local_nkx
-              + static_cast<std::size_t>(0 - local_box.low[0]);
-        return true;
+        return static_cast<std::size_t>(0 - local_box.low[1]) * local_nkx
+             + static_cast<std::size_t>(0 - local_box.low[0]);
     }
 
-    index = 0;
-    return false;
+    return std::nullopt;
 }
 // ---------------------------------------------------------------------- //
 void FluxMeasure::observe(
@@ -134,16 +133,14 @@ void FluxMeasure::observe(
 
     const std::vector<FluxField> fields = selected_fields(flux);
     const std::size_t nfields = fields.size();
+    const double grid_size = static_cast<double>(domain_.nx_global()) * static_cast<double>(domain_.ny_global());
 
     std::vector<double> local_values(nfields, 0.0);
-    std::size_t zero_index = 0;
-    const bool has_zero_mode = zero_mode_index(zero_index);
-    const double grid_size =
-        static_cast<double>(domain_.nx_global()) * static_cast<double>(domain_.ny_global());
+    const auto zero_index = zero_mode_index();
 
-    if (has_zero_mode) {
+    if (zero_index) {
         for (std::size_t field = 0; field < nfields; ++field) {
-            local_values[field] = fields[field].data[zero_index].real() / grid_size;
+            local_values[field] = fields[field].data[*zero_index].real() / grid_size;
         }
     }
 

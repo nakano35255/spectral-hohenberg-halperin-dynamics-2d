@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -19,12 +20,13 @@ private:
     int nevery_ = 0;
     std::string file_;
     FluxRequest request_;
-    std::ofstream output_;
 
+    std::ofstream output_;
     void open_output_if_needed();
+
     std::vector<std::string> selected_field_names() const;
     std::vector<FluxField> selected_fields(const FluxBuffer& flux) const;
-    bool zero_mode_index(std::size_t& index) const;
+    std::optional<std::size_t> zero_mode_index() const;
 
 public:
     FluxMeasure(const Params& params, const Domain2D& domain, std::shared_ptr<const MeasureCommandBase> command);

@@ -4,68 +4,46 @@
 #include "measure.h"
 #include "spectral_mask.h"
 
-#include <complex>
 #include <cstddef>
-#include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 class YokotaGreenKuboMeasure : public Measure {
 private:
-    struct ModeAccumulator {
-        int requested_nx = 0;
-        int requested_ny = 0;
-        int stored_gx = 0;
-        int stored_gy = 0;
-        bool use_conjugate = false;
-        bool owns_mode = false;
-        std::size_t mode_index = 0;
-        double kx = 0.0;
-        double ky = 0.0;
-        Complex integral = Complex(0.0, 0.0);
-        std::vector<double> sum_by_tau;
-        std::vector<int> count_by_tau;
-    };
-
     int nevery_ = 0;
     int nblock_ = 0;
+    int nsample_ = 0;
+    int ntau_ = 0;
+    int max_nx_ = 0;
+    int max_ny_ = 0;
+
     std::string file_;
     std::string mode_selection_;
     double kBT_ = 1.0;
+    int block_step_ = 0;
+    std::size_t nmodes_ = 0;
 
     SpectralMask2D spectral_mask_;
 
-    int block_step_ = 0;
-    int block_index_ = 0;
-    std::vector<ModeAccumulator> modes_;
+    std::pair<int, int> wave_number(std::size_t mode_index) const;
+    std::vector<std::optional<std::size_t>> owned_local_indices_;
+    std::vector<Complex> integrals_;
+    std::vector<double> sum_by_mode_tau_;
 
-    std::ofstream output_;
-
-    void configure_modes();
-    void add_mode(int nx, int ny);
-    void open_output_if_needed();
     int wrap_gy(int gy) const;
-    double cell_area() const;
-    double system_area() const;
+    std::optional<std::size_t> local_mode_index(int nx, int ny) const;
+    std::size_t mode_tau_index(std::size_t mode_index, int tau_index) const;
+    bool write_output_table() const;    
 
 public:
-    YokotaGreenKuboMeasure(
-        const Params& params,
-        const Domain2D& domain,
-        std::shared_ptr<const MeasureCommandBase> command
+    YokotaGreenKuboMeasure(const Params& params, const Domain2D& domain, std::shared_ptr<const MeasureCommandBase> command
     );
 
     FluxRequest flux_request() const override;
-    void observe(
-        const State& state,
-        FourierTransform2D& fft,
-        MeasureWorkspace& workspace,
-        const FluxBuffer& flux,
-        int step,
-        double time
-    ) override;
-    void finalize() override;
+    void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, const FluxBuffer& flux, int step, double time) override;
 };
 
 #endif

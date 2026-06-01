@@ -1,11 +1,11 @@
 #ifndef SHHD_MEASURE_SNAPSHOT_H
 #define SHHD_MEASURE_SNAPSHOT_H
 
+#include "measure.h"
+
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "measure.h"
 
 class SnapshotMeasure: public Measure {
 private:

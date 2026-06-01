@@ -207,6 +207,8 @@ run                 100000
 | コマンド | 形式 | 詳細 |
 | --- | --- | --- |
 | `measure snapshot` | `measure <ID> snapshot <on\|off> [key value ...]` | [詳細](./measure_snapshot.md) |
+| `measure energetics` | `measure <ID> energetics <on\|off> [key value ...]` | [詳細](./measure_energetics.md) |
+| `measure flux` | `measure <ID> flux <on\|off> [key value ...]` | [詳細](./measure_flux.md) |
 | `run` | `run <steps>` | [詳細](./run.md) |
 
 

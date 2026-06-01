@@ -49,8 +49,8 @@ private:
 
 public:
     EnergeticsMeasure(const Params& params, const Domain2D& domain, const Thermodynamics& thermodynamics, const FreeEnergy& free_energy, const TransportCoefficient& transport, std::shared_ptr<const MeasureCommandBase> command);
-    void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, const FluxBuffer& flux, int step, double time) override;
 
+    void observe(const State& state, FourierTransform2D& fft, MeasureWorkspace& workspace, const FluxBuffer& flux, int step, double time) override;
     void finalize() override;
 };
 
