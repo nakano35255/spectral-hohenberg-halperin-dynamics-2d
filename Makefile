@@ -28,6 +28,8 @@ SRCS := \
 	src/measure_registry_builtin.cc \
 	src/measure_manager.cc \
 	src/measure_energetics.cc \
+	src/measure_flux.cc \
+	src/measure_yokota_green_kubo.cc \
 	src/measure_snapshot.cc \
 	src/model_free_energy_null.cc \
 	src/model_free_energy_phi4.cc \
