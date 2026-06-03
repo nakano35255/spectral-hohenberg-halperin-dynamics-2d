@@ -92,3 +92,5 @@ fix 2 order_parameter nonlinear on
 - [`order_parameters`](./order_parameters.md)
 - [`dealias`](./dealias.md)
 - [`fix ... noise`](./fix_noise.md)
+- [`fix ... force/sine`](./fix_force_sine.md)
+- [`fix ... force/gradient`](./fix_force_gradient.md)

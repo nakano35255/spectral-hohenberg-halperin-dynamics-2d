@@ -39,7 +39,7 @@ struct PhysicalRHSFieldRequests {
           const TransportCoefficient& transport_coefficient
      ) {
           PhysicalRHSFieldRequests requests;
-          requests.psi_det = build_psi_det_request(params, free_energy);
+          requests.psi_det = build_psi_det_request(params, dynamics_mode, free_energy);
           requests.j_det = build_j_det_request(params, dynamics_mode, thermodynamics, transport_coefficient);
           return requests;
      }
@@ -52,7 +52,7 @@ struct PhysicalRHSFieldRequests {
      }
 
 private:
-     static PhysicalFieldRequest build_psi_det_request(const Params& params, const FreeEnergy& free_energy) {
+     static PhysicalFieldRequest build_psi_det_request(const Params& params, DynamicsMode dynamics_mode, const FreeEnergy& free_energy) {
           PhysicalFieldRequest request;
 
           if (params.physics.num_order_parameters <= 0) {
@@ -65,6 +65,18 @@ private:
 
           if (params.fix.order_parameter_advection) {
                request.need_psi = true;
+               request.need_j = true;
+               request.need_velocity = true;
+          }
+
+          bool has_gradient_force = false;
+          for (const auto& force : params.fix.gradient_forces) {
+               if (force.enabled) {
+                    has_gradient_force = true;
+                    break;
+               }
+          }
+          if (has_gradient_force && is_compressible_mode(dynamics_mode)) {
                request.need_j = true;
                request.need_velocity = true;
           }

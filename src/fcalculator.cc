@@ -101,6 +101,10 @@ void FCalculator::psi_det(int order_parameter, const State& current, Complex* ou
     if (has_advection || has_physical_mu) {
         add_order_parameter_physical_terms(order_parameter, mobility, current, out, t, flux);
     }
+
+    add_order_parameter_sine_force_terms(order_parameter, out);
+    add_order_parameter_gradient_force_terms(order_parameter, current, out, t);
+
 }
 // ---------------------------------------------------------------------- //
 void FCalculator::j_det(const State& current, Complex* out_jx, Complex* out_jy, double t, FluxBuffer* flux) const {
@@ -141,6 +145,8 @@ void FCalculator::j_det(const State& current, Complex* out_jx, Complex* out_jy, 
     if (has_physical_pressure || has_advection) {
         add_momentum_physical_terms(eta, zeta, current, out_jx, out_jy, t, flux);
     }
+
+    add_momentum_sine_force_terms(out_jx, out_jy);
 }
 // ---------------------------------------------------------------------- //
 void FCalculator::add_order_parameter_linear_term(int order_parameter, double mobility, const State& current, Complex* out, FluxBuffer* flux) const {
@@ -691,5 +697,145 @@ void FCalculator::j_sto(const State& current, Complex* out_jx, Complex* out_jy, 
             momentum_flux_yy[mode.index] += pi_yy;
         }
     }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_momentum_sine_force_terms(Complex* out_jx, Complex* out_jy) const {
+    const int nx = domain_.nx_global();
+    const int ny = domain_.ny_global();
+    const double grid_size = static_cast<double>(nx) * static_cast<double>(ny);
+
+    for (const SineForceFixConfig& force : params_.fix.sine_forces) {
+        if (!force.enabled || !force.momentum_enabled) {
+            continue;
+        }
+
+        const Complex positive_mode(0.0, -0.5 * force.amplitude * grid_size);
+        const int gx_positive = (force.axis == 0) ? force.nk : 0;
+        const int gy_positive = (force.axis == 0) ? 0 : force.nk;
+        const int gy_negative = (ny - force.nk) % ny;
+
+        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+            Complex source_hat(0.0, 0.0);
+
+            if (mode.gx == gx_positive && mode.gy == gy_positive) {
+                source_hat += positive_mode;
+            }
+
+            if (force.axis == 1 && mode.gx == 0 && mode.gy == gy_negative) {
+                source_hat += std::conj(positive_mode);
+            }
+
+            if (source_hat == Complex(0.0, 0.0)) {
+                continue;
+            }
+
+            if (force.component == 0) {
+                out_jx[mode.index] += source_hat;
+            } else {
+                out_jy[mode.index] += source_hat;
+            }
+        }
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_order_parameter_sine_force_terms(int order_parameter, Complex* out) const {
+    const int nx = domain_.nx_global();
+    const int ny = domain_.ny_global();
+    const double grid_size = static_cast<double>(nx) * static_cast<double>(ny);
+
+    for (const SineForceFixConfig& force : params_.fix.sine_forces) {
+        if (!force.enabled || !force.order_parameter_enabled || force.component != order_parameter) {
+            continue;
+        }
+
+        const Complex positive_mode(0.0, -0.5 * force.amplitude * grid_size);
+        const int gx_positive = (force.axis == 0) ? force.nk : 0;
+        const int gy_positive = (force.axis == 0) ? 0 : force.nk;
+        const int gy_negative = (ny - force.nk) % ny;
+
+        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+            Complex source_hat(0.0, 0.0);
+
+            if (mode.gx == gx_positive && mode.gy == gy_positive) {
+                source_hat += positive_mode;
+            }
+
+            if (force.axis == 1 && mode.gx == 0 && mode.gy == gy_negative) {
+                source_hat += std::conj(positive_mode);
+            }
+
+            if (source_hat == Complex(0.0, 0.0)) {
+                continue;
+            }
+
+            out[mode.index] += source_hat;
+        }
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::add_order_parameter_gradient_force_terms(int order_parameter, const State& current, Complex* out, double time) const {
+    bool has_force = false;
+    for (const GradientForceFixConfig& force : params_.fix.gradient_forces) {
+        if (force.enabled && force.component == order_parameter) {
+            has_force = true;
+            break;
+        }
+    }
+
+    if (!has_force) {
+        return;
+    }
+
+    if (is_quiescent_mode(dynamics_mode_)) {
+        throw std::runtime_error("force/gradient cannot be used in quiescent mode.");
+    }
+
+    if (is_incompressible_mode(dynamics_mode_)) {
+        const double rho0 = workspace_.reference_density(current);
+
+        for (const GradientForceFixConfig& force : params_.fix.gradient_forces) {
+            if (!force.enabled || force.component != order_parameter) {
+                continue;
+            }
+
+            const Complex* momentum = (force.direction == 0) ? current.jx_hat_data() : current.jy_hat_data();
+
+            for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+                out[mode.index] += -force.amplitude * momentum[mode.index] / rho0;
+            }
+        }
+
+        return;
+    }
+
+    if (is_compressible_mode(dynamics_mode_)) {
+        workspace_.ensure_physical_fields(current, time);
+
+        const std::size_t local_physical_size = workspace_.local_physical_size();
+        double* source = workspace_.temporary_physical_fields(1);
+
+        for (const GradientForceFixConfig& force : params_.fix.gradient_forces) {
+            if (!force.enabled || force.component != order_parameter) {
+                continue;
+            }
+
+            const double* velocity = (force.direction == 0) ? workspace_.physical_vx_data() : workspace_.physical_vy_data();
+
+            for (std::size_t i = 0; i < local_physical_size; ++i) {
+                source[i] += -force.amplitude * velocity[i];
+            }
+        }
+
+        Complex* source_hat = workspace_.temporary_spectral_fields(1);
+        workspace_.forward_many(1, source, source_hat);
+
+        for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+            out[mode.index] += source_hat[mode.index];
+        }
+
+        return;
+    }
+
+    throw std::runtime_error("force/gradient encountered unknown dynamics mode.");
 }
 // ---------------------------------------------------------------------- //

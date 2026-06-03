@@ -92,3 +92,5 @@ chi 1.0
 - [`model transport`](./model_transport.md)
 - [`time_evolution`](./time_evolution.md)
 - [`fix ... nonlinear`](./fix_nonlinear.md)
+- [`fix ... force/sine`](./fix_force_sine.md)
+- [`fix ... force/gradient`](./fix_force_gradient.md)

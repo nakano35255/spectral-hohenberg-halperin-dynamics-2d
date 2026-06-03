@@ -28,6 +28,11 @@ private:
     void validate_configuration() const;
 
     void parse_model_command(const std::vector<std::string>& tokens);
+
+    void parse_fix_noise_command(const std::vector<std::string>& tokens, const std::string& id, const std::string& target, bool enabled);
+    void parse_fix_nonlinear_command(const std::vector<std::string>& tokens, const std::string& id, const std::string& target, bool enabled);
+    void parse_fix_sine_force_command(const std::vector<std::string>& tokens, const std::string& id, const std::string& target, bool enabled);
+    void parse_fix_gradient_force_command(const std::vector<std::string>& tokens, const std::string& id, const std::string& target, bool enabled);
     void parse_fix_command(const std::vector<std::string>& tokens);
     void parse_set_command(const std::vector<std::string>& tokens);
     void parse_measure_command(const std::vector<std::string>& tokens);

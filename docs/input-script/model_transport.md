@@ -110,3 +110,4 @@ M_\alpha \nabla^2 \mu_\alpha
 - [`model ... coeff`](./model_coeff.md)
 - [`fix ... noise`](./fix_noise.md)
 - [`fix ... nonlinear`](./fix_nonlinear.md)
+- [`fix ... force/sine`](./fix_force_sine.md)

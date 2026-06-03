@@ -1,5 +1,6 @@
 #include "param_parser.h"
 
+#include <algorithm>
 #include <cctype>
 #include <fstream>
 #include <sstream>
@@ -12,6 +13,12 @@ namespace {
         if (value == "on") return true;
         if (value == "off") return false;
         throw std::runtime_error(context + " expects on|off");
+    }
+    // ---------------------------------------------------------------------- //
+    int parse_xy_token(const std::string& value, const std::string& context) {
+        if (value == "x" || value == "0") return 0;
+        if (value == "y" || value == "1") return 1;
+        throw std::runtime_error(context + " must be x|y|0|1.");
     }
     // ---------------------------------------------------------------------- //
 } // namespace
@@ -275,7 +282,7 @@ void ParamParser::parse_model_command(const std::vector<std::string>& tokens) {
 // ---------------------------------------------------------------------- //
 void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
     if (tokens.size() < 5) {
-        throw std::runtime_error("fix syntax: fix <ID> <target> <nonlinear|noise> <on|off> ...");
+        throw std::runtime_error("fix syntax: fix <ID> <target> <nonlinear|noise|force/sine|force/gradient> <on|off> ...");
     }
 
     if (!params.commands.empty()) {
@@ -305,76 +312,22 @@ void ParamParser::parse_fix_command(const std::vector<std::string>& tokens) {
     }
 
     if (type == "nonlinear") {
-        if (tokens.size() != 5) {
-            throw std::runtime_error("fix nonlinear syntax: fix <ID> <target> nonlinear <on|off>");
-        }
-
-        if (target == "momentum" || target == "all") {
-            params.fix.momentum_advection = enabled;
-        }
-        if (target == "order_parameter" || target == "all") {
-            params.fix.order_parameter_advection = enabled && (params.physics.num_order_parameters > 0);
-        }
-
+        parse_fix_nonlinear_command(tokens, tokens[1], target, enabled);
         return;
     }
 
     if (type == "noise") {
-        if (!enabled && tokens.size() != 5) {
-            throw std::runtime_error("fix noise off syntax: fix <ID> <target> noise off");
-        }
+        parse_fix_noise_command(tokens, tokens[1], target, enabled);
+        return;
+    }
 
-        if (enabled) {
-            if ((tokens.size() - 5) % 2 != 0) {
-                throw std::runtime_error( "fix noise syntax: fix <ID> <target> noise on [seed <integer>] [kBT <value>]"
-                );
-            }
+    if (type == "force/sine") {
+        parse_fix_sine_force_command(tokens, tokens[1], target, enabled);
+        return;
+    }
 
-            for (std::size_t i = 5; i < tokens.size(); i += 2) {
-                const std::string& key = tokens[i];
-                const std::string& value = tokens[i + 1];
-
-                if (key == "seed") {
-                    params.fix.noise.seed = std::stoi(value);
-                    continue;
-                }
-
-                if (key == "kBT" || key == "temperature") {
-                    params.fix.noise.kBT = std::stod(value);
-                    if (params.fix.noise.kBT < 0.0) {
-                        throw std::runtime_error("fix noise requires nonnegative kBT.");
-                    }
-                    continue;
-                }
-
-                if (key == "chi" || key == "order_parameter_chi" || key == "psi_chi") {
-                    if (target == "momentum") {
-                        throw std::runtime_error("fix momentum noise does not use chi.");
-                    }
-                    if (params.physics.num_order_parameters <= 0) {
-                        throw std::runtime_error("fix noise chi requires order_parameters > 0.");
-                    }
-
-                    params.fix.noise.order_parameter_noise_chi = std::stod(value);
-                    if (params.fix.noise.order_parameter_noise_chi < 0.0) {
-                        throw std::runtime_error("fix noise requires nonnegative chi.");
-                    }
-                    continue;
-                }
-                
-                throw std::runtime_error("unknown fix noise argument: " + key);
-            }
-        }
-
-        if (target == "momentum" || target == "all") {
-            params.fix.noise.momentum_enabled = enabled;
-        }
-        if (target == "order_parameter" || target == "all") {
-            params.fix.noise.order_parameter_enabled = enabled && (params.physics.num_order_parameters > 0);
-        }
-
-        params.fix.noise.enabled = params.fix.noise.momentum_enabled || params.fix.noise.order_parameter_enabled;
-
+    if (type == "force/gradient") {
+        parse_fix_gradient_force_command(tokens, tokens[1], target, enabled);
         return;
     }
 
@@ -591,6 +544,207 @@ void ParamParser::parse_restart_command(const std::vector<std::string>& tokens) 
 
 }
 // ---------------------------------------------------------------------- //
+void ParamParser::parse_fix_nonlinear_command(const std::vector<std::string>& tokens, const std::string& /*id*/, const std::string& target, bool enabled) {
+    if (tokens.size() != 5) {
+        throw std::runtime_error("fix nonlinear syntax: fix <ID> <target> nonlinear <on|off>");
+    }
+
+    if (target == "momentum" || target == "all") {
+        params.fix.momentum_advection = enabled;
+    }
+
+    if (target == "order_parameter" || target == "all") {
+        params.fix.order_parameter_advection = enabled && (params.physics.num_order_parameters > 0);
+    }
+}
+// ---------------------------------------------------------------------- //
+void ParamParser::parse_fix_noise_command(const std::vector<std::string>& tokens, const std::string& /*id*/, const std::string& target, bool enabled) {
+    if (!enabled && tokens.size() != 5) {
+        throw std::runtime_error("fix noise off syntax: fix <ID> <target> noise off");
+    }
+
+    if (enabled) {
+        if ((tokens.size() - 5) % 2 != 0) {
+            throw std::runtime_error( "fix noise syntax: fix <ID> <target> noise on [seed <integer>] [kBT <value>]"
+            );
+        }
+
+        for (std::size_t i = 5; i < tokens.size(); i += 2) {
+            const std::string& key = tokens[i];
+            const std::string& value = tokens[i + 1];
+
+            if (key == "seed") {
+                params.fix.noise.seed = std::stoi(value);
+                continue;
+            }
+
+            if (key == "kBT" || key == "temperature") {
+                params.fix.noise.kBT = std::stod(value);
+                if (params.fix.noise.kBT < 0.0) {
+                    throw std::runtime_error("fix noise requires nonnegative kBT.");
+                }
+                continue;
+            }
+
+            if (key == "chi" || key == "order_parameter_chi" || key == "psi_chi") {
+                if (target == "momentum") {
+                    throw std::runtime_error("fix momentum noise does not use chi.");
+                }
+                if (params.physics.num_order_parameters <= 0) {
+                    throw std::runtime_error("fix noise chi requires order_parameters > 0.");
+                }
+
+                params.fix.noise.order_parameter_noise_chi = std::stod(value);
+                if (params.fix.noise.order_parameter_noise_chi < 0.0) {
+                    throw std::runtime_error("fix noise requires nonnegative chi.");
+                }
+                continue;
+            }
+
+            throw std::runtime_error("unknown fix noise argument: " + key);
+        }
+    }
+
+    if (target == "momentum" || target == "all") {
+        params.fix.noise.momentum_enabled = enabled;
+    }
+    if (target == "order_parameter" || target == "all") {
+        params.fix.noise.order_parameter_enabled = enabled && (params.physics.num_order_parameters > 0);
+    }
+
+    params.fix.noise.enabled = params.fix.noise.momentum_enabled || params.fix.noise.order_parameter_enabled;
+}
+// ---------------------------------------------------------------------- //
+void ParamParser::parse_fix_sine_force_command(const std::vector<std::string>& tokens, const std::string& id, const std::string& target, bool enabled) {
+    auto& forces = params.fix.sine_forces;
+    forces.erase(
+        std::remove_if(forces.begin(), forces.end(),
+            [&](const SineForceFixConfig& cfg) { return cfg.id == id; }),
+        forces.end()
+    );
+
+    if (!enabled) {
+        if (tokens.size() != 5) {
+            throw std::runtime_error("fix force/sine off syntax: fix <ID> <target> force/sine off");
+        }
+        return;
+    }
+
+    if (target == "all") {
+        throw std::runtime_error("fix force/sine does not support target all.");
+    }
+    if ((tokens.size() - 5) % 2 != 0) {
+        throw std::runtime_error("fix force/sine arguments must be key-value pairs.");
+    }
+
+    SineForceFixConfig cfg;
+    cfg.id = id;
+    cfg.enabled = true;
+    cfg.momentum_enabled = (target == "momentum");
+    cfg.order_parameter_enabled = (target == "order_parameter");
+
+    bool has_component = false;
+    bool has_axis = false;
+    bool has_nk = false;
+    bool has_amplitude = false;
+
+    for (std::size_t i = 5; i < tokens.size(); i += 2) {
+        const std::string& key = tokens[i];
+        const std::string& value = tokens[i + 1];
+
+        if (key == "component") {
+            if (cfg.momentum_enabled) {
+                cfg.component = parse_xy_token(value, "fix momentum force/sine component");
+            } else {
+                cfg.component = std::stoi(value);
+                check_order_parameter_index(cfg.component, "fix order_parameter force/sine");
+            }
+            has_component = true;
+        } else if (key == "axis") {
+            cfg.axis = parse_xy_token(value, "fix force/sine axis");
+            has_axis = true;
+        } else if (key == "nk") {
+            cfg.nk = std::stoi(value);
+            has_nk = true;
+        } else if (key == "amplitude") {
+            cfg.amplitude = std::stod(value);
+            has_amplitude = true;
+        } else {
+            throw std::runtime_error("unknown fix force/sine argument: " + key);
+        }
+    }
+
+    if (!has_component || !has_axis || !has_nk || !has_amplitude) {
+        throw std::runtime_error("fix force/sine requires component, axis, nk, and amplitude.");
+    }
+    if (cfg.nk <= 0) {
+        throw std::runtime_error("fix force/sine requires nk > 0.");
+    }
+
+    const int active_size = (cfg.axis == 0) ? params.grid.active_num_grid[0] : params.grid.active_num_grid[1];
+    if (cfg.nk >= active_size / 2) {
+        throw std::runtime_error("fix force/sine requires nk < active_N_axis/2.");
+    }
+
+    forces.push_back(cfg);
+}
+// ---------------------------------------------------------------------- //
+void ParamParser::parse_fix_gradient_force_command(const std::vector<std::string>& tokens, const std::string& id, const std::string& target, bool enabled) {
+    auto& forces = params.fix.gradient_forces;
+    forces.erase(
+        std::remove_if(forces.begin(), forces.end(),
+            [&](const GradientForceFixConfig& cfg) { return cfg.id == id; }),
+        forces.end()
+    );
+
+    if (!enabled) {
+        if (tokens.size() != 5) {
+            throw std::runtime_error("fix force/gradient off syntax: fix <ID> <target> force/gradient off");
+        }
+        return;
+    }
+
+    if (target != "order_parameter") {
+        throw std::runtime_error("fix force/gradient only supports target order_parameter.");
+    }
+    if ((tokens.size() - 5) % 2 != 0) {
+        throw std::runtime_error("fix force/gradient arguments must be key-value pairs.");
+    }
+
+    GradientForceFixConfig cfg;
+    cfg.id = id;
+    cfg.enabled = true;
+
+    bool has_component = false;
+    bool has_direction = false;
+    bool has_amplitude = false;
+
+    for (std::size_t i = 5; i < tokens.size(); i += 2) {
+        const std::string& key = tokens[i];
+        const std::string& value = tokens[i + 1];
+
+        if (key == "component") {
+            cfg.component = std::stoi(value);
+            check_order_parameter_index(cfg.component, "fix order_parameter force/gradient");
+            has_component = true;
+        } else if (key == "direction") {
+            cfg.direction = parse_xy_token(value, "fix force/gradient direction");
+            has_direction = true;
+        } else if (key == "amplitude") {
+            cfg.amplitude = std::stod(value);
+            has_amplitude = true;
+        } else {
+            throw std::runtime_error("unknown fix force/gradient argument: " + key);
+        }
+    }
+
+    if (!has_component || !has_direction || !has_amplitude) {
+        throw std::runtime_error("fix force/gradient requires component, direction, and amplitude.");
+    }
+
+    forces.push_back(cfg);
+}
+// ---------------------------------------------------------------------- //
 void ParamParser::validate_configuration() const {
     if (params.physics.num_order_parameters < 0) {
         throw std::runtime_error("order_parameters must be nonnegative");
@@ -612,6 +766,18 @@ void ParamParser::validate_configuration() const {
 
     if (quiescent && params.fix.order_parameter_advection) {
         throw std::runtime_error("quiescent time evolution cannot use order_parameter nonlinear advection.");
+    }
+
+    for (const auto& force : params.fix.sine_forces) {
+        if (quiescent && force.momentum_enabled) {
+            throw std::runtime_error("quiescent time evolution cannot use momentum force/sine.");
+        }
+    }
+
+    for (const auto& force : params.fix.gradient_forces) {
+        if (quiescent && force.enabled) {
+            throw std::runtime_error("quiescent time evolution cannot use force/gradient.");
+        }
     }
 }
 // ---------------------------------------------------------------------- //

@@ -96,10 +96,29 @@ struct NoiseFixConfig {
     double kBT = 1.0;
     double order_parameter_noise_chi = 1.0;
 };
+struct SineForceFixConfig {
+    std::string id;
+    bool enabled = false;
+    bool momentum_enabled = false;
+    bool order_parameter_enabled = false;
+    int component = -1;
+    int axis = -1;
+    int nk = 1;
+    double amplitude = 0.0;
+};
+struct GradientForceFixConfig {
+    std::string id;
+    bool enabled = false;
+    int component = -1;
+    int direction = -1;
+    double amplitude = 0.0;
+};
 struct FixConfig {
     NoiseFixConfig noise;
     bool momentum_advection = false;
     bool order_parameter_advection = false;
+    std::vector<SineForceFixConfig> sine_forces;
+    std::vector<GradientForceFixConfig> gradient_forces;
 
     void print_config(std::ostream& os) const;
 };

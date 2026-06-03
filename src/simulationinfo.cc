@@ -46,6 +46,12 @@ namespace {
         return "unknown";
     }
     // ---------------------------------------------------------------------- //
+    const char* xy_name(int index) {
+        if (index == 0) return "x";
+        if (index == 1) return "y";
+        return "?";
+    }
+    // ---------------------------------------------------------------------- //
 } // namespace
 // ---------------------------------------------------------------------- //
 void GridConfig::print_config(std::ostream& os) const {
@@ -108,6 +114,33 @@ void FixConfig::print_config(std::ostream& os) const {
 
     print_entry(os, "momentum_advection", momentum_advection ? "ON" : "OFF");
     print_entry(os, "order_parameter_advection", order_parameter_advection ? "ON" : "OFF");
+
+    for (const auto& force : sine_forces) {
+        if (!force.enabled) {
+            continue;
+        }
+        print_entry(os, "force/sine", force.id);
+        print_entry(os, "  target", force.momentum_enabled ? "momentum" : "order_parameter");
+        if (force.momentum_enabled) {
+            print_entry(os, "  component", xy_name(force.component));
+        } else {
+            print_entry(os, "  component", force.component);
+        }
+        print_entry(os, "  axis", xy_name(force.axis));
+        print_entry(os, "  nk", force.nk);
+        print_entry(os, "  amplitude", force.amplitude);
+    }
+
+    for (const auto& force : gradient_forces) {
+        if (!force.enabled) {
+            continue;
+        }
+        print_entry(os, "force/gradient", force.id);
+        print_entry(os, "  target", "order_parameter");
+        print_entry(os, "  component", force.component);
+        print_entry(os, "  direction", xy_name(force.direction));
+        print_entry(os, "  amplitude", force.amplitude);
+    }
 
     os << "\n";
     print_rule(os);

@@ -47,6 +47,10 @@ private:
     void add_compressible_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) const;
     void add_momentum_physical_terms(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) const;
 
+    void add_momentum_sine_force_terms(Complex* out_jx, Complex* out_jy) const;
+    void add_order_parameter_sine_force_terms(int order_parameter, Complex* out) const;
+    void add_order_parameter_gradient_force_terms(int order_parameter, const State& current, Complex* out, double time) const;
+    
 public:
     FCalculator(
         const Params& params,

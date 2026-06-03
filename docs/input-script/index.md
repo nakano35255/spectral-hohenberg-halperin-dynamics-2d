@@ -167,12 +167,14 @@ run                 100000
 
 ### Fix
 
-時間発展方程式に対する非線形項や確率的ノイズの有効化・無効化を制御します。Model の直後に指定することが推奨されます。
+時間発展方程式に対する非線形項、確率的ノイズ、外力の有効化・無効化を制御します。Model の直後に指定することが推奨されます。
 
 | コマンド | 形式 | 詳細 |
 | --- | --- | --- |
 | `fix ... nonlinear` | `fix <ID> <target> nonlinear <on\|off>` | [詳細](./fix_nonlinear.md) |
 | `fix ... noise` | `fix <ID> <target> noise <on\|off> [seed <integer>] [kBT <value>] [chi <value>]` | [詳細](./fix_noise.md) |
+| `fix ... force/sine` | `fix <ID> <target> force/sine <on\|off> component <component> axis <axis> nk <integer> amplitude <value>` | [詳細](./fix_force_sine.md) |
+| `fix ... force/gradient` | `fix <ID> order_parameter force/gradient <on\|off> component <component> direction <direction> amplitude <value>` | [詳細](./fix_force_gradient.md) |
 
 ### Initial Condition
 

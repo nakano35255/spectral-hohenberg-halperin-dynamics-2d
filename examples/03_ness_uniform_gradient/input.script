@@ -1,0 +1,31 @@
+dimension           2
+boundary            p p
+
+grid                32 32
+length              1024 1024
+# grid                512 512
+# length              512 512
+dealias             three_halves
+
+order_parameters    1
+
+timestep            0.01
+time_evolution      srk3/incompressible
+
+model free_energy   quadratic a[0] 1.0
+model transport     constant eta 1.0 zeta 0.0 M[0,0] 0.12
+
+fix                 1 all nonlinear on
+fix                 2 all noise on seed 12345 kBT 1.0 chi 0.01
+fix                 3 order_parameter force/gradient on component 0 direction x amplitude 0.0001953125
+
+set                 density uniform value 1.0
+set                 momentum all uniform value 0.0
+set                 order_parameter all uniform value 0.5
+
+thermo              observe on progress on nevery 1000
+measure             1 snapshot on nevery 50000 file examples/03_ness_uniform_gradient/results/physical space physical
+restart             off
+
+run                 5000000
+# run                 500
