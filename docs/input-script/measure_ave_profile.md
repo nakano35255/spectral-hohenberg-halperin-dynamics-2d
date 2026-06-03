@@ -188,7 +188,7 @@ measure prof ave/profile on axis y nevery 100 nblock 1000 file output/profile.da
 ## 関連コマンド
 
 - [`run`](./run.md)
-- [`measure flux`](./measure_flux.md)
+- [`measure time_series`](./measure_time_series.md)
 - [`measure snapshot`](./measure_snapshot.md)
 - [`fix ... force/sine`](./fix_force_sine.md)
 - [`fix ... force/gradient`](./fix_force_gradient.md)

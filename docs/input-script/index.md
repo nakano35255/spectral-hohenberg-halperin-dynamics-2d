@@ -209,8 +209,7 @@ run                 100000
 | コマンド | 形式 | 詳細 |
 | --- | --- | --- |
 | `measure snapshot` | `measure <ID> snapshot <on\|off> [key value ...]` | [詳細](./measure_snapshot.md) |
-| `measure energetics` | `measure <ID> energetics <on\|off> [key value ...]` | [詳細](./measure_energetics.md) |
-| `measure flux` | `measure <ID> flux <on\|off> [key value ...]` | [詳細](./measure_flux.md) |
+| `measure time_series` | `measure <ID> time_series <on\|off> nevery <integer> file <filename> target <target1> [target2 ...]` | [詳細](./measure_time_series.md) |
 | `measure ave/profile` | `measure <ID> ave/profile <on\|off> axis <x\|y> nevery <integer> nblock <integer> file <filename> average <block\|running> target <target1> [target2 ...]` | [詳細](./measure_ave_profile.md) |
 | `run` | `run <steps>` | [詳細](./run.md) |
 

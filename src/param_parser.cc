@@ -21,6 +21,10 @@ namespace {
         throw std::runtime_error(context + " must be x|y|0|1.");
     }
     // ---------------------------------------------------------------------- //
+    bool is_quiescent_time_evolution(const std::string& type) {
+        return type == "euler/quiescent" || type == "srk3/quiescent";
+    }
+    // ---------------------------------------------------------------------- //
 } // namespace
 // ---------------------------------------------------------------------- //
 std::vector<std::string> ParamParser::tokenize(const std::string& line) const {
@@ -527,11 +531,27 @@ void ParamParser::parse_restart_command(const std::vector<std::string>& tokens) 
     }
 
     MeasureArgs args;
-    for (std::size_t i = 4; i < tokens.size(); i += 2) {
-        if (i + 1 >= tokens.size()) {
-            throw std::runtime_error("measure arguments must be key-value pairs.");
+    for (std::size_t i = 4; i < tokens.size();) {
+        const std::string& key = tokens[i];
+
+        if (key == "target") {
+            if (i + 1 >= tokens.size()) {
+                throw std::runtime_error("measure target requires at least one value.");
+            }
+
+            args.targets.assign(tokens.begin() + static_cast<std::ptrdiff_t>(i + 1), tokens.end());
+
+            // Backward compatibility for existing key-value based measure styles.
+            args.entries.emplace_back("target", tokens[i + 1]);
+            break;
         }
+
+        if (i + 1 >= tokens.size()) {
+            throw std::runtime_error("measure arguments must be key-value pairs before target.");
+        }
+
         args.entries.emplace_back(tokens[i], tokens[i + 1]);
+        i += 2;
     }
 
     const MeasureStyle& style = measure_registry.get(type);
@@ -610,6 +630,9 @@ void ParamParser::parse_fix_noise_command(const std::vector<std::string>& tokens
     }
     if (target == "order_parameter" || target == "all") {
         params.fix.noise.order_parameter_enabled = enabled && (params.physics.num_order_parameters > 0);
+    }
+    if (is_quiescent_time_evolution(params.runtime.time_evolution_type) && params.fix.noise.momentum_enabled) {
+        params.fix.noise.momentum_enabled = false;
     }
 
     params.fix.noise.enabled = params.fix.noise.momentum_enabled || params.fix.noise.order_parameter_enabled;
@@ -754,7 +777,7 @@ void ParamParser::validate_configuration() const {
         throw std::runtime_error("model transport must be specified");
     }
 
-    const bool quiescent = params.runtime.time_evolution_type == "euler/quiescent" || params.runtime.time_evolution_type == "srk3/quiescent";
+    const bool quiescent = is_quiescent_time_evolution(params.runtime.time_evolution_type);
 
     if (params.fix.order_parameter_advection && params.physics.num_order_parameters == 0) {
         throw std::runtime_error("fix nonlinear order_parameter requires at least one order parameter.");

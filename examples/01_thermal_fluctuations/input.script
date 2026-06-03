@@ -29,7 +29,7 @@ set                 momentum all uniform value 0.0
 set                 order_parameter all uniform value 0.0
 
 thermo              observe on progress on nevery 5000
-measure             energy energetics on nevery 50 file examples/01_thermal_fluctuations/results/energetics.dat
+measure             ts time_series on nevery 50 file examples/01_thermal_fluctuations/results/time_series.dat target E_T E_K E_psi E_C |rho|^2 |d_rho|^2 |j|^2 |d_j|^2 |psi[0]|^2 |d_psi[0]|^2
 restart             off
 
 run                 60000

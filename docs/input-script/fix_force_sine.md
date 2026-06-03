@@ -89,7 +89,7 @@ fix 3 momentum force/sine on component x axis y nk 1 amplitude 1.0
 ```
 
 この外力は診断用の `FluxBuffer` には記録されません。
-そのため、`measure ... flux` で測る flux や stress には、外力そのものは含まれません。
+そのため、`measure time_series` の flux/stress target には、外力そのものは含まれません。
 
 ## 制限・注意
 
@@ -109,4 +109,4 @@ fix 3 momentum force/sine on component x axis y nk 1 amplitude 1.0
 - [`fix ... nonlinear`](./fix_nonlinear.md)
 - [`fix ... noise`](./fix_noise.md)
 - [`fix ... force/gradient`](./fix_force_gradient.md)
-- [`measure ... flux`](./measure_flux.md)
+- [`measure time_series`](./measure_time_series.md)

@@ -103,7 +103,7 @@ fix 5 order_parameter force/gradient on component 0 direction y amplitude 1.0
 を評価し、その後 Fourier 空間へ変換して RHS に加えます。
 
 この外力は診断用の `FluxBuffer` には記録されません。
-そのため、`measure ... flux` で測る flux には、外力そのものは含まれません。
+そのため、`measure time_series` の flux target には、外力そのものは含まれません。
 
 ## 制限・注意
 
@@ -122,4 +122,4 @@ fix 5 order_parameter force/gradient on component 0 direction y amplitude 1.0
 - [`fix ... nonlinear`](./fix_nonlinear.md)
 - [`fix ... noise`](./fix_noise.md)
 - [`fix ... force/sine`](./fix_force_sine.md)
-- [`measure ... flux`](./measure_flux.md)
+- [`measure time_series`](./measure_time_series.md)

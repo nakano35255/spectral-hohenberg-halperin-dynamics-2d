@@ -28,6 +28,7 @@ struct MeasureCommandBase {
 
 struct MeasureArgs {
     std::vector<std::pair<std::string, std::string>> entries;
+    std::vector<std::string> targets;
 
     std::string get_required(const std::string& key) const {
         for (const auto& kv : entries) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the FDR stationary distribution from energetics output.
+"""Check the FDR stationary distribution from time_series output.
 
 This checker is intentionally narrow: it assumes the example uses a quadratic
 Hamiltonian and tests only whether the measured stationary distribution obeys
@@ -43,7 +43,7 @@ class InputConfig:
     kbt: float = 0.0
     noise_enabled: bool = False
     measure_nevery: int | None = None
-    energetics_file: Path = DEFAULT_RESULTS / "energetics.dat"
+    time_series_file: Path = DEFAULT_RESULTS / "time_series.dat"
     total_run_steps: int = 0
 
 
@@ -118,17 +118,22 @@ def parse_input(path: Path) -> InputConfig:
                     cfg.kbt = values.get("kBT", values.get("temperature", 1.0))
                 continue
 
-            if tokens[0] == "measure" and len(tokens) >= 4 and tokens[2] == "energetics":
+            if tokens[0] == "measure" and len(tokens) >= 4 and tokens[2] == "time_series":
                 if tokens[3] == "on":
                     entries = tokens[4:]
-                    for i in range(0, len(entries), 2):
+                    i = 0
+                    while i < len(entries):
+                        key = entries[i]
+                        if key == "target":
+                            break
                         if i + 1 >= len(entries):
-                            continue
-                        key, value = entries[i], entries[i + 1]
+                            break
+                        value = entries[i + 1]
                         if key == "nevery":
                             cfg.measure_nevery = int(value)
                         elif key == "file":
-                            cfg.energetics_file = ROOT / value
+                            cfg.time_series_file = ROOT / value
+                        i += 2
                 continue
 
             if tokens[0] == "run":
@@ -156,29 +161,43 @@ def active_real_dofs_excluding_zero(active_nx: int, active_ny: int) -> int:
     return dofs
 
 
-def read_energetics(path: Path) -> list[dict[str, float]]:
+def read_time_series_energy(path: Path) -> list[dict[str, float]]:
     if not path.exists():
-        raise FileNotFoundError(f"missing energetics file: {path}")
+        raise FileNotFoundError(f"missing time_series file: {path}")
 
     rows: list[dict[str, float]] = []
+    header: list[str] | None = None
     with path.open() as handle:
         for line in handle:
             line = line.strip()
-            if not line or line.startswith("#"):
+            if not line:
+                continue
+            if line.startswith("#"):
+                fields = line[1:].split()
+                if len(fields) >= 6 and fields[0] == "step" and fields[1] == "time":
+                    header = fields
                 continue
 
+            if header is None:
+                raise ValueError(f"missing time_series header in {path}")
+
             parts = line.split()
-            if len(parts) != 6:
-                raise ValueError(f"unexpected energetics row: {line}")
+            if len(parts) != len(header):
+                raise ValueError(f"unexpected time_series row: {line}")
+
+            values = dict(zip(header, parts))
+            for required in ("E_T", "E_K", "E_psi", "E_C"):
+                if required not in values:
+                    raise ValueError(f"time_series output is missing required column: {required}")
 
             rows.append(
                 {
-                    "step": int(parts[0]),
-                    "time": float(parts[1]),
-                    "total": float(parts[2]),
-                    "kinetic": float(parts[3]),
-                    "free": float(parts[4]),
-                    "compressibility": float(parts[5]),
+                    "step": int(values["step"]),
+                    "time": float(values["time"]),
+                    "total": float(values["E_T"]),
+                    "kinetic": float(values["E_K"]),
+                    "free": float(values["E_psi"]),
+                    "compressibility": float(values["E_C"]),
                 }
             )
 
@@ -308,7 +327,7 @@ def format_summary(
     lines = [
         "Thermal FDR stationary-distribution check",
         f"  input                 : {INPUT_SCRIPT.relative_to(ROOT)}",
-        f"  energetics            : {cfg.energetics_file.relative_to(ROOT)}",
+        f"  time_series           : {cfg.time_series_file.relative_to(ROOT)}",
         f"  time evolution        : {cfg.time_evolution}",
         f"  free energy           : {cfg.free_energy_type}",
         f"  active grid           : {cfg.active_nx} x {cfg.active_ny}",
@@ -318,7 +337,7 @@ def format_summary(
         f"  stationary samples    : {len(samples)}",
         "",
         "Preconditions:",
-        f"  [{'PASS' if finite_ok else 'FAIL'}] finite energetics",
+        f"  [{'PASS' if finite_ok else 'FAIL'}] finite time_series energy columns",
         (
             f"  [{'PASS' if closure_ok else 'FAIL'}] total column closure: "
             f"max error {closure_error:.3e}, tolerance {closure_tolerance:.3e}"
@@ -352,7 +371,7 @@ def format_summary(
 
 def main() -> int:
     cfg = parse_input(INPUT_SCRIPT)
-    rows = read_energetics(cfg.energetics_file)
+    rows = read_time_series_energy(cfg.time_series_file)
     samples = late_samples(rows, cfg)
     closure = total_closure_ok(rows)
     checks = expected_checks(cfg, samples)
