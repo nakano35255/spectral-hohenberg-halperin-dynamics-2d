@@ -117,6 +117,7 @@ void TimeSeriesMeasure::open_output_if_needed() {
         if (!output_) {
             open_ok = 0;
         } else {
+            output_ << "# measure time_series\n";
             output_ << "# step time";
             for (const TimeSeriesColumn& column : columns_) {
                 output_ << ' ' << column.name;

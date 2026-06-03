@@ -39,6 +39,7 @@ measure ts time_series off
 1行目は列名を表す header です。
 
 ```txt
+# measure time_series
 # step time <target1> <target2> ...
 ```
 

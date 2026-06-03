@@ -20,7 +20,7 @@ measure <ID> ave/profile <on|off> axis <x|y> nevery <integer> nblock <integer> f
 
 ```sh
 measure prof ave/profile on axis y nevery 100 nblock 1000 file output/profile.dat average block target vx pi_xy
-measure prof ave/profile on axis y nevery 100 nblock 1000 file output/profile_running.dat average running target rho psi[0] vx vy Jpsi_y[0] pi_xy
+measure prof ave/profile on axis y nevery 100 nblock 1000 file output/profile_running.dat average running target rho psi[0] vx vy Jpsi[0]_y pi_xy
 
 measure prof ave/profile off
 ```
@@ -80,24 +80,21 @@ nevery 100 nblock 1000
 
 ```txt
 # measure ave/profile
-# axis <x|y> average <block|running>
-# columns block step time index coord <target columns...>
+# axis <x|y> nevery <integer> nblock <integer> average <block|running>
+# block <block> step <step> time <time> samples <samples>
+# columns coord <target columns...>
 ```
 
-出力列は以下の通りです。
+`# block ...` と `# columns ...` の後に、1 block ぶんの profile が続きます。
+データ行の列は以下の通りです。
 
-- `block`
-  - 完了した block の番号です。
-- `step`
-  - 出力時点の通算ステップ番号です。
-- `time`
-  - 出力時点の通算物理時刻です。
-- `index`
-  - profile 軸上の格子 index です。
 - `coord`
   - profile 軸上の物理座標です。
 - `<target columns...>`
   - `target` で指定した物理量の平均プロファイルです。
+
+`block`, `step`, `time`, `samples` は、データ列ではなく block ごとのコメント行に記録されます。
+`samples` は、その出力に含まれる時間サンプル数です。
 
 `average block` では、block ごとの平均プロファイルが追記されます。
 `average running` では、これまでに完了した block の running average が書き直されます。
@@ -132,8 +129,8 @@ nevery 100 nblock 1000
 | `jy` | 運動量密度 $j_y$ |
 | `vx` | 速度場 $v_x$ |
 | `vy` | 速度場 $v_y$ |
-| `Jpsi_x[N]` | スカラー場成分 $\psi_N$ のフラックス $J^\psi_{N,x}$ |
-| `Jpsi_y[N]` | スカラー場成分 $\psi_N$ のフラックス $J^\psi_{N,y}$ |
+| `Jpsi[N]_x` | スカラー場成分 $\psi_N$ のフラックス $J^\psi_{N,x}$ |
+| `Jpsi[N]_y` | スカラー場成分 $\psi_N$ のフラックス $J^\psi_{N,y}$ |
 | `pi_xx` | 運動量フラックス $\Pi_{xx}$ |
 | `pi_xy` | 運動量フラックス $\Pi_{xy}$ |
 | `pi_yy` | 運動量フラックス $\Pi_{yy}$ |
@@ -156,6 +153,8 @@ measure prof ave/profile on axis y nevery 100 nblock 1000 file output/profile.da
 \boldsymbol{v}(\boldsymbol{x}) = \boldsymbol{j}(\boldsymbol{x}) / \rho(\boldsymbol{x})
 ```
 
+各観測時刻で実空間の $\boldsymbol{j}(\boldsymbol{x}) / \rho(\boldsymbol{x})$ を計算し、その値を時間平均します。
+
 - incompressible mode:
 
 ```math
@@ -166,7 +165,7 @@ measure prof ave/profile on axis y nevery 100 nblock 1000 file output/profile.da
 
 ## Flux
 
-`Jpsi_x[N]`, `Jpsi_y[N]`, `pi_xx`, `pi_xy`, `pi_yy` は、時間積分中に評価されたフラックスを用いて計算されます。
+`Jpsi[N]_x`, `Jpsi[N]_y`, `pi_xx`, `pi_xy`, `pi_yy` は、時間積分中に評価されたフラックスを用いて計算されます。
 そのため、これらの target を指定すると、内部的に対応する flux の記録が有効になります。
 
 `fix ... force/sine` や `fix ... force/gradient` によって加えられた外力そのものは、運動量フラックスには含まれません。
@@ -180,7 +179,7 @@ measure prof ave/profile on axis y nevery 100 nblock 1000 file output/profile.da
 - 出力先ディレクトリは自動作成されません。
 - `file` は snapshot のような prefix ではなく、出力ファイル名そのものです。
 - `average` は `block` または `running` のいずれかです。
-- `order_parameters 0` の場合、`psi[N]`, `Jpsi_x[N]`, `Jpsi_y[N]` target は使用できません。
+- `order_parameters 0` の場合、`psi[N]`, `Jpsi[N]_x`, `Jpsi[N]_y` target は使用できません。
 - quiescent mode では、`jx`, `jy`, `vx`, `vy`, `pi_xx`, `pi_xy`, `pi_yy` は通常の流体場プロファイルとしては使用しないでください。
 - 同じ `<ID>` で `measure ... off` を指定すると、その measure は停止します。
 - 同じ `<ID>` で別の `measure ... on` を指定すると、既存の measure は新しい設定に置き換えられます。

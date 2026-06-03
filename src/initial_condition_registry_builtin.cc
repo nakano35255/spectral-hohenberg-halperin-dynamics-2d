@@ -9,7 +9,6 @@
 #include "initial_condition_gaussian_order_parameter_style.h"
 #include "initial_condition_sine_order_parameter_style.h"
 
-
 InitialConditionRegistry build_initial_condition_registry() {
     InitialConditionRegistry registry;
     registry.register_density_style(std::make_unique<UniformDensityInitialConditionStyle>());
