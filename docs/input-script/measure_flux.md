@@ -119,6 +119,7 @@ momentum_flux_xx momentum_flux_xy momentum_flux_yy
 ## 関連コマンド
 
 - [`run`](./run.md)
+- [`measure ave/profile`](./measure_ave_profile.md)
 - [`fix ... nonlinear`](./fix_nonlinear.md)
 - [`fix ... noise`](./fix_noise.md)
 - [`order_parameters`](./order_parameters.md)
