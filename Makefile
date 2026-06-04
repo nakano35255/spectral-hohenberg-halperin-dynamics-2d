@@ -15,6 +15,10 @@ SRCS := \
 	src/fcalculator.cc \
 	src/fcalculator_workspace.cc \
 	src/initial_condition.cc \
+	src/initial_condition_equilibrium_gaussian_density.cc \
+	src/initial_condition_equilibrium_gaussian_momentum_compressible.cc \
+	src/initial_condition_equilibrium_gaussian_momentum_incompressible.cc \
+	src/initial_condition_equilibrium_gaussian_order_parameter.cc \
 	src/initial_condition_registry_builtin.cc \
 	src/initial_condition_gaussian_density.cc \
 	src/initial_condition_gaussian_order_parameter.cc \

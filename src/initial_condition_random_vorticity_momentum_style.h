@@ -22,14 +22,10 @@ struct RandomVorticityMomentumInitialConditionCommand : public MomentumInitialCo
 
     void print(std::ostream& os) const override {
         const char* component_name = "?";
-        if (direction == 0) {
-            component_name = "x";
-        } else if (direction == 1) {
-            component_name = "y";
-        }
+        if (direction == 0) component_name = "x";
+        else if (direction == 1) component_name = "y";
 
-        os << "  "
-           << std::left << std::setw(25)
+        os << "  " << std::left << std::setw(25)
            << "Momentum" << ": Component " << component_name
            << " " << type
            << " n0 " << n0

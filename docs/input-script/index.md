@@ -180,11 +180,16 @@ run                 100000
 
 各場の初期状態を定義します。Fix の直後に指定することが推奨されます。
 
+`set` コマンドに指定するパラメータは、初期条件を生成するためのパラメータです。
+時間発展で使われる `model` や `fix` のパラメータとは自動的には同期しません。
+平衡分布に対応する初期条件を時間発展側のモデルやノイズ強度と整合させたい場合は、同じ値をそれぞれのコマンドに明示的に指定してください。
+ただし、各 style の説明に書かれている場合に限り、初期条件生成時に既存の場などから補助量を読み取ります。
+
 | コマンド | 形式 | 詳細 |
 | --- | --- | --- |
-| `set density` | `set density <uniform\|sine\|gaussian> [key value ...]` | [詳細](./set_density.md) |
-| `set momentum` | `set momentum <x\|y\|0\|1\|all> <uniform\|sine> [key value ...]` | [詳細](./set_momentum.md) |
-| `set order_parameter` | `set order_parameter <component\|all> <uniform\|sine\|gaussian> [key value ...]` | [詳細](./set_order_parameter.md) |
+| `set density` | `set density <uniform\|sine\|gaussian\|equilibrium/gaussian> [key value ...]` | [詳細](./set_density.md) |
+| `set momentum` | `set momentum <x\|y\|0\|1\|all> <uniform\|sine\|random_vorticity\|equilibrium/gaussian/compressible\|equilibrium/gaussian/incompressible> [key value ...]` | [詳細](./set_momentum.md) |
+| `set order_parameter` | `set order_parameter <component\|all> <uniform\|sine\|gaussian\|equilibrium/gaussian> [key value ...]` | [詳細](./set_order_parameter.md) |
 
 ### Output
 
@@ -211,6 +216,7 @@ run                 100000
 | `measure snapshot` | `measure <ID> snapshot <on\|off> [key value ...]` | [詳細](./measure_snapshot.md) |
 | `measure time_series` | `measure <ID> time_series <on\|off> nevery <integer> file <filename> target <target1> [target2 ...]` | [詳細](./measure_time_series.md) |
 | `measure ave/profile` | `measure <ID> ave/profile <on\|off> axis <x\|y> nevery <integer> nblock <integer> file <filename> average <block\|running> target <target1> [target2 ...]` | [詳細](./measure_ave_profile.md) |
+| `measure yokota_green_kubo` | `measure <ID> yokota_green_kubo <on\|off> nevery <integer> nblock <integer> file <filename> [mode <diagonal\|all>]` | [詳細](./measure_yokota_green_kubo.md) |
 | `run` | `run <steps>` | [詳細](./run.md) |
 
 

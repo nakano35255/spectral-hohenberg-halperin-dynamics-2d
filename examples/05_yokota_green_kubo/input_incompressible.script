@@ -1,0 +1,32 @@
+dimension           2
+boundary            p p
+
+grid                32 32
+length              32.0 32.0
+dealias             three_halves
+
+order_parameters    0
+
+timestep            0.01
+time_evolution      srk3/incompressible
+
+model transport     constant eta 0.1 zeta 0.0
+
+fix                 1 momentum nonlinear off
+fix                 2 momentum noise on seed 12345 kBT 1.0
+
+set                 density uniform value 1.0
+# set                 momentum all uniform value 0.0
+set                 momentum all equilibrium/gaussian/incompressible kBT 1.0 seed 12345
+
+thermo              observe on progress on nevery 10000
+restart             off
+
+measure             1 time_series on nevery 100 file examples/05_yokota_green_kubo/results/time_series_gaussian.dat target E_K pi_xy
+
+run                 10000
+
+
+measure             2 yokota_green_kubo on nevery 100 nblock 10000 file examples/05_yokota_green_kubo/results/yokota_green_kubo.dat mode diagonal
+
+run                 90000

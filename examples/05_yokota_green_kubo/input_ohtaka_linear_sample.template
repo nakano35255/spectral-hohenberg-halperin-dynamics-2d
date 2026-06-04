@@ -1,0 +1,26 @@
+dimension           2
+boundary            p p
+
+grid                32 32
+length              16.0 16.0
+dealias             three_halves
+
+order_parameters    0
+
+timestep            0.01
+time_evolution      srk3/incompressible
+
+model transport     constant eta 0.1 zeta 0.0
+
+fix                 1 momentum nonlinear off
+fix                 2 momentum noise on seed @NOISE_SEED@ kBT 1.0
+
+set                 density uniform value 1.0
+set                 momentum all equilibrium/gaussian/incompressible kBT 1.0 seed @INIT_SEED@
+
+thermo              observe on progress on nevery 20000
+restart             off
+
+measure             1 yokota_green_kubo on nevery 100 nblock 10000 file @YKGK_FILE@ mode diagonal
+
+run                 100000

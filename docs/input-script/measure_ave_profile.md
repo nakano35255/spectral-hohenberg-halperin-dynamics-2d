@@ -62,7 +62,10 @@ measure prof ave/profile off
 ## 出力タイミング
 
 `measure ave/profile` は、スクリプト内で有効化された後の `run` に対して作用します。
-観測は各ステップの時間発展後に行われ、通算ステップ番号が `nevery` で割り切れるときに現在のプロファイルを積算します。
+観測は各ステップの時間発展後に行われます。
+`nevery` と `nblock` は、通算ステップ番号ではなく、その measure が有効化されてからの内部カウンタで判定されます。
+同じ measure が有効であり続ける間は、複数の `run` にまたがって同じ block が継続します。
+同じ `<ID>` の measure を `off` または再度 `on` にすると、その measure の block は終了または作り直されます。
 
 `nblock` ステップ分の観測が終わると、平均されたプロファイルを出力します。
 例えば、
@@ -116,6 +119,11 @@ nevery 100 nblock 1000
 ```
 
 離散的には、同じ `y` index を持つすべての格子点について平均します。
+
+profile は実際に FFT で使う compute grid 上で出力されます。
+そのため、`dealias none` では profile 点数は `grid` で指定した active grid と一致しますが、`dealias three_halves` や `dealias two` では dealias 後の padded grid 点数になります。
+例えば `grid 16 16` かつ `dealias three_halves` の場合、compute grid は `24 24` なので、`axis y` の profile は 24 点で出力されます。
+座標間隔も compute grid に基づき、`length / compute_N` になります。
 
 ## Target
 
