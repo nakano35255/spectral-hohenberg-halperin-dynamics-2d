@@ -1,9 +1,9 @@
 dimension           2
 boundary            p p
 
-grid                32 32
+grid                16 16
 length              16.0 16.0
-dealias             three_halves
+dealias             none
 
 order_parameters    0
 

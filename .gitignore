@@ -11,6 +11,11 @@ __pycache__/
 # Simulation outputs
 *.snapshot
 output.log
+examples/*/runs/
+examples/*/results/*
+!examples/*/results/
+!examples/*/results/.gitignore
+examples/05_yokota_green_kubo/examples/
 
 # Editor and OS files
 .DS_Store

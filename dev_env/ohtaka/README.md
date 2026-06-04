@@ -264,6 +264,53 @@ For the current x-slab R2C decomposition, the number of MPI ranks must satisfy
 not valid.
 
 
+### Yokota Green-Kubo Linear Samples
+
+`examples/05_yokota_green_kubo` has a one-node sample job for the linear
+Yokota Green-Kubo check. Generate the per-sample input scripts before
+submitting the Slurm job:
+
+```sh
+cd ~/spectral-hohenberg-halperin-dynamics-2d
+
+python3 examples/05_yokota_green_kubo/prepare_ohtaka_linear_inputs.py \
+  --run-id prepared \
+  --samples 128
+
+sbatch examples/05_yokota_green_kubo/job_ohtaka_linear_samples.sh
+```
+
+The job reserves one `i8cpu` node and launches 128 independent one-rank runs
+with one `srun` per sample. It intentionally does not use a Slurm array, so it
+avoids array submission limits and keeps all samples inside one batch job.
+
+The important launch options are:
+
+```sh
+srun --exclusive --mem-per-cpu=1840 --cpu-bind=cores -n 1 -c 1 -N 1 ...
+```
+
+`--cpu-bind=cores` is important on Ohtaka for avoiding the large run-to-run
+speed variation seen when many one-rank samples are launched concurrently.
+
+To use another run id, generate matching inputs and export the same id when
+submitting:
+
+```sh
+python3 examples/05_yokota_green_kubo/prepare_ohtaka_linear_inputs.py \
+  --run-id linear_test \
+  --samples 128
+
+YKGK_RUN_ID=linear_test \
+  sbatch examples/05_yokota_green_kubo/job_ohtaka_linear_samples.sh
+```
+
+The generated inputs are written under
+`examples/05_yokota_green_kubo/runs/ohtaka_linear_<run-id>/`, and outputs are
+written under
+`examples/05_yokota_green_kubo/results/ohtaka_linear_<run-id>/`.
+
+
 ## Benchmark Conditions
 
 The benchmark below used `examples/02_incompressible_turbulence/input.script`
