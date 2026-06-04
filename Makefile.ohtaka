@@ -1,18 +1,19 @@
 CXX := mpiicpc
 
-HEFFTE_ROOT ?= $(HOME)/local/heffte-oneapi-mkl
+HEFFTE_ROOT ?= $(HOME)/local/heffte-oneapi-fftw
+FFTW_ROOT ?= $(HOME)/local/fftw-oneapi
 
 CXXFLAGS := -std=c++17 -O3 -march=core-avx2 -Wall -Wextra -pedantic \
             -diag-disable=11074,11076 \
-            -DSHHD_HEFFTE_BACKEND_MKL \
             -Isrc \
             -I$(HEFFTE_ROOT)/include \
-            -I$(MKLROOT)/include
+            -I$(FFTW_ROOT)/include
 
-LDFLAGS := -L$(HEFFTE_ROOT)/lib -L$(MKLROOT)/lib/intel64
+LDFLAGS := -L$(HEFFTE_ROOT)/lib -L$(FFTW_ROOT)/lib
 
 LDLIBS := -lheffte \
-          -lmkl_intel_lp64 -lmkl_sequential -lmkl_core \
+          -lfftw3_mpi -lfftw3 \
+          -lfftw3f_mpi -lfftw3f \
           -lpthread -lm -ldl
 
 TARGET := src/out.exe

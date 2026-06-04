@@ -7,7 +7,7 @@ environment.
 
 - `docker/`: Docker, VS Code Dev Containers, MPI, and FFTW setup notes.
 - `heffte/`: A direct heFFTe + FFTW + MPI test using a traditional Makefile.
-- `ohtaka/`: Ohtaka System B setup notes for oneAPI, Intel MPI, oneMKL, and heFFTe.
+- `ohtaka/`: Ohtaka System B setup notes for oneAPI, Intel MPI, FFTW, and heFFTe.
 
 ## Quick Checks
 

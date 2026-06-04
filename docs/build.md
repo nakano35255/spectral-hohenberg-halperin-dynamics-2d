@@ -88,8 +88,8 @@ make
 
 ## Ohtaka System B でビルドする
 
-Ohtaka System B では、oneAPI compiler、Intel MPI、oneMKL backend 付き heFFTe を使う構成を確認しています。
-heFFTe の user-local install、`Makefile.ohtaka`、Slurm 実行例、実測した推奨 MPI rank 数は [dev_env/ohtaka/README.md](../dev_env/ohtaka/README.md) を参照してください。
+Ohtaka System B では、oneAPI compiler、Intel MPI、user-local FFTW、FFTW backend 付き heFFTe を使う構成を確認しています。
+FFTW/heFFTe の user-local install、`Makefile.ohtaka`、Slurm 実行例、実測した推奨 MPI rank 数は [dev_env/ohtaka/README.md](../dev_env/ohtaka/README.md) を参照してください。
 
 
 ## 実行確認
