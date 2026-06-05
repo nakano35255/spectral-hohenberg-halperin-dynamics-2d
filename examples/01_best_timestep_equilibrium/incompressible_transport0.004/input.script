@@ -1,0 +1,27 @@
+dimension           2
+boundary            p p
+
+grid                64 64
+length              64.0 64.0
+dealias             three_halves
+
+order_parameters    1
+
+timestep            0.005
+time_evolution      srk3/incompressible
+
+model free_energy   quadratic a[0] 1.0
+model transport     constant eta 0.004 M[0,0] 0.004
+
+fix                 1 all noise on seed 12345 kBT 1.0
+fix                 2 all nonlinear on
+
+set                 density uniform value 1.0
+set                 momentum all uniform value 0.0
+set                 order_parameter all uniform value 0.0
+
+thermo              observe on progress off nevery 5000
+measure             1 time_series on nevery 50 file results/time_series.dat target E_T E_K E_psi
+restart             off
+
+run                 10000

@@ -1,0 +1,30 @@
+dimension           2
+boundary            p p
+
+grid                64 64
+length              64.0 64.0
+dealias             three_halves
+
+order_parameters    0
+
+timestep            0.01
+time_evolution      srk3/compressible
+
+model thermo        linear_eos cT 10.0
+model transport     constant eta 0.1 zeta 1.0
+
+fix                 1 momentum force/sine on component x axis y nk 1 amplitude 0.001
+
+set                 density uniform value 1.0
+set                 momentum all uniform value 0.0
+
+thermo              observe on progress on nevery 1000
+restart             off
+
+measure             1 time_series on nevery 50 file results/time_series.dat target E_T E_K E_C
+
+run                 30000
+
+measure             2 ave/profile on axis y nevery 20 nblock 1000 file results/incompressible_profile.dat average running target vx pi_xy
+
+run                 200000

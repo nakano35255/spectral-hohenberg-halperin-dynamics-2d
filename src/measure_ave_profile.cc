@@ -328,6 +328,10 @@ void AveProfileMeasure::finish_block(FourierTransform2D& fft, int step, double t
 
      MPI_Reduce(local_profiles.data(), global_profiles.data(), static_cast<int>(global_profiles.size()), MPI_DOUBLE, MPI_SUM, 0, domain_.comm());
 
+     if (average_mode_ == AveProfileAverageMode::Block) {
+          open_block_output_if_needed();
+     }
+
      int write_ok = 1;
      if (domain_.rank() == 0) {
           const double transverse_grid_size = (axis_ == 0) ? static_cast<double>(domain_.ny_global()) : static_cast<double>(domain_.nx_global());
@@ -339,7 +343,6 @@ void AveProfileMeasure::finish_block(FourierTransform2D& fft, int step, double t
           }
 
           if (average_mode_ == AveProfileAverageMode::Block) {
-               open_block_output_if_needed();
                write_rows(block_output_, step, time, output_samples, output_values);
                block_output_.flush();
                if (!block_output_) {
