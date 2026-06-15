@@ -7,15 +7,24 @@ dev_env/docker/out.exe
 dev_env/heffte/out.exe
 __pycache__/
 *.pyc
+*.o
 
 # Simulation outputs
 *.snapshot
 output.log
-examples/*/runs/
-examples/*/results/*
-!examples/*/results/
-!examples/*/results/.gitignore
-examples/05_yokota_green_kubo/examples/
+*.log
+*.dat
+examples/**/runs/**
+examples/**/results/**
+examples/**/cache/**
+!examples/**/results/
+!examples/**/results/.gitignore
+
+# Example-local generated data
+examples/**/production_*/
+examples/**/dt_sweep_*/
+examples/**/L*_dt*_T*_U*/
+examples/**/L*_dt*_T*_U*.png
 
 # Editor and OS files
 .DS_Store
