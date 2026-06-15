@@ -8,12 +8,17 @@ dev_env/heffte/out.exe
 __pycache__/
 *.pyc
 *.o
+*.dSYM/
 
 # Simulation outputs
 *.snapshot
 output.log
 *.log
 *.dat
+*.npy
+*.npz
+*.out
+slurm-*.out
 examples/**/runs/**
 examples/**/results/**
 examples/**/cache/**
@@ -25,6 +30,10 @@ examples/**/production_*/
 examples/**/dt_sweep_*/
 examples/**/L*_dt*_T*_U*/
 examples/**/L*_dt*_T*_U*.png
+examples/**/main/**/runs/**
+examples/**/main/**/results/**
+examples/**/legacy/**/runs/**
+examples/**/legacy/**/results/**
 
 # Editor and OS files
 .DS_Store
