@@ -1,6 +1,7 @@
 # Build artifacts
 build/
 out.exe
+src/packages_enabled.mk
 src/*.o
 dev_env/out.exe
 dev_env/docker/out.exe
@@ -24,6 +25,7 @@ examples/**/results/**
 examples/**/cache/**
 !examples/**/results/
 !examples/**/results/.gitignore
+!examples/**/results/.gitkeep
 
 # Example-local generated data
 examples/**/production_*/

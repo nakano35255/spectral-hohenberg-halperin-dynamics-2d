@@ -1,0 +1,46 @@
+# Example 03_2: passive-scalar budget spectrum
+
+This example is a small steady-state check for the `PASSIVE_SCALAR` package.
+It uses the same basic setup as `examples/03_ness_uniform_gradient`:
+
+- `srk3/incompressible`
+- one quadratic order parameter
+- nonlinear order-parameter advection
+- momentum noise
+- a uniform-gradient order-parameter force
+
+The first `run` segment relaxes the system. The `budget/spectrum` measures are
+created only after that segment, so `budget_shell.dat` and `budget_2d.dat`
+contain measurements from the second segment only.
+
+The grid is intentionally small (`32 x 32`) and the gradient amplitude is
+larger than in the production `03` runs. This keeps the example quick and makes
+the budget terms easier to see in a short run. For production data, increase the
+box size, lower the forcing, and extend both the relaxation and averaging runs.
+
+Build with the package enabled:
+
+```sh
+make yes-PASSIVE-SCALAR
+make clean
+make
+```
+
+Run from the repository root:
+
+```sh
+./src/out.exe examples/03_2/input.script
+python3 examples/03_2/plot_budget.py
+```
+
+The main output files are:
+
+```text
+examples/03_2/results/budget_shell.dat
+examples/03_2/results/budget_2d.dat
+examples/03_2/results/budget_shell_summary.txt
+examples/03_2/results/budget_shell.png
+```
+
+`budget_shell.dat` is the most compact correctness check. Each block contains
+the shell-averaged transfer, dissipation, production, and total budget spectra.

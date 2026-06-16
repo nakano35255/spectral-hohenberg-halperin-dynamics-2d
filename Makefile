@@ -7,6 +7,8 @@ LDLIBS := -lheffte \
           -lfftw3l_mpi -lfftw3l
 
 TARGET := src/out.exe
+.DEFAULT_GOAL := all
+
 SRCS := \
 	src/main.cc \
 	src/buffer_flux.cc \
@@ -49,6 +51,35 @@ SRCS := \
 	src/spectral_mask.cc \
 	src/state.cc \
 	src/simulationinfo.cc
+
+PKG_CONFIG := src/packages_enabled.mk
+-include $(PKG_CONFIG)
+
+ifeq ($(PKG_PASSIVE_SCALAR),1)
+include src/PASSIVE_SCALAR/package.mk
+endif
+
+
+.PHONY: yes-PASSIVE-SCALAR no-PASSIVE-SCALAR package-status
+
+yes-PASSIVE-SCALAR:
+	@touch $(PKG_CONFIG)
+	@grep -v '^PKG_PASSIVE_SCALAR[[:space:]]*:=' $(PKG_CONFIG) > $(PKG_CONFIG).tmp || true
+	@printf '%s\n' 'PKG_PASSIVE_SCALAR := 1' >> $(PKG_CONFIG).tmp
+	@mv $(PKG_CONFIG).tmp $(PKG_CONFIG)
+	@echo "Enabled package: PASSIVE-SCALAR"
+	@echo "Run: make clean && make"
+
+no-PASSIVE-SCALAR:
+	@touch $(PKG_CONFIG)
+	@grep -v '^PKG_PASSIVE_SCALAR[[:space:]]*:=' $(PKG_CONFIG) > $(PKG_CONFIG).tmp || true
+	@mv $(PKG_CONFIG).tmp $(PKG_CONFIG)
+	@echo "Disabled package: PASSIVE-SCALAR"
+	@echo "Run: make clean && make"
+
+package-status:
+	@echo "PASSIVE-SCALAR: $(if $(filter 1,$(PKG_PASSIVE_SCALAR)),yes,no)"
+
 
 .PHONY: all clean
 

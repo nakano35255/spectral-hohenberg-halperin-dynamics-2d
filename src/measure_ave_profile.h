@@ -16,10 +16,7 @@ enum class AveProfileTargetKind {
      MomentumFluxXX, MomentumFluxXY, MomentumFluxYY
 };
 
-enum class AveProfileAverageMode {
-     Block,
-     Running
-};
+enum class AveProfileAverageMode {Block, Running};
 
 struct AveProfileTarget {
      AveProfileTargetKind kind;
