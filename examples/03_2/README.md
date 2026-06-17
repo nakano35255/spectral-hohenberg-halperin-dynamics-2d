@@ -18,6 +18,9 @@ larger than in the production `03` runs. This keeps the example quick and makes
 the budget terms easier to see in a short run. For production data, increase the
 box size, lower the forcing, and extend both the relaxation and averaging runs.
 
+Large Ohtaka restart jobs for `grid 1024 1024`, `dt = 16`, and
+`eta = M[0,0] = 0.004` are collected in `ohtaka_large/`.
+
 Build with the package enabled:
 
 ```sh

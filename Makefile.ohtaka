@@ -56,9 +56,39 @@ SRCS := \
 	src/model_transport_coefficient_registry_builtin.cc \
 	src/monitor.cc \
 	src/param_parser.cc \
+	src/restart_io.cc \
 	src/spectral_mask.cc \
 	src/state.cc \
 	src/simulationinfo.cc
+
+PKG_CONFIG := src/packages_enabled.mk
+-include $(PKG_CONFIG)
+
+ifeq ($(PKG_PASSIVE_SCALAR),1)
+include src/PASSIVE_SCALAR/package.mk
+endif
+
+
+.PHONY: yes-PASSIVE-SCALAR no-PASSIVE-SCALAR package-status
+
+yes-PASSIVE-SCALAR:
+	@touch $(PKG_CONFIG)
+	@grep -v '^PKG_PASSIVE_SCALAR[[:space:]]*:=' $(PKG_CONFIG) > $(PKG_CONFIG).tmp || true
+	@printf '%s\n' 'PKG_PASSIVE_SCALAR := 1' >> $(PKG_CONFIG).tmp
+	@mv $(PKG_CONFIG).tmp $(PKG_CONFIG)
+	@echo "Enabled package: PASSIVE-SCALAR"
+	@echo "Run: make -f Makefile.ohtaka clean && make -f Makefile.ohtaka"
+
+no-PASSIVE-SCALAR:
+	@touch $(PKG_CONFIG)
+	@grep -v '^PKG_PASSIVE_SCALAR[[:space:]]*:=' $(PKG_CONFIG) > $(PKG_CONFIG).tmp || true
+	@mv $(PKG_CONFIG).tmp $(PKG_CONFIG)
+	@echo "Disabled package: PASSIVE-SCALAR"
+	@echo "Run: make -f Makefile.ohtaka clean && make -f Makefile.ohtaka"
+
+package-status:
+	@echo "PASSIVE-SCALAR: $(if $(filter 1,$(PKG_PASSIVE_SCALAR)),yes,no)"
+
 
 .PHONY: all clean
 
