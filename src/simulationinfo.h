@@ -138,6 +138,12 @@ struct ThermoConfig {
     void print_config(std::ostream& os) const;
 };
 // ---------------------------------------------------------------------- //
+struct RestartInputConfig {
+    bool enabled = false;
+    std::string file = "";
+    void print_config(std::ostream& os) const;
+};
+// ---------------------------------------------------------------------- //
 struct RestartOutputConfig {
     bool enabled = false;
     std::string file = "";
@@ -165,6 +171,7 @@ struct Params {
     FixConfig fix;
     InitialConditionConfig initial;
     ThermoConfig thermo;
+    RestartInputConfig restart_input;
     RestartOutputConfig restart_output;
     std::vector<Command> commands;
 

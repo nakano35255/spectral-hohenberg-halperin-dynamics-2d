@@ -26,7 +26,7 @@ run 200000
 
 ## 詳細
 
-`run` は、読み込まれたシステム設定、物理モデル、初期条件に基づいて、時間発展を実行します。
+`run` は、読み込まれたシステム設定、物理モデル、初期条件または restart state に基づいて、時間発展を実行します。
 `measure` コマンドについては、スクリプト内でその `run` より前に有効化されているものが観測されます。
 
 複数回 `run` を書いた場合、ステップ番号と物理時刻はリセットされず、通算で進みます。
@@ -58,7 +58,8 @@ run 10000
 - `0` 以下の値を指定するとエラーになります。
 - `run` より前に、少なくとも `model transport` を指定する必要があります。
 - `fix` コマンドは、現在の実装では `run` または `measure` より前に指定する必要があります。
-- 初期条件は、最初の `run` が始まる前に一度だけ状態へ適用されます。
+- `restart read` を使わない場合、初期条件は最初の `run` が始まる前に一度だけ状態へ適用されます。
+- `restart read` を使う場合、初期条件の代わりに restart ファイルから state、step、time が読み込まれます。
 - 複数の `run` を連続して実行しても、状態は途中で再初期化されません。
 
 ## 関連コマンド
@@ -66,4 +67,5 @@ run 10000
 - [`timestep`](./timestep.md)
 - [`time_evolution`](./time_evolution.md)
 - [`measure snapshot`](./measure_snapshot.md)
+- [`restart`](./restart.md)
 - [`thermo`](./output.md#thermo)

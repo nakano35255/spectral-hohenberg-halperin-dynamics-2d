@@ -491,23 +491,38 @@ void ParamParser::parse_thermo_command(const std::vector<std::string>& tokens) {
 }
 // ---------------------------------------------------------------------- //
 void ParamParser::parse_restart_command(const std::vector<std::string>& tokens) {
-    if (tokens.size() < 2) throw std::runtime_error("restart syntax: restart off | restart on file <filename>");
+    if (tokens.size() < 2) {
+        throw std::runtime_error("restart syntax: restart off | restart read file <filename> | restart write file <filename>");
+    }
 
     if (tokens[1] == "off") {
         if (tokens.size() != 2) throw std::runtime_error("restart off syntax: restart off");
+        params.restart_input.enabled = false;
+        params.restart_input.file.clear();
         params.restart_output.enabled = false;
         params.restart_output.file.clear();
         return;
     }
 
-    if (tokens[1] == "on") {
-        if (tokens.size() != 4 || tokens[2] != "file") throw std::runtime_error("restart on syntax: restart on file <filename>");
+    if (tokens[1] == "write") {
+        if (tokens.size() != 4 || tokens[2] != "file") {
+            throw std::runtime_error("restart write syntax: restart write file <filename>");
+        }
         params.restart_output.enabled = true;
         params.restart_output.file = tokens[3];
         return;
     }
 
-    throw std::runtime_error("restart expects on|off");
+    if (tokens[1] == "read") {
+        if (tokens.size() != 4 || tokens[2] != "file") {
+            throw std::runtime_error("restart read syntax: restart read file <filename>");
+        }
+        params.restart_input.enabled = true;
+        params.restart_input.file = tokens[3];
+        return;
+    }
+
+    throw std::runtime_error("restart expects off|read|write");
 }
 // ---------------------------------------------------------------------- //
  void ParamParser::parse_measure_command(const std::vector<std::string>& tokens) {
@@ -800,6 +815,14 @@ void ParamParser::validate_configuration() const {
     for (const auto& force : params.fix.gradient_forces) {
         if (quiescent && force.enabled) {
             throw std::runtime_error("quiescent time evolution cannot use force/gradient.");
+        }
+    }
+
+    if (params.restart_input.enabled) {
+        const bool has_set_commands = !params.initial.density_commands.empty() || !params.initial.momentum_commands.empty() || !params.initial.order_parameter_commands.empty();
+
+        if (has_set_commands) {
+            throw std::runtime_error("restart read cannot be used with set commands.");
         }
     }
 }

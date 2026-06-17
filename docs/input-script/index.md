@@ -37,9 +37,9 @@
 3. 時間刻み幅と時間発展モードの選択
 4. 圧力、自由エネルギー、輸送係数モデルの設定
 5. 非線形移流項とノイズの有効化
-6. 各場（密度、運動量、スカラー場）の初期条件の設定
-7. ログ出力、出力ファイルの設定
-8. `measure` コマンドによる観測量の指定と `run` コマンドによる時間発展の実行
+6. 各場（密度、運動量、スカラー場）の初期条件、または restart input の設定
+7. ログ出力、restart output、観測量の設定
+8. `run` コマンドによる時間発展の実行
 
 システムやモデルの基本設定を行うコマンド群は、最初の `run` コマンドより前に一度だけ記述します。一方、`measure` コマンドと `run` コマンドは、スクリプトの上から下へ順番に逐次処理されます。
 
@@ -106,13 +106,14 @@ model transport     constant eta 1.0 zeta 1.0 M[0,0] 1.0
 fix                 1 all nonlinear on
 fix                 2 all noise on seed 12345 kBT 1.0
 
-# 5. initial condition
+# 5. initial condition, or restart input
 set                 density uniform value 1.0
 set                 momentum all uniform value 0.0
 set                 order_parameter 0 uniform value 0.0
 
-# 6. outputs and measurements
+# 6. outputs, restart, and measurements
 thermo              observe on progress on nevery 1000
+restart             off
 measure             phys snapshot on nevery 1000 file output/physical space physical
 
 # 7. time evolution
@@ -123,6 +124,7 @@ run                 100000
 
 - **`order_parameters` の優先指定:** `model free_energy` や `model transport` は、指定時点のスカラー場成分数に基づいて内部の係数配列を初期化します。必ずこれらのモデル設定より前に `order_parameters` を指定してください。
 - **`fix` の指定位置:** `fix` コマンドは、必ず `run` や `measure` より前に指定してください。
+- **restart input と初期条件:** `restart read` を使う場合、`set density`、`set momentum`、`set order_parameter` は指定しません。
 - **途中からの観測:** 特定のステップから観測を開始したい場合は、まず観測を無効にした状態で `run`を実行し、その後に `measure ... on` を記述して再度 `run` を実行します。
 
 
@@ -201,11 +203,11 @@ run                 100000
 
 ### Restart
 
-リスタートファイルの設定を行います。（※実際のファイル保存・読み込み処理は今後のアップデートで実装予定です）
+リスタートファイルの読み込み・書き出しを設定します。
 
 | コマンド | 形式 | 詳細 |
 | --- | --- | --- |
-| `restart` | `restart off` / `restart on file <filename>` | [詳細](./restart.md#restart) |
+| `restart` | `restart off` / `restart read file <filename>` / `restart write file <filename>` | [詳細](./restart.md) |
 
 ### Measure and Run
 

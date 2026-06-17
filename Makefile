@@ -48,6 +48,7 @@ SRCS := \
 	src/model_transport_coefficient_registry_builtin.cc \
 	src/monitor.cc \
 	src/param_parser.cc \
+	src/restart_io.cc \
 	src/spectral_mask.cc \
 	src/state.cc \
 	src/simulationinfo.cc

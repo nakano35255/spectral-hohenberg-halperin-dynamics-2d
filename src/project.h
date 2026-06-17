@@ -22,6 +22,7 @@
 #include "initial_condition_registry_builtin.h"
 #include "initial_condition.h"
 #include "fcalculator_dynamics_mode.h"
+#include "restart_io.h"
 
 #include <algorithm>
 #include <cmath>
@@ -179,13 +180,22 @@ public:
     void run() {
         monitor.start();
 
-        apply_initial_conditions();
+        if (params.restart_input.enabled) {
+            read_restart_file(params.restart_input.file, params, domain, state, step, time);
+        } else {
+            apply_initial_conditions();
+        }
 
         for (const auto& command : params.commands) {
             execute_command(command);
         }
 
         measurements.finalize();
+
+        if (params.restart_output.enabled) {
+            write_restart_file(params.restart_output.file, params, domain, state, step, time);
+        }
+
         monitor.finish();
     }
 };

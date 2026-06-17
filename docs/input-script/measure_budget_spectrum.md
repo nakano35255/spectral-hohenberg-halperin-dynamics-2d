@@ -59,6 +59,8 @@ B_X(\boldsymbol{k})
 > make PKG_PASSIVE_SCALAR=1
 > ```
 
+実行例として、[`examples/03_2`](../../examples/03_2/README.md) に小さい steady-state check 用の入力スクリプトと解析スクリプトがあります。
+
 ## 形式
 
 ```txt

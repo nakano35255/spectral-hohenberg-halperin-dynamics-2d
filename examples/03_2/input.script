@@ -31,4 +31,4 @@ run                 10000
 measure             bs_shell budget/spectrum on component 0 nevery 20 nblock 200 file examples/03_2/results/budget_shell.dat mode shell average running
 # measure             bs_2d budget/spectrum on component 0 nevery 50 nblock 250 file examples/03_2/results/budget_2d.dat mode 2d average running
 
-run                 500000
+run                 100000

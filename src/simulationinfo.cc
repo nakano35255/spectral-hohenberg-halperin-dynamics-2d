@@ -176,6 +176,16 @@ void ThermoConfig::print_config(std::ostream& os) const {
     print_rule(os);
 }
 // ---------------------------------------------------------------------- //
+void RestartInputConfig::print_config(std::ostream& os) const {
+    print_section(os, "Restart Input");
+    print_entry(os, "Enabled", enabled ? "ON" : "OFF");
+    if (enabled) {
+        print_entry(os, "File", file);
+    }
+    os << "\n";
+    print_rule(os);
+}
+// ---------------------------------------------------------------------- //
 void RestartOutputConfig::print_config(std::ostream& os) const {
     print_section(os, "Restart Output");
     print_entry(os, "Enabled", enabled ? "ON" : "OFF");
@@ -206,6 +216,7 @@ void Params::write_summary(std::ostream& os) const {
     fix.print_config(os);
     initial.print_config(os);
     thermo.print_config(os);
+    restart_input.print_config(os);
     restart_output.print_config(os);
 
 
