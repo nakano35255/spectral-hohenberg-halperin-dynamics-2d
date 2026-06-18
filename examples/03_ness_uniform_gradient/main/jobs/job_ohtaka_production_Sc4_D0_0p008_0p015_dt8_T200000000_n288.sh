@@ -46,14 +46,14 @@ if [ "$active_tasks" -gt "$total_tasks" ]; then
 fi
 
 for D0 in "${D0s[@]}"; do
-    SHHD_EXAMPLE_ROOT="$repo/$case_dir" \
-    SHHD_OUTPUT_ROOT="$output_root" \
     python3 "$case_dir/prepare_ohtaka_input.py" \
+        --legacy-single-segment \
+        --output-root "$output_root" \
         --samples "$samples" \
         --D0 "$D0" \
         --schmidt-number "$schmidt_number" \
         --dt "$dt" \
-        --run-time "$run_time" \
+        --run-time-per-segment "$run_time" \
         --time-series-dtout "$time_series_dtout"
 done
 

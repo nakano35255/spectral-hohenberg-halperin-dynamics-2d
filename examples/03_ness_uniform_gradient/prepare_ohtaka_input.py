@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-import os
-import struct
 from pathlib import Path
-
-
-WORK_EXAMPLE = Path("/work/k0565/k056500/spectral-hohenberg-halperin-dynamics-2d/examples/03_ness_uniform_gradient")
-OUTPUT_ROOT = Path(os.environ.get("SHHD_OUTPUT_ROOT", WORK_EXAMPLE))
 
 
 def label(prefix, value):
@@ -15,20 +9,14 @@ def label(prefix, value):
 
 def steps_from_time(time_value, dt, name):
     steps = round(time_value / dt)
-    if steps <= 0 or abs(steps * dt - time_value) > 1.0e-12:
+    if steps <= 0 or abs(steps * dt - time_value) > 1.0e-12 * max(1.0, abs(time_value)):
         raise RuntimeError(f"{name} must be a positive integer multiple of dt")
     return steps
 
 
-def generate_input(args, seed, time_series_path):
-    dt = float(args.dt)
+def common_header(args, seed):
     eta = args.eta if args.eta is not None else f"{float(args.d0) * args.schmidt_number:.16g}"
-    run_steps = steps_from_time(args.run_time, dt, "run-time")
-    time_series_nevery = args.time_series_nevery
-    if args.time_series_dtout is not None:
-        time_series_nevery = steps_from_time(args.time_series_dtout, dt, "time-series-dtout")
-
-    lines = [
+    return [
         "dimension           2",
         "boundary            p p",
         "",
@@ -48,13 +36,44 @@ def generate_input(args, seed, time_series_path):
         f"fix                 2 momentum noise on seed {seed} kBT {args.kBT}",
         f"fix                 3 order_parameter force/gradient on component 0 direction x amplitude {args.gradient_amplitude}",
         "",
+    ]
+
+
+def initial_condition_block(args):
+    return [
         f"set                 density uniform value {args.density}",
         "set                 momentum all uniform value 0.0",
         f"set                 order_parameter all uniform value {args.order_parameter}",
         "",
+    ]
+
+
+def generate_input(args, sample, segment, run_steps, time_series_nevery, paths):
+    seed = args.seed + 100000 * (segment - 1) + sample
+    lines = common_header(args, seed)
+
+    sid = f"{sample:03d}"
+    segment_id = f"{segment:03d}"
+    prev_segment_id = f"{segment - 1:03d}"
+    if args.legacy_single_segment:
+        time_series_path = paths["result_dir"] / f"time_series_{sid}.dat"
+        restart_write_path = paths["restart_dir"] / f"restart_{sid}.restart"
+    else:
+        time_series_path = paths["segment_dir"] / f"time_series_{sid}_seg{segment_id}.dat"
+        restart_write_path = paths["restart_dir"] / f"restart_{sid}_seg{segment_id}.restart.tmp"
+
+    if segment == 1:
+        lines += initial_condition_block(args)
+    else:
+        lines += [
+            f"restart             read file {(paths['restart_dir'] / f'restart_{sid}_seg{prev_segment_id}.restart').as_posix()}",
+            "",
+        ]
+
+    lines += [
         f"thermo              observe on progress off nevery {args.thermo_nevery}",
         f"measure             1 time_series on nevery {time_series_nevery} file {time_series_path.as_posix()} target E_K |psi[0]|^2 |d_psi[0]|^2 Jpsi[0]_x",
-        "restart             off",
+        f"restart             write file {restart_write_path.as_posix()}",
         "",
         f"run                 {run_steps}",
         "",
@@ -62,14 +81,17 @@ def generate_input(args, seed, time_series_path):
     return "\n".join(lines)
 
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--samples", type=int, default=16)
+    parser.add_argument("--output-root", required=True)
+    parser.add_argument("--samples", type=int, default=288)
+    parser.add_argument("--segments", type=int, default=2)
+    parser.add_argument("--legacy-single-segment", action="store_true")
     parser.add_argument("--D0", dest="d0", required=True)
     parser.add_argument("--eta", default=None)
     parser.add_argument("--schmidt-number", type=float, default=1.0)
     parser.add_argument("--dt", required=True)
-    parser.add_argument("--run-time", type=float, default=10000.0)
+    parser.add_argument("--run-time-per-segment", type=float, default=200000000.0)
     parser.add_argument("--time-series-dtout", type=float, default=None)
     parser.add_argument("--grid", nargs=2, type=int, default=[128, 128])
     parser.add_argument("--length", nargs=2, default=["4096", "4096"])
@@ -82,25 +104,47 @@ def main() -> None:
     parser.add_argument("--order-parameter", default="0.0")
     parser.add_argument("--thermo-nevery", type=int, default=100)
     parser.add_argument("--time-series-nevery", type=int, default=50)
+    parser.add_argument("--seed", type=int, default=12345)
     args = parser.parse_args()
 
     if args.samples <= 0:
         raise RuntimeError("samples must be positive")
+    if args.legacy_single_segment:
+        args.segments = 1
+    if args.segments <= 0:
+        raise RuntimeError("segments must be positive")
     if args.thermo_nevery <= 0 or args.time_series_nevery <= 0:
         raise RuntimeError("nevery values must be positive")
 
+    dt = float(args.dt)
+    run_steps = steps_from_time(args.run_time_per_segment, dt, "run-time-per-segment")
+    time_series_nevery = args.time_series_nevery
+    if args.time_series_dtout is not None:
+        time_series_nevery = steps_from_time(args.time_series_dtout, dt, "time-series-dtout")
+
     case_dir = Path(label("D0", args.d0)) / label("dt", args.dt)
-    run_dir = OUTPUT_ROOT / "runs" / case_dir
-    result_dir = OUTPUT_ROOT / "results" / case_dir
-    run_dir.mkdir(parents=True, exist_ok=True)
-    result_dir.mkdir(parents=True, exist_ok=True)
+    output_root = Path(args.output_root)
+    paths = {
+        "run_dir": output_root / "runs" / case_dir,
+        "result_dir": output_root / "results" / case_dir,
+        "segment_dir": output_root / "segments" / case_dir,
+        "restart_dir": output_root / "restarts" / case_dir,
+    }
+    for path in paths.values():
+        path.mkdir(parents=True, exist_ok=True)
 
     for sample in range(args.samples):
-        seed = struct.unpack("<I", os.urandom(4))[0] % 2147483646 + 1
         sid = f"{sample:03d}"
-        input_path = run_dir / f"input_{sid}.script"
-        time_series = result_dir / f"time_series_{sid}.dat"
-        input_path.write_text(generate_input(args, seed, time_series))
+        for segment in range(1, args.segments + 1):
+            segment_id = f"{segment:03d}"
+            if args.legacy_single_segment:
+                input_path = paths["run_dir"] / f"input_{sid}.script"
+            else:
+                input_path = paths["run_dir"] / f"input_{sid}_seg{segment_id}.script"
+            input_path.write_text(
+                generate_input(args, sample, segment, run_steps, time_series_nevery, paths),
+                encoding="utf-8",
+            )
 
 
 if __name__ == "__main__":
