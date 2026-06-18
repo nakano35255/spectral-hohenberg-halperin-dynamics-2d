@@ -2,7 +2,7 @@
 #PBS -q F1cpu
 #PBS -N shhd03-2-kugui-relax
 #PBS -l select=1:ncpus=128:mpiprocs=128:ompthreads=1
-#PBS -l walltime=24:00:00
+#PBS -l walltime=120:00:00
 #PBS -j oe
 
 set -euo pipefail
@@ -30,7 +30,7 @@ dt=${DT:-16.0}
 d0=${D0:-0.004}
 eta=${ETA:-0.004}
 gradient_amplitude=${GRADIENT_AMPLITUDE:-0.0001220703125}
-relax_time=${RELAX_TIME:-50000000.0}
+relax_time=${RELAX_TIME:-400000000.0}
 time_series_dtout=${TIME_SERIES_DTOUT:-16384.0}
 thermo_nevery=${THERMO_NEVERY:-1000}
 tasks_per_run=${TASKS_PER_RUN:-128}

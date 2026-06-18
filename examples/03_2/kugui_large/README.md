@@ -21,7 +21,7 @@ Default parameters:
 - `dt = 16`
 - `eta = M[0,0] = 0.004`
 - force/gradient amplitude: `2 / 16384 = 0.0001220703125`
-- relaxation segment time: `RELAX_TIME=50000000.0`
+- relaxation segment time: `RELAX_TIME=400000000.0`
 - budget measurement time: `BUDGET_TIME=50000000.0`
 
 The default grid is `512 x 512`, because the current Kugui plan is to use
@@ -150,7 +150,8 @@ qsub -v REPLICA_ID=0,RELAX_SEGMENT=1,GRID_N=1024,LENGTH_N=32768,GRADIENT_AMPLITU
 ## Notes
 
 - These scripts are PBS scripts; use `qsub`, not `sbatch`.
-- The default queue is `F1cpu`, with a 24-hour wall-time limit.
+- The default queue is `F1cpu`. The relaxation job requests `120:00:00`;
+  the budget job requests `24:00:00`.
 - One job runs one replica and writes one final restart.
 - For multi-segment relaxation, increment `RELAX_SEGMENT` manually.
 - The restart files are text files and can be large, so outputs are written

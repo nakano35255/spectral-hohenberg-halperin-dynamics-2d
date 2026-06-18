@@ -124,7 +124,7 @@ def main():
     parser.add_argument("--order-parameter", default="0.0")
     parser.add_argument("--seed", type=int, default=12345)
 
-    parser.add_argument("--relax-time-per-segment", type=float, default=50000000.0)
+    parser.add_argument("--relax-time-per-segment", type=float, default=400000000.0)
     parser.add_argument("--budget-time", type=float, default=50000000.0)
     parser.add_argument("--time-series-dtout", type=float, default=16384.0)
     parser.add_argument("--budget-nevery", type=int, default=20)
