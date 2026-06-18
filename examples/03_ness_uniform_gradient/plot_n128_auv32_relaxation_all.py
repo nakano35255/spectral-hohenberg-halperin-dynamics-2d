@@ -14,6 +14,7 @@ MAIN_ROOT = EXAMPLE / "main"
 FIGURE_DIR = EXAMPLE / "figures"
 RELAXATION_OUTPUT = FIGURE_DIR / "02_main_relaxation_by_D0.png"
 OVERLAY_OUTPUT = FIGURE_DIR / "03_main_observables_vs_time_by_D0.png"
+SC_LABELS = ("Sc1", "Sc4")
 
 
 QUANTITIES = [
@@ -72,11 +73,22 @@ def load_main_case(d0_dir):
     }
 
 
-def load_main_cases():
-    d0_dirs = sorted(MAIN_ROOT.glob("D0_*"), key=lambda path: numeric_label(path, "D0")[1])
+def output_paths(sc_label):
+    if sc_label == "Sc1":
+        return RELAXATION_OUTPUT, OVERLAY_OUTPUT
+    suffix = sc_label.lower()
+    return (
+        FIGURE_DIR / f"02_main_relaxation_by_D0_{suffix}.png",
+        FIGURE_DIR / f"03_main_observables_vs_time_by_D0_{suffix}.png",
+    )
+
+
+def load_main_cases(sc_label):
+    data_root = MAIN_ROOT / sc_label
+    d0_dirs = sorted(data_root.glob("D0_*"), key=lambda path: numeric_label(path, "D0")[1])
     cases = [load_main_case(d0_dir) for d0_dir in d0_dirs]
     if not cases:
-        raise FileNotFoundError(f"no D0 cases found in {MAIN_ROOT}")
+        raise FileNotFoundError(f"no D0 cases found in {data_root}")
     return cases
 
 
@@ -92,7 +104,7 @@ def case_color_map(cases):
     return {id(case): cmap(value) for case, value in zip(cases, values)}
 
 
-def plot_relaxation_grid(cases, colors):
+def plot_relaxation_grid(cases, colors, sc_label, output):
     fig, axes = plt.subplots(
         len(cases),
         len(QUANTITIES),
@@ -136,15 +148,17 @@ def plot_relaxation_grid(cases, colors):
 
     params = cases[0]["params"]
     fig.suptitle(
-        rf"$N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$: relaxation for all main $D_0$ values",
+        rf"$S_c={params['eta'] / (params['density'] * params['mobility']):.0f},\ "
+        rf"N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$: "
+        rf"relaxation for all main $D_0$ values ({sc_label})",
         fontsize=13,
     )
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(RELAXATION_OUTPUT, dpi=220, bbox_inches="tight")
+    fig.savefig(output, dpi=220, bbox_inches="tight")
     plt.close(fig)
 
 
-def plot_overlay(cases, colors):
+def plot_overlay(cases, colors, sc_label, output):
     fig, axes = plt.subplots(2, 2, figsize=(12.5, 8.4), constrained_layout=True)
     axes = axes.ravel()
 
@@ -173,22 +187,26 @@ def plot_overlay(cases, colors):
     fig.legend(handles, labels, loc="upper center", ncols=5, frameon=False, bbox_to_anchor=(0.5, 1.05))
     params = cases[0]["params"]
     fig.suptitle(
-        rf"$N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$: all main $D_0$ time series",
+        rf"$S_c={params['eta'] / (params['density'] * params['mobility']):.0f},\ "
+        rf"N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$: "
+        rf"all main $D_0$ time series ({sc_label})",
         fontsize=13,
         y=1.11,
     )
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OVERLAY_OUTPUT, dpi=220, bbox_inches="tight")
+    fig.savefig(output, dpi=220, bbox_inches="tight")
     plt.close(fig)
 
 
 def main():
-    cases = load_main_cases()
-    colors = case_color_map(cases)
-    plot_relaxation_grid(cases, colors)
-    plot_overlay(cases, colors)
-    print(f"saved {RELAXATION_OUTPUT}")
-    print(f"saved {OVERLAY_OUTPUT}")
+    for sc_label in SC_LABELS:
+        cases = load_main_cases(sc_label)
+        colors = case_color_map(cases)
+        relaxation_output, overlay_output = output_paths(sc_label)
+        plot_relaxation_grid(cases, colors, sc_label, relaxation_output)
+        plot_overlay(cases, colors, sc_label, overlay_output)
+        print(f"saved {relaxation_output}")
+        print(f"saved {overlay_output}")
 
 
 if __name__ == "__main__":

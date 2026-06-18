@@ -1,78 +1,62 @@
-# Example 04: sine-force viscosity estimate
+# Example 04: Yokota Green-Kubo viscosity estimate
 
-This example drives a shear flow with a sinusoidal body force,
+This example estimates the wave-number-dependent shear viscosity from the
+Yokota Green-Kubo stress integral.
 
-```math
-\partial_t j_x = \cdots + F \sin(k y),
-```
+The incompressible nonlinear setup is chosen to match
+`examples/02_Kolomogorov_flow/incompressible/viscosity` as closely as possible:
 
-and measures the stationary profiles of `vx` and `pi_xy` with
-`measure ave/profile`.
+- `grid 256 256`
+- `length 256.0 256.0`
+- `dealias three_halves`
+- `timestep 0.01`
+- `time_evolution srk3/incompressible`
+- `kBT 1.0`
+- `density 1.0`
+- nonlinear momentum advection enabled
 
-The incompressible input uses `dx = dy = 1`, `eta = 0.1`, momentum noise,
-and nonlinear advection.  The box size is kept at `16 x 16` so that the
-driven shear mode relaxes on the time scale of the example run.
-
-In the linear steady response,
-
-```math
-v_x(y) \simeq A_v \sin(k y),
-\qquad
-\Pi_{xy}(y) \simeq A_\Pi \cos(k y),
-```
-
-with
+Unlike Example 02, no sinusoidal force is applied.  The viscosity is estimated
+from equilibrium stress fluctuations.  The current incompressible setup uses
+`mode diagonal`, i.e.
 
 ```math
-A_v = F / (\eta k^2),
-\qquad
-A_\Pi = -F / k.
+(k_x,k_y)=\frac{2\pi n}{L}(1,1),
+\qquad n=1,\ldots,N/2-1.
 ```
 
-The checker estimates
+## Single input
 
-```math
-\eta_v = F / (k^2 A_v),
-\qquad
-\eta_\Pi = -A_\Pi / (k A_v).
-```
-
-For the noisy nonlinear run, `eta_v` is the forced-response estimator.  The
-stress-based value is a force-balance consistency check; it should approach
-the same value only after sufficient time averaging of the total momentum
-flux.
-
-Run from the repository root:
+From the repository root:
 
 ```sh
-./src/out.exe examples/04_sine_force_viscosity/input_incompressible.script
-./src/out.exe examples/04_sine_force_viscosity/input_compressible.script
-python3 examples/04_sine_force_viscosity/estimate_viscosity.py
+mkdir -p examples/04_yokota_green_kubo/results
+./src/out.exe examples/04_yokota_green_kubo/input_incompressible.script
+python3 examples/04_yokota_green_kubo/estimate_viscosity.py \
+  --input examples/04_yokota_green_kubo/results/yokota_green_kubo_incompressible.dat \
+  --input-script examples/04_yokota_green_kubo/input_incompressible.script \
+  --output-dir examples/04_yokota_green_kubo/results
 ```
 
-The result summary is written to
-`examples/04_sine_force_viscosity/results/viscosity_estimate.txt`.
+## Ohtaka production inputs
 
-The checker also writes pointwise profile diagnostics,
+The Ohtaka helper writes generated inputs and outputs under `/work`.
 
-```text
-examples/04_sine_force_viscosity/results/incompressible_profile_diagnostics.dat
-examples/04_sine_force_viscosity/results/compressible_profile_diagnostics.dat
+```sh
+sbatch examples/04_yokota_green_kubo/incompressible_nonlinear/jobs/job_ohtaka_ykgk_eta0_0p1.sh
+sbatch examples/04_yokota_green_kubo/incompressible_nonlinear/jobs/job_ohtaka_ykgk_eta0_0p5.sh
 ```
 
-These files contain the reconstructed force profile `f_x`, the measured
-`vx` and `pi_xy`, and the local ratios `vx/sin(ky)` and `pi_xy/cos(ky)`.
-They also include pointwise estimates of `eta` from `f_x/(k^2 vx)` and
-`-pi_xy/(d_y vx)`. Rows near zeros of the denominator are written as `nan`.
+The jobs use the same `dt=0.01` and `T=50000.0` as the Example 02 viscosity
+runs, with `ykgk_block_time=5000.0` so each sample contributes 10 Green-Kubo
+blocks.  Because one Green-Kubo sample measures all diagonal wave numbers at
+once, the F72cpu jobs fill the allocation by running many independent samples
+with 16 MPI ranks per sample.
 
-The corresponding figures are written to
+After a job finishes, analyze the sample files as a single ensemble:
 
-```text
-examples/04_sine_force_viscosity/results/incompressible_profile.png
-examples/04_sine_force_viscosity/results/compressible_profile.png
+```sh
+python3 examples/04_yokota_green_kubo/estimate_viscosity.py \
+  --input-glob "/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/04_yokota_green_kubo/incompressible_nonlinear/eta0_0p1_grid256_L256_dt0p01_T50000_diag_n576/results/yokota_green_kubo_*.dat" \
+  --input-script "/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/04_yokota_green_kubo/incompressible_nonlinear/eta0_0p1_grid256_L256_dt0p01_T50000_diag_n576/runs/input_000.script" \
+  --output-dir "/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/04_yokota_green_kubo/incompressible_nonlinear/eta0_0p1_grid256_L256_dt0p01_T50000_diag_n576/analysis"
 ```
-
-Each figure shows the spatial profiles of `f_x`, `vx`, `pi_xy`,
-`f_x/(k^2 vx)`, and the stress-based local estimate
-`-pi_xy/(k A_v cos(ky))`, where `A_v` is obtained by projecting `vx` onto
-`sin(ky)`.

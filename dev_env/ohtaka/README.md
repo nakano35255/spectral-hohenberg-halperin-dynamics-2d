@@ -264,51 +264,44 @@ For the current x-slab R2C decomposition, the number of MPI ranks must satisfy
 not valid.
 
 
-### Yokota Green-Kubo Linear Samples
+### Yokota Green-Kubo Incompressible Samples
 
-`examples/05_yokota_green_kubo` has a one-node sample job for the linear
-Yokota Green-Kubo check. Generate the per-sample input scripts before
-submitting the Slurm job:
+`examples/04_yokota_green_kubo` has F72cpu sample jobs for the incompressible
+nonlinear Yokota Green-Kubo viscosity estimate.  The setup mirrors the
+`examples/02_Kolomogorov_flow/incompressible/viscosity` grid, length, time
+step, run time, and noise strength.  The Green-Kubo measure uses diagonal
+Fourier modes, `kx = ky`.
 
 ```sh
 cd ~/spectral-hohenberg-halperin-dynamics-2d
 
-python3 examples/05_yokota_green_kubo/prepare_ohtaka_linear_inputs.py \
-  --run-id prepared \
-  --samples 128
-
-sbatch examples/05_yokota_green_kubo/job_ohtaka_linear_samples.sh
+sbatch examples/04_yokota_green_kubo/incompressible_nonlinear/jobs/job_ohtaka_ykgk_eta0_0p1.sh
+sbatch examples/04_yokota_green_kubo/incompressible_nonlinear/jobs/job_ohtaka_ykgk_eta0_0p5.sh
 ```
 
-The job reserves one `i8cpu` node and launches 128 independent one-rank runs
-with one `srun` per sample. It intentionally does not use a Slurm array, so it
-avoids array submission limits and keeps all samples inside one batch job.
+Each job reserves F72cpu and launches independent 16-rank samples with one
+`srun` per sample.  The default is 576 samples so that
+`576 samples * 16 ranks = 9216 ranks`.
 
 The important launch options are:
 
 ```sh
-srun --exclusive --mem-per-cpu=1840 --cpu-bind=cores -n 1 -c 1 -N 1 ...
+srun --exclusive --mem-per-cpu=1840 --cpu-bind=cores -n 16 -c 1 -N 1 ...
 ```
 
 `--cpu-bind=cores` is important on Ohtaka for avoiding the large run-to-run
-speed variation seen when many one-rank samples are launched concurrently.
+speed variation seen when many samples are launched concurrently.
 
-To use another run id, generate matching inputs and export the same id when
-submitting:
+To override the run length or sample count:
 
 ```sh
-python3 examples/05_yokota_green_kubo/prepare_ohtaka_linear_inputs.py \
-  --run-id linear_test \
-  --samples 128
-
-YKGK_RUN_ID=linear_test \
-  sbatch examples/05_yokota_green_kubo/job_ohtaka_linear_samples.sh
+RUN_TIME=5000.0 SAMPLES=72 \
+  sbatch examples/04_yokota_green_kubo/incompressible_nonlinear/jobs/job_ohtaka_ykgk_eta0_0p1.sh
 ```
 
 The generated inputs are written under
-`examples/05_yokota_green_kubo/runs/ohtaka_linear_<run-id>/`, and outputs are
-written under
-`examples/05_yokota_green_kubo/results/ohtaka_linear_<run-id>/`.
+`/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/04_yokota_green_kubo/incompressible_nonlinear/<run_name>/runs/`,
+and outputs are written under the matching `results/` directory.
 
 
 ## Benchmark Conditions

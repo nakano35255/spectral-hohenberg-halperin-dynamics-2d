@@ -141,12 +141,29 @@ def active_mode_arrays(params):
     return np.asarray(k_values), np.asarray(angles), np.asarray(weights)
 
 
-def mct_induced(d0, params):
-    k, angle, weight = active_mode_arrays(params)
+def kinematic_viscosity_for_d0(d0_values, params):
+    mobility = params["mobility"]
+    if mobility == 0.0:
+        raise ValueError("MCT comparison requires nonzero mobility.")
+    schmidt = params["eta"] / (params["density"] * mobility)
+    return schmidt * np.asarray(d0_values, dtype=float)
+
+
+def mct_renormalized_diffusion(d0_values, k, params):
+    d0_values = np.asarray(d0_values, dtype=float)
+    nu0 = kinematic_viscosity_for_d0(d0_values, params)
     cutoff = 2.0 * np.pi / params["a_uv"]
     delta = params["kBT"] * np.log(cutoff / k) / (4.0 * np.pi * params["density"])
-    dr = np.sqrt(d0 * d0 + delta)
-    total = np.sum(weight * angle / (d0 + dr))
+    d0_grid = d0_values[:, None]
+    nu0_grid = nu0[:, None]
+    return 0.5 * (d0_grid - nu0_grid) + np.sqrt(0.25 * (d0_grid + nu0_grid) ** 2 + delta[None, :])
+
+
+def mct_induced(d0, params):
+    k, angle, weight = active_mode_arrays(params)
+    dr = mct_renormalized_diffusion(np.asarray([d0]), k, params)[0]
+    nu0 = kinematic_viscosity_for_d0(np.asarray([d0]), params)[0]
+    total = np.sum(weight * angle / (nu0 + dr))
     return params["kBT"] * params["gradient"] ** 2 * total / (
         params["density"] * params["chi"] * params["volume"]
     )
@@ -155,10 +172,24 @@ def mct_induced(d0, params):
 def mct_induced_values(d0_values, params):
     d0_values = np.asarray(d0_values, dtype=float)
     k, angle, weight = active_mode_arrays(params)
-    cutoff = 2.0 * np.pi / params["a_uv"]
-    delta = params["kBT"] * np.log(cutoff / k) / (4.0 * np.pi * params["density"])
-    dr = np.sqrt(d0_values[:, None] ** 2 + delta[None, :])
-    total = np.sum(weight[None, :] * angle[None, :] / (d0_values[:, None] + dr), axis=1)
+    dr = mct_renormalized_diffusion(d0_values, k, params)
+    nu0 = kinematic_viscosity_for_d0(d0_values, params)
+    total = np.sum(weight[None, :] * angle[None, :] / (nu0[:, None] + dr), axis=1)
     return params["kBT"] * params["gradient"] ** 2 * total / (
         params["density"] * params["chi"] * params["volume"]
+    )
+
+
+def mct_psi2_values(d0_values, params):
+    d0_values = np.asarray(d0_values, dtype=float)
+    k, angle, weight = active_mode_arrays(params)
+    dr = mct_renormalized_diffusion(d0_values, k, params)
+    nu0 = kinematic_viscosity_for_d0(d0_values, params)
+    total = np.sum(
+        weight[None, :] * angle[None, :]
+        / (k[None, :] ** 2 * dr * (nu0[:, None] + dr)),
+        axis=1,
+    )
+    return params["kBT"] * params["gradient"] ** 2 * total / (
+        params["density"] * params["chi"]
     )
