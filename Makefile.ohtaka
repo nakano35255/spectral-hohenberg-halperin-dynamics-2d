@@ -17,6 +17,7 @@ LDLIBS := -lheffte \
           -lpthread -lm -ldl
 
 TARGET := src/out.exe
+.DEFAULT_GOAL := all
 SRCS := \
 	src/main.cc \
 	src/buffer_flux.cc \

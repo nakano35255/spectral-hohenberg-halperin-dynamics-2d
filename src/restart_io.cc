@@ -1,5 +1,6 @@
 #include "restart_io.h"
 
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -11,6 +12,7 @@
 
 namespace {
 constexpr const char* RESTART_MAGIC = "SHHD_RESTART_V1";
+constexpr int RESTART_STATE_TAG = 7301;
 
 struct RestartHeader {
     int step = 0;
@@ -442,11 +444,33 @@ void write_restart_file(
         gathered.resize(total_count_from_counts_and_displs(counts, displs));
     }
 
-    MPI_Gatherv(
-        local_data.data(), local_count, MPI_DOUBLE,
-        gathered.data(), counts.data(), displs.data(), MPI_DOUBLE,
-        0, domain.comm()
-    );
+    if (domain.rank() == 0) {
+        std::copy(
+            local_data.begin(),
+            local_data.end(),
+            gathered.begin() + displs[0]
+        );
+        for (int rank = 1; rank < domain.size(); ++rank) {
+            MPI_Recv(
+                gathered.data() + displs[static_cast<std::size_t>(rank)],
+                counts[static_cast<std::size_t>(rank)],
+                MPI_DOUBLE,
+                rank,
+                RESTART_STATE_TAG,
+                domain.comm(),
+                MPI_STATUS_IGNORE
+            );
+        }
+    } else {
+        MPI_Send(
+            local_data.data(),
+            local_count,
+            MPI_DOUBLE,
+            0,
+            RESTART_STATE_TAG,
+            domain.comm()
+        );
+    }
 
     int write_ok = 1;
     std::string error_message;
@@ -544,11 +568,33 @@ void read_restart_file(
     );
     const int local_count = checked_int(local_data.size(), "local restart payload size");
 
-    MPI_Scatterv(
-        scatter_data.data(), counts.data(), displs.data(), MPI_DOUBLE,
-        local_data.data(), local_count, MPI_DOUBLE,
-        0, domain.comm()
-    );
+    if (domain.rank() == 0) {
+        std::copy(
+            scatter_data.begin() + displs[0],
+            scatter_data.begin() + displs[0] + counts[0],
+            local_data.begin()
+        );
+        for (int rank = 1; rank < domain.size(); ++rank) {
+            MPI_Send(
+                scatter_data.data() + displs[static_cast<std::size_t>(rank)],
+                counts[static_cast<std::size_t>(rank)],
+                MPI_DOUBLE,
+                rank,
+                RESTART_STATE_TAG,
+                domain.comm()
+            );
+        }
+    } else {
+        MPI_Recv(
+            local_data.data(),
+            local_count,
+            MPI_DOUBLE,
+            0,
+            RESTART_STATE_TAG,
+            domain.comm(),
+            MPI_STATUS_IGNORE
+        );
+    }
 
     Complex* spectral = state.data();
     for (std::size_t i = 0; i < local_complex_count; ++i) {

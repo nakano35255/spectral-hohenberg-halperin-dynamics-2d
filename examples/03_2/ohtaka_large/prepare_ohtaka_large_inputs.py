@@ -107,7 +107,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["relax", "budget", "all"], default="all")
     parser.add_argument("--output-root", required=True)
-    parser.add_argument("--relax-segments", type=int, default=8)
+    parser.add_argument("--relax-segments", type=int, default=1)
     parser.add_argument("--restart-index", type=int, default=None)
 
     parser.add_argument("--D0", dest="d0", default="0.004")

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p F72cpu
-#SBATCH -N 4
-#SBATCH -n 512
+#SBATCH -N 72
+#SBATCH -n 9216
 #SBATCH -c 1
 #SBATCH -t 24:00:00
 #SBATCH -J shhd03-2-relax-D0004
@@ -26,7 +26,7 @@ export I_MPI_PIN_DOMAIN=core
 repo=/home/k0565/k056500/spectral-hohenberg-halperin-dynamics-2d
 case_dir=examples/03_2/ohtaka_large
 work_base=/work/k0565/k056500/spectral-hohenberg-halperin-dynamics-2d/examples/03_2/ohtaka_large
-run_name=relax_D0_0p004_grid1024_L32768_dt16
+run_name=${RUN_NAME:-relax_D0_0p004_grid1024_L32768_dt16}
 output_root=$work_base/$run_name
 
 cd "$repo"
@@ -38,50 +38,90 @@ if [ "${BUILD_BEFORE_RUN:-0}" = "1" ]; then
     make -f Makefile.ohtaka -j 8
 fi
 
-relax_segments=8
-relax_time_per_segment=100000000.0
-tasks_per_run=512
-nodes_per_run=4
+relax_time=${RELAX_TIME:-100000000.0}
+time_series_dtout=${TIME_SERIES_DTOUT:-16384.0}
+replicas=${REPLICAS:-18}
+tasks_per_run=${TASKS_PER_RUN:-512}
+nodes_per_run=${NODES_PER_RUN:-4}
+total_tasks=9216
+total_nodes=72
+base_seed=${BASE_SEED:-12345}
+replica_ids=${REPLICA_IDS:-}
 
-python3 "$case_dir/prepare_ohtaka_large_inputs.py" \
-    --mode relax \
-    --output-root "$output_root" \
-    --relax-segments "$relax_segments" \
-    --D0 0.004 \
-    --eta 0.004 \
-    --dt 16.0 \
-    --grid 1024 1024 \
-    --length 32768 32768 \
-    --gradient-amplitude 0.00006103515625 \
-    --relax-time-per-segment "$relax_time_per_segment" \
-    --time-series-dtout 16384.0
+if [ -z "$replica_ids" ]; then
+    replica_ids=$(seq 0 $((replicas - 1)))
+fi
 
-for segment in $(seq 1 "$relax_segments"); do
-    sid=$(printf "%03d" "$segment")
-    prev_id=$(printf "%03d" $((segment - 1)))
-    input=$output_root/runs/input_relax_${sid}.script
-    stdout=$output_root/logs/stdout_relax_${sid}.log
-    stderr=$output_root/logs/stderr_relax_${sid}.log
-    final_restart=$output_root/restarts/relax_${sid}.restart
+active_replicas=0
+for replica in $replica_ids; do
+    active_replicas=$((active_replicas + 1))
+done
+
+active_tasks=$((active_replicas * tasks_per_run))
+active_nodes=$((active_replicas * nodes_per_run))
+if [ "$active_tasks" -gt "$total_tasks" ]; then
+    echo "active MPI tasks exceed allocation: $active_tasks > $total_tasks" >&2
+    exit 1
+fi
+if [ "$active_nodes" -gt "$total_nodes" ]; then
+    echo "active nodes exceed allocation: $active_nodes > $total_nodes" >&2
+    exit 1
+fi
+
+for replica in $replica_ids; do
+    replica_num=$((10#$replica))
+    rid=$(printf "%03d" "$replica_num")
+    replica_root=$output_root/replica_${rid}
+    seed=$((base_seed + 1000000 * replica_num))
+
+    python3 "$case_dir/prepare_ohtaka_large_inputs.py" \
+        --mode relax \
+        --output-root "$replica_root" \
+        --relax-segments 1 \
+        --seed "$seed" \
+        --D0 0.004 \
+        --eta 0.004 \
+        --dt 16.0 \
+        --grid 1024 1024 \
+        --length 32768 32768 \
+        --gradient-amplitude 0.00006103515625 \
+        --relax-time-per-segment "$relax_time" \
+        --time-series-dtout "$time_series_dtout"
+done
+
+run_replica() {
+    replica=$1
+    replica_num=$((10#$replica))
+    rid=$(printf "%03d" "$replica_num")
+    replica_root=$output_root/replica_${rid}
+    input=$replica_root/runs/input_relax_001.script
+    stdout=$replica_root/logs/stdout_relax_001.log
+    stderr=$replica_root/logs/stderr_relax_001.log
+    final_restart=$replica_root/restarts/relax_001.restart
     tmp_restart=${final_restart}.tmp
 
     if [ -s "$final_restart" ]; then
-        echo "skip completed relax segment ${sid}: $final_restart"
-        continue
-    fi
-
-    if [ "$segment" -gt 1 ]; then
-        prev_restart=$output_root/restarts/relax_${prev_id}.restart
-        if [ ! -s "$prev_restart" ]; then
-            echo "missing previous restart: $prev_restart" >&2
-            exit 1
-        fi
+        echo "skip completed replica ${rid} relax run: $final_restart"
+        return 0
     fi
 
     rm -f "$tmp_restart"
-    echo "run relax segment ${sid}"
+    echo "run replica ${rid} relax"
     srun --exclusive --mem-per-cpu=1840 --cpu-bind=cores --distribution=block:block \
         -n "$tasks_per_run" -c 1 -N "$nodes_per_run" \
         ./src/out.exe "$input" > "$stdout" 2> "$stderr"
     mv "$tmp_restart" "$final_restart"
+}
+
+pids=()
+for replica in $replica_ids; do
+    run_replica "$replica" &
+    pids+=($!)
 done
+
+status=0
+for pid in "${pids[@]}"; do
+    wait "$pid" || status=1
+done
+
+exit "$status"
