@@ -21,6 +21,10 @@ box size, lower the forcing, and extend both the relaxation and averaging runs.
 Large Ohtaka restart jobs for `grid 1024 1024`, `dt = 16`, and
 `eta = M[0,0] = 0.004` are collected in `ohtaka_large/`.
 
+Kugui PBS jobs for one-sample-at-a-time `F1cpu` runs are collected in
+`kugui_large/`. The default Kugui setup uses `grid 512 512`, `dt = 16`, and
+`eta = M[0,0] = 0.004`, with restart segments submitted manually per replica.
+
 Build with the package enabled:
 
 ```sh

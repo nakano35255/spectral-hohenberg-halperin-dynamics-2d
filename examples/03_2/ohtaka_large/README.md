@@ -13,12 +13,6 @@ Default parameters:
 - `dt = 16`
 - `eta = M[0,0] = 0.004`
 - force/gradient amplitude: `2 / 32768 = 0.00006103515625`
-- HeFFTe reshape: `SHHD_HEFFTE_RESHAPE=p2p`
-
-The Ohtaka jobs set `SHHD_HEFFTE_RESHAPE=p2p` because the HeFFTe default
-`alltoallv` path creates internal MPI communicators that are freed when the FFT
-plans are destroyed after `Simulation Finished`. On F72cpu this cleanup can keep
-the `srun` step alive even after the simulation body has completed.
 
 The workflow is intentionally split into two jobs.
 
@@ -60,8 +54,13 @@ sbatch examples/03_2/ohtaka_large/job_ohtaka_relax_D0_0p004_grid1024_dt16.sh
 Use a separate `RUN_NAME` for probes so a short `relax_001.restart` does not
 make the production job skip `replica_000`.
 
-The relaxation job runs for `RELAX_TIME=100000000.0` by default. For a shorter
-wall-time probe:
+The relaxation job runs for `RELAX_TIME=20000000.0` by default with a
+`16:00:00` wall-time limit. A F72cpu probe with `RELAX_TIME=51200.0` took
+`136.839 s` for `3200` steps, so `RELAX_TIME=20000000.0` corresponds to about
+`1.25e6` steps and roughly `14.9 h` of solver time, leaving margin for the final
+restart write.
+
+For a shorter wall-time probe:
 
 ```sh
 RELAX_TIME=10000000.0 sbatch examples/03_2/ohtaka_large/job_ohtaka_relax_D0_0p004_grid1024_dt16.sh

@@ -8,6 +8,7 @@ environment.
 - `docker/`: Docker, VS Code Dev Containers, MPI, and FFTW setup notes.
 - `heffte/`: A direct heFFTe + FFTW + MPI test using a traditional Makefile.
 - `ohtaka/`: Ohtaka System B setup notes for oneAPI, Intel MPI, FFTW, and heFFTe.
+- `kugui/`: Kugui System C setup notes for Intel, Intel MPI, FFTW, heFFTe, and PBS.
 
 ## Quick Checks
 
@@ -33,3 +34,4 @@ heFFTe FFTW check OK with 2 ranks
 For Docker and VS Code setup details, see `dev_env/docker/README.md`.
 For the heFFTe link command and test details, see `dev_env/heffte/README.md`.
 For Ohtaka System B setup and benchmark notes, see `dev_env/ohtaka/README.md`.
+For Kugui System C setup and PBS notes, see `dev_env/kugui/README.md`.
