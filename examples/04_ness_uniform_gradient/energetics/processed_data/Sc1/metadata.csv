@@ -2,14 +2,14 @@ key,value
 case,energetics
 sc_label,Sc1
 source_raw_data_dir,raw_data/Sc1
-n_cases,10
+n_cases,11
 n_samples_min,288
 n_samples_max,576
 steady_window,last_half
 steady_start_min,5000000
-steady_start_max,100000000
+steady_start_max,200000000
 steady_end_min,10000000
-steady_end_max,200000000
+steady_end_max,400000000
 schmidt_number,1
 time_series_sampling,uniform_index_max_2500
 grid_x,128
