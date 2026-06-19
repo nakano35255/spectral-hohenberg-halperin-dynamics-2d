@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import csv
 import os
 import re
 from pathlib import Path
@@ -13,24 +14,37 @@ import numpy as np
 
 
 CASE_DIR = Path(__file__).resolve().parent
-CACHE_VERSION = 2
+RAW_DATA_DIR = CASE_DIR / "raw_data"
+PROCESSED_DATA_DIR = CASE_DIR / "processed_data"
 
 
 def cases_for_eta0(eta0_label):
     if eta0_label == "0.1":
         return (
-            ("U=0.01", CASE_DIR / "main" / "eta0_0.1_U0.01", "#2563eb", "o"),
-            ("U=0.025", CASE_DIR / "main" / "eta0_0.1_U0.025", "#dc2626", "s"),
+            ("U=0.01", RAW_DATA_DIR / "eta0_0.1_U0.01", "eta0_0.1_U0.01_dt0.01", "#2563eb", "o"),
+            ("U=0.025", RAW_DATA_DIR / "eta0_0.1_U0.025", "eta0_0.1_U0.025_dt0.01", "#dc2626", "s"),
         )
     if eta0_label == "0.5":
         return (
-            ("U=0.025", CASE_DIR / "main" / "eta0_0.5_U0.025", "#dc2626", "s"),
+            ("U=0.025", RAW_DATA_DIR / "eta0_0.5_U0.025", "eta0_0.5_U0.025_dt0.01", "#dc2626", "s"),
         )
     raise RuntimeError(f"unknown eta0 label: {eta0_label}")
 
 
 def eta0_file_label(eta0_label):
     return eta0_label
+
+
+def time_label(value):
+    return f"{value:g}".replace(".", "p")
+
+
+def extract_name_value(name, key):
+    for pattern in (rf"(?:^|_){re.escape(key)}_([^_]+)", rf"(?:^|_){re.escape(key)}([^_]+)"):
+        match = re.search(pattern, name)
+        if match is not None:
+            return match.group(1)
+    return ""
 
 
 def stderr(values):
@@ -53,6 +67,8 @@ def parse_input(path):
     length = tuple(float(value) for value in re.search(r"^length\s+(\S+)\s+(\S+)", text, re.M).groups())
     eta0 = float(re.search(r"^model\s+transport\s+constant\s+eta\s+(\S+)", text, re.M).group(1))
     dt = float(re.search(r"^timestep\s+(\S+)", text, re.M).group(1))
+    dealias = re.search(r"^dealias\s+(\S+)", text, re.M)
+    time_evolution = re.search(r"^time_evolution\s+(\S+)", text, re.M)
     force = re.search(
         r"^fix\s+\S+\s+momentum\s+force/sine\s+on\s+component\s+(\S+)\s+axis\s+(\S+)\s+nk\s+(\S+)\s+amplitude\s+(\S+)",
         text,
@@ -71,6 +87,8 @@ def parse_input(path):
         "eta0": eta0,
         "nk": int(nk),
         "amplitude": float(amplitude),
+        "dealias": dealias.group(1) if dealias else "",
+        "time_evolution": time_evolution.group(1) if time_evolution else "",
         "kBT": float(noise.group(1)) if noise else 1.0,
         "rho0": float(density.group(1)) if density else 1.0,
     }
@@ -191,92 +209,197 @@ def analyze_case(root, steady_start):
     return sorted(rows, key=lambda row: row["nk"])
 
 
-def save_cache(path, datasets, steady_start):
-    payload = {
-        "version": np.asarray([CACHE_VERSION], dtype=int),
-        "steady_start": np.asarray([steady_start], dtype=float),
-        "num_cases": np.asarray([len(datasets)], dtype=int),
-    }
-    for index, (label, rows, color, marker) in enumerate(datasets):
-        payload[f"label_{index}"] = np.asarray(label)
-        payload[f"color_{index}"] = np.asarray(color)
-        payload[f"marker_{index}"] = np.asarray(marker)
-        payload[f"nk_{index}"] = np.asarray([row["nk"] for row in rows], dtype=int)
-        payload[f"k_{index}"] = np.asarray([row["k"] for row in rows], dtype=float)
-        payload[f"eta_mean_{index}"] = np.asarray([row["eta_mean"] for row in rows], dtype=float)
-        payload[f"eta_sem_{index}"] = np.asarray([row["eta_sem"] for row in rows], dtype=float)
-        payload[f"u_mean_{index}"] = np.asarray([row["u_mean"] for row in rows], dtype=float)
-        payload[f"u_sem_{index}"] = np.asarray([row["u_sem"] for row in rows], dtype=float)
-        payload[f"samples_{index}"] = np.asarray([row["samples"] for row in rows], dtype=int)
-        payload[f"eta0_{index}"] = np.asarray([rows[0]["eta0"]], dtype=float)
-        payload[f"rho0_{index}"] = np.asarray([rows[0]["rho0"]], dtype=float)
-        payload[f"kBT_{index}"] = np.asarray([rows[0]["kBT"]], dtype=float)
-        payload[f"length_{index}"] = np.asarray(rows[0]["length"], dtype=float)
-        payload[f"grid_{index}"] = np.asarray(rows[0]["grid"], dtype=int)
-        for row_index, row in enumerate(rows):
-            payload[f"times_{index}_{row_index}"] = np.asarray(row["times"], dtype=float)
-            payload[f"u_mean_t_{index}_{row_index}"] = np.asarray(row["u_mean_t"], dtype=float)
-            payload[f"u_sem_t_{index}_{row_index}"] = np.asarray(row["u_sem_t"], dtype=float)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, **payload)
+def format_float(value):
+    return f"{float(value):.17g}"
 
 
-def load_cache(path, steady_start):
-    data = np.load(path)
-    if "version" not in data or int(data["version"][0]) != CACHE_VERSION:
-        raise RuntimeError(f"{path}: incompatible cache version")
-    cached_steady_start = float(data["steady_start"][0])
-    if abs(cached_steady_start - steady_start) > 1.0e-12:
-        raise RuntimeError(f"{path}: steady_start={cached_steady_start:g}, expected {steady_start:g}")
+def metadata_path(processed_data_dir):
+    return processed_data_dir / "metadata.csv"
 
-    datasets = []
-    for index in range(int(data["num_cases"][0])):
-        label = str(data[f"label_{index}"])
-        color = str(data[f"color_{index}"])
-        marker = str(data[f"marker_{index}"])
-        rows = []
-        for j, nk in enumerate(data[f"nk_{index}"]):
-            rows.append(
+
+def mode_time_series_path(processed_data_dir):
+    return processed_data_dir / "mode_time_series.csv"
+
+
+def steady_response_path(processed_data_dir, steady_start):
+    return processed_data_dir / f"steady_response_t{time_label(steady_start)}.csv"
+
+
+def relative_to_case(path):
+    try:
+        return path.relative_to(CASE_DIR).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def write_metadata(path, entries):
+    with path.open("w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["key", "value"])
+        for key, value in entries:
+            writer.writerow([key, value])
+
+
+def read_metadata(path):
+    with path.open(newline="") as fh:
+        return {record["key"]: record["value"] for record in csv.DictReader(fh)}
+
+
+def save_processed_case(processed_data_dir, rows, steady_start, source_raw_data_dir, case_name, processed_run_name):
+    if not rows:
+        raise RuntimeError("cannot save empty processed data")
+    first = rows[0]
+    sample_counts = [row["samples"] for row in rows]
+    processed_data_dir.mkdir(parents=True, exist_ok=True)
+    metadata_entries = [
+        ("case", case_name),
+        ("source_raw_data_dir", relative_to_case(source_raw_data_dir)),
+        ("source_run_name", source_raw_data_dir.name),
+        ("processed_run_name", processed_run_name),
+        ("eta0", format_float(first["eta0"])),
+        ("target_U", extract_name_value(processed_run_name, "U")),
+        ("dt", format_float(first["dt"])),
+        ("grid_x", first["grid"][0]),
+        ("grid_y", first["grid"][1]),
+        ("length_x", format_float(first["length"][0])),
+        ("length_y", format_float(first["length"][1])),
+        ("dealias", first["dealias"]),
+        ("time_evolution", first["time_evolution"]),
+        ("rho0", format_float(first["rho0"])),
+        ("kBT", format_float(first["kBT"])),
+        ("n_samples_min", min(sample_counts)),
+        ("n_samples_max", max(sample_counts)),
+        ("steady_start_default", format_float(steady_start)),
+    ]
+    write_metadata(metadata_path(processed_data_dir), metadata_entries)
+
+    with mode_time_series_path(processed_data_dir).open("w", newline="") as fh:
+        fieldnames = ["nk", "k", "amplitude", "time", "u_mean", "u_sem", "n_samples"]
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            for time, u_mean_t, u_sem_t in zip(row["times"], row["u_mean_t"], row["u_sem_t"]):
+                writer.writerow(
+                    {
+                        "nk": row["nk"],
+                        "k": format_float(row["k"]),
+                        "amplitude": format_float(row["amplitude"]),
+                        "time": format_float(time),
+                        "u_mean": format_float(u_mean_t),
+                        "u_sem": format_float(u_sem_t),
+                        "n_samples": row["samples"],
+                    }
+                )
+
+    with steady_response_path(processed_data_dir, steady_start).open("w", newline="") as fh:
+        fieldnames = [
+            "steady_start",
+            "nk",
+            "k",
+            "amplitude",
+            "u_steady_mean",
+            "u_steady_sem",
+            "eta_eff_mean",
+            "eta_eff_sem",
+            "n_samples",
+        ]
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
                 {
-                    "nk": int(nk),
-                    "k": float(data[f"k_{index}"][j]),
-                    "eta_mean": float(data[f"eta_mean_{index}"][j]),
-                    "eta_sem": float(data[f"eta_sem_{index}"][j]),
-                    "u_mean": float(data[f"u_mean_{index}"][j]),
-                    "u_sem": float(data[f"u_sem_{index}"][j]),
-                    "samples": int(data[f"samples_{index}"][j]),
-                    "eta0": float(data[f"eta0_{index}"][0]),
-                    "rho0": float(data[f"rho0_{index}"][0]),
-                    "kBT": float(data[f"kBT_{index}"][0]),
-                    "length": tuple(float(value) for value in data[f"length_{index}"]),
-                    "grid": tuple(int(value) for value in data[f"grid_{index}"]),
-                    "times": np.asarray(data[f"times_{index}_{j}"], dtype=float),
-                    "u_mean_t": np.asarray(data[f"u_mean_t_{index}_{j}"], dtype=float),
-                    "u_sem_t": np.asarray(data[f"u_sem_t_{index}_{j}"], dtype=float),
+                    "steady_start": format_float(steady_start),
+                    "nk": row["nk"],
+                    "k": format_float(row["k"]),
+                    "amplitude": format_float(row["amplitude"]),
+                    "u_steady_mean": format_float(row["u_mean"]),
+                    "u_steady_sem": format_float(row["u_sem"]),
+                    "eta_eff_mean": format_float(row["eta_mean"]),
+                    "eta_eff_sem": format_float(row["eta_sem"]),
+                    "n_samples": row["samples"],
                 }
             )
-        datasets.append((label, rows, color, marker))
-    return datasets
 
 
-def load_or_analyze(cache_path, cases, steady_start, rebuild_cache):
-    if cache_path.exists() and not rebuild_cache:
-        try:
-            return load_cache(cache_path, steady_start)
-        except RuntimeError as error:
-            print(f"rebuilding cache: {error}")
+def load_processed_case(processed_data_dir, steady_start):
+    meta_path = metadata_path(processed_data_dir)
+    series_path = mode_time_series_path(processed_data_dir)
+    response_path = steady_response_path(processed_data_dir, steady_start)
+    if not meta_path.exists() or not series_path.exists() or not response_path.exists():
+        missing = [str(path) for path in (meta_path, series_path, response_path) if not path.exists()]
+        raise RuntimeError(f"missing processed data: {', '.join(missing)}")
 
+    metadata = read_metadata(meta_path)
+
+    time_series = {}
+    with series_path.open(newline="") as fh:
+        for record in csv.DictReader(fh):
+            nk = int(record["nk"])
+            if nk not in time_series:
+                time_series[nk] = {
+                    "k": float(record["k"]),
+                    "amplitude": float(record["amplitude"]),
+                    "samples": int(record["n_samples"]),
+                    "values": [],
+                }
+            time_series[nk]["values"].append((float(record["time"]), float(record["u_mean"]), float(record["u_sem"])))
+
+    rows = []
+    with response_path.open(newline="") as fh:
+        for record in csv.DictReader(fh):
+            stored_steady_start = float(record["steady_start"])
+            if abs(stored_steady_start - steady_start) > 1.0e-12:
+                raise RuntimeError(f"{response_path}: steady_start={stored_steady_start:g}, expected {steady_start:g}")
+            nk = int(record["nk"])
+            if nk not in time_series:
+                raise RuntimeError(f"{series_path}: missing mode time series for nk={nk}")
+            values = sorted(time_series[nk]["values"], key=lambda item: item[0])
+            rows.append(
+                {
+                    "nk": nk,
+                    "k": float(record["k"]),
+                    "amplitude": float(record["amplitude"]),
+                    "u_mean": float(record["u_steady_mean"]),
+                    "u_sem": float(record["u_steady_sem"]),
+                    "eta_mean": float(record["eta_eff_mean"]),
+                    "eta_sem": float(record["eta_eff_sem"]),
+                    "samples": int(record["n_samples"]),
+                    "eta0": float(metadata["eta0"]),
+                    "rho0": float(metadata["rho0"]),
+                    "kBT": float(metadata["kBT"]),
+                    "length": (float(metadata["length_x"]), float(metadata["length_y"])),
+                    "grid": (int(metadata["grid_x"]), int(metadata["grid_y"])),
+                    "dt": float(metadata["dt"]),
+                    "dealias": metadata["dealias"],
+                    "time_evolution": metadata["time_evolution"],
+                    "times": np.asarray([item[0] for item in values], dtype=float),
+                    "u_mean_t": np.asarray([item[1] for item in values], dtype=float),
+                    "u_sem_t": np.asarray([item[2] for item in values], dtype=float),
+                }
+            )
+    return sorted(rows, key=lambda row: row["nk"])
+
+
+def load_or_analyze(processed_data_root, cases, steady_start, rebuild_processed_data):
     datasets = []
-    for label, root, color, marker in cases:
+    for label, root, processed_name, color, marker in cases:
+        processed_data_dir = processed_data_root / processed_name
+        if not rebuild_processed_data:
+            try:
+                rows = load_processed_case(processed_data_dir, steady_start)
+                datasets.append((label, rows, color, marker))
+                continue
+            except RuntimeError as error:
+                print(f"rebuilding processed data for {processed_name}: {error}")
+
         rows = analyze_case(root, steady_start)
+        save_processed_case(processed_data_dir, rows, steady_start, root, CASE_DIR.name, processed_name)
         datasets.append((label, rows, color, marker))
-    save_cache(cache_path, datasets, steady_start)
     return datasets
 
 
-def default_cache_path(eta0_label, steady_start):
-    time_label = f"{steady_start:g}".replace(".", "p")
-    return CASE_DIR / "cache" / f"eta0_{eta0_file_label(eta0_label)}_theory_compare_t{time_label}.npz"
+def default_processed_data_root():
+    return PROCESSED_DATA_DIR
 
 
 def default_output_path(eta0_label):
@@ -357,17 +480,17 @@ def main():
     parser.add_argument("--steady-start", type=float, default=30000.0)
     parser.add_argument("--relaxation-nks", nargs="*", type=int, default=[1, 2, 4, 8])
     parser.add_argument("--a-uv", type=float, default=1.0)
-    parser.add_argument("--cache", type=Path)
-    parser.add_argument("--rebuild-cache", action="store_true")
+    parser.add_argument("--processed-data-root", type=Path)
+    parser.add_argument("--rebuild-processed-data", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     cases = cases_for_eta0(args.eta0)
-    if args.cache is None:
-        args.cache = default_cache_path(args.eta0, args.steady_start)
+    if args.processed_data_root is None:
+        args.processed_data_root = default_processed_data_root()
     if args.output is None:
         args.output = default_output_path(args.eta0)
 
-    datasets = load_or_analyze(args.cache, cases, args.steady_start, args.rebuild_cache)
+    datasets = load_or_analyze(args.processed_data_root, cases, args.steady_start, args.rebuild_processed_data)
 
     first_rows = datasets[0][1]
     first = first_rows[0]
@@ -424,7 +547,7 @@ def main():
         "discrete square: "
         f"a_uv={args.a_uv:g} "
         f"length={first['length'][0]:g}x{first['length'][1]:g} "
-        f"cache={args.cache}"
+        f"processed_data_root={args.processed_data_root}"
     )
 
 

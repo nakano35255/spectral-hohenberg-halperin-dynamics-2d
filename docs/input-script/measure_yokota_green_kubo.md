@@ -27,7 +27,7 @@ measure <ID> yokota_green_kubo <on|off> nevery <integer> nblock <integer> file <
 
 ```sh
 fix     1 momentum noise on seed 12345 kBT 1.0
-measure gk yokota_green_kubo on nevery 10000 nblock 500000 file examples/04_yokota_green_kubo/results/yokota_green_kubo.dat mode diagonal
+measure gk yokota_green_kubo on nevery 10000 nblock 500000 file examples/03_yokota_green_kubo/results/yokota_green_kubo.dat mode diagonal
 measure gk yokota_green_kubo off
 ```
 

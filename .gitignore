@@ -23,6 +23,7 @@ slurm-*.out
 examples/**/runs/**
 examples/**/results/**
 examples/**/cache/**
+!examples/**/cache/.gitkeep
 !examples/**/results/
 !examples/**/results/.gitignore
 !examples/**/results/.gitkeep
@@ -30,10 +31,16 @@ examples/**/cache/**
 # Example-local generated data
 examples/**/production_*/
 examples/**/dt_sweep_*/
+examples/**/tmp/**
 examples/**/L*_dt*_T*_U*/
 examples/**/L*_dt*_T*_U*.png
 examples/**/main/**/runs/**
 examples/**/main/**/results/**
+examples/**/raw_data/**/runs/**
+examples/**/raw_data/**/results/**
+examples/**/raw_data/**/segments/**
+examples/**/raw_data/**/restarts/**
+examples/**/raw_data/**/logs/**
 examples/**/legacy/**/runs/**
 examples/**/legacy/**/results/**
 

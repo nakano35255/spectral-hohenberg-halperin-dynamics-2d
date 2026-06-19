@@ -306,7 +306,7 @@ echo "PBS_NODEFILE=$PBS_NODEFILE"
 echo "np=$np"
 
 mpirun -np "$np" -machinefile "$PBS_NODEFILE" \
-  ./src/out.exe examples/03_2/input.script
+  ./src/out.exe examples/04_ness_uniform_gradient/cascade/input.script
 ```
 
 For a four-node run, use `L4cpu` and a matching `select` line:

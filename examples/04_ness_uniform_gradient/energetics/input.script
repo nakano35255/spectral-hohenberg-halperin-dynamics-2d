@@ -1,0 +1,30 @@
+dimension           2
+boundary            p p
+
+grid                128 128
+length              4096 4096
+dealias             three_halves
+
+order_parameters    1
+
+timestep            1.0
+time_evolution      srk3/incompressible
+
+model free_energy   quadratic a[0] 1.0
+model transport     constant eta 0.12 zeta 0.0 M[0,0] 0.12
+
+fix                 1 order_parameter nonlinear on
+fix                 2 momentum noise on seed 12345 kBT 1.0
+fix                 3 order_parameter force/gradient on component 0 direction x amplitude 0.000048828125
+
+set                 density uniform value 1.0
+set                 momentum all uniform value 0.0
+set                 order_parameter all uniform value 0.0
+
+thermo              observe on progress off nevery 100
+measure             1 time_series on nevery 50 file examples/04_ness_uniform_gradient/energetics/raw_data/time_series.dat target E_K |psi[0]|^2 |d_psi[0]|^2 Jpsi[0]_x
+# measure             2 snapshot on nevery 1000 file examples/04_ness_uniform_gradient/energetics/raw_data/physical space physical
+# measure             3 snapshot on nevery 1000 file examples/04_ness_uniform_gradient/energetics/raw_data/spectral space spectral
+restart             off
+
+run                 10000

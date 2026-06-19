@@ -14,14 +14,16 @@ import numpy as np
 CASE_DIR = Path(__file__).resolve().parent
 INCOMPRESSIBLE_DIR = CASE_DIR.parent
 VISCOSITY_DIR = INCOMPRESSIBLE_DIR / "viscosity"
+RAW_DATA_DIR = CASE_DIR / "raw_data"
+PROCESSED_DATA_DIR = CASE_DIR / "processed_data"
 sys.path.insert(0, str(VISCOSITY_DIR))
 
 import plot_theory_compare as visc
 
 
 CASES = (
-    ("dt=0.01", CASE_DIR / "main" / "eta0_0.1_U0.25_dt0.01", "#2563eb", "o"),
-    ("dt=0.005", CASE_DIR / "main" / "eta0_0.1_U0.25_dt0.005", "#dc2626", "s"),
+    ("dt=0.01", RAW_DATA_DIR / "eta0_0.1_U0.25_dt0.01", "eta0_0.1_U0.25_dt0.01", "#2563eb", "o"),
+    ("dt=0.005", RAW_DATA_DIR / "eta0_0.1_U0.25_dt0.005", "eta0_0.1_U0.25_dt0.005", "#dc2626", "s"),
 )
 
 
@@ -29,27 +31,23 @@ def time_label(value):
     return f"{value:g}".replace(".", "p")
 
 
-def default_cache_path(steady_start):
-    return CASE_DIR / "cache" / f"eta0_0.1_U0.25_dt_compare_t{time_label(steady_start)}.npz"
+def default_processed_data_root():
+    return PROCESSED_DATA_DIR
 
 
 def default_output_path():
     return CASE_DIR / "figures" / "eta0_0.1_U0.25_instability_compare.png"
 
 
-def reference_cache_path(steady_start):
-    return VISCOSITY_DIR / "cache" / f"eta0_0.1_theory_compare_t{time_label(steady_start)}.npz"
+def reference_processed_data_dir(steady_start):
+    return VISCOSITY_DIR / "processed_data" / "eta0_0.1_U0.025_dt0.01"
 
 
 def load_reference_rows(steady_start):
-    cache = reference_cache_path(steady_start)
-    if not cache.exists():
-        raise RuntimeError(f"missing viscosity reference cache: {cache}")
-    datasets = visc.load_cache(cache, steady_start)
-    for label, rows, _, _ in datasets:
-        if label == "U=0.025":
-            return rows
-    raise RuntimeError(f"{cache}: no U=0.025 reference dataset")
+    processed_data_dir = reference_processed_data_dir(steady_start)
+    if not (processed_data_dir / "metadata.csv").exists() or not (processed_data_dir / "mode_time_series.csv").exists():
+        raise RuntimeError(f"missing viscosity reference processed data: {processed_data_dir}")
+    return visc.load_processed_case(processed_data_dir, steady_start)
 
 
 def reference_arrays(reference_rows):
@@ -253,14 +251,14 @@ def main():
     parser.add_argument("--steady-start", type=float, default=30000.0)
     parser.add_argument("--target-u", type=float, default=0.25)
     parser.add_argument("--relaxation-nks", nargs="*", type=int, default=[1, 2, 4, 8, 16, 20])
-    parser.add_argument("--cache", type=Path)
-    parser.add_argument("--rebuild-cache", action="store_true")
+    parser.add_argument("--processed-data-root", type=Path)
+    parser.add_argument("--rebuild-processed-data", action="store_true")
     parser.add_argument("--output", type=Path, default=default_output_path())
     args = parser.parse_args()
-    if args.cache is None:
-        args.cache = default_cache_path(args.steady_start)
+    if args.processed_data_root is None:
+        args.processed_data_root = default_processed_data_root()
 
-    datasets = visc.load_or_analyze(args.cache, CASES, args.steady_start, args.rebuild_cache)
+    datasets = visc.load_or_analyze(args.processed_data_root, CASES, args.steady_start, args.rebuild_processed_data)
     reference_rows = load_reference_rows(args.steady_start)
     max_nk = max(max(row["nk"] for row in rows) for _, rows, _, _ in datasets)
     reference_unstable_ranges = unstable_nk_ranges(reference_rows, args.target_u, max_nk)

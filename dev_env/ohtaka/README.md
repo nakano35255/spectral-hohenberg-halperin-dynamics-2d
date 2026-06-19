@@ -266,17 +266,17 @@ not valid.
 
 ### Yokota Green-Kubo Incompressible Samples
 
-`examples/04_yokota_green_kubo` has F72cpu sample jobs for the incompressible
+`examples/03_yokota_green_kubo` has F72cpu sample jobs for the incompressible
 nonlinear Yokota Green-Kubo viscosity estimate.  The setup mirrors the
-`examples/02_Kolomogorov_flow/incompressible/viscosity` grid, length, time
+`examples/02_kolomogorov_flow/incompressible/viscosity` grid, length, time
 step, run time, and noise strength.  The Green-Kubo measure uses diagonal
 Fourier modes, `kx = ky`.
 
 ```sh
 cd ~/spectral-hohenberg-halperin-dynamics-2d
 
-sbatch examples/04_yokota_green_kubo/incompressible_nonlinear/jobs/job_ohtaka_ykgk_eta0_0p1.sh
-sbatch examples/04_yokota_green_kubo/incompressible_nonlinear/jobs/job_ohtaka_ykgk_eta0_0p5.sh
+sbatch examples/03_yokota_green_kubo/incompressible_nonlinear/ohtaka_jobs/job_ohtaka_ykgk_eta0_0p1.sh
+sbatch examples/03_yokota_green_kubo/incompressible_nonlinear/ohtaka_jobs/job_ohtaka_ykgk_eta0_0p5.sh
 ```
 
 Each job reserves F72cpu and launches independent 16-rank samples with one
@@ -296,11 +296,11 @@ To override the run length or sample count:
 
 ```sh
 RUN_TIME=5000.0 SAMPLES=72 \
-  sbatch examples/04_yokota_green_kubo/incompressible_nonlinear/jobs/job_ohtaka_ykgk_eta0_0p1.sh
+  sbatch examples/03_yokota_green_kubo/incompressible_nonlinear/ohtaka_jobs/job_ohtaka_ykgk_eta0_0p1.sh
 ```
 
 The generated inputs are written under
-`/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/04_yokota_green_kubo/incompressible_nonlinear/<run_name>/runs/`,
+`/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/03_yokota_green_kubo/incompressible_nonlinear/raw_data/<run_name>/runs/`,
 and outputs are written under the matching `results/` directory.
 
 
