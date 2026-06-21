@@ -26,7 +26,7 @@ export I_MPI_PIN_DOMAIN=core
 repo=${REPO_ROOT:-/home/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d}
 job_dir=examples/03_yokota_green_kubo/incompressible_nonlinear/ohtaka_jobs
 work_base=${WORK_BASE:-/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/03_yokota_green_kubo/incompressible_nonlinear/raw_data}
-run_name=${RUN_NAME:-eta0_0p270_grid256_L256_dt0p01_T25000_diag_n576}
+run_name=${RUN_NAME:-eta0_0p270_rho0p75_grid256_L256_dt0p01_T25000_diag_n576}
 output_root=$work_base/$run_name
 
 cd "$repo"
@@ -37,6 +37,8 @@ dt=${DT:-0.01}
 run_time=${RUN_TIME:-25000.0}
 ykgk_dtout=${YKGK_DTOUT:-100.0}
 ykgk_block_time=${YKGK_BLOCK_TIME:-5000.0}
+kBT=${KBT:-1.0}
+density=${DENSITY:-0.75}
 samples=${SAMPLES:-576}
 sample_offset=${SAMPLE_OFFSET:-0}
 total_tasks=9216
@@ -58,6 +60,8 @@ python3 "$job_dir/prepare_ohtaka_inputs.py" \
     --run-time "$run_time" \
     --ykgk-dtout "$ykgk_dtout" \
     --ykgk-block-time "$ykgk_block_time" \
+    --kBT "$kBT" \
+    --density "$density" \
     --seed "$base_seed"
 
 pids=()
