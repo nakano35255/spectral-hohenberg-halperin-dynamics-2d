@@ -1,0 +1,17 @@
+key,value
+source_pdf,/Users/nakano/Downloads/Yokota et al. 2026 - Unifying renormalized and bare viscosity in two-dimensional molecular dynamics simulations.pdf
+paper,"Yokota et al. 2026, Physical Review Research 8, 013234"
+figure,Fig. 3
+method,PDF vector marker extraction with axis calibration from vector tick positions
+page_index_zero_based,3
+x_axis_min,0.0
+x_axis_max,8.8857658763167322e+00
+y_axis_min,0.1
+y_axis_max,0.5
+x0_axis_pdf,90.17
+x1_axis_pdf,291.195
+top_axis_pdf,75.18
+bottom_axis_pdf,227.538
+rows,227
+series,"L=32,64,128"
+note,k column is set from k=2*pi*sqrt(2)*n/L; k_digitized is the value inferred from the plotted x coordinate.
