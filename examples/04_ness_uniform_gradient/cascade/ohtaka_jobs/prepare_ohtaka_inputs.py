@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 import argparse
+import secrets
 from pathlib import Path
+
+
+MAX_SEED = 2147483646
+
+
+def random_seed(used_seeds):
+    while True:
+        seed = secrets.randbelow(MAX_SEED) + 1
+        if seed not in used_seeds:
+            used_seeds.add(seed)
+            return seed
 
 
 def steps_from_time(time_value, dt, name):
@@ -47,9 +59,8 @@ def restart_index_name(index):
     return f"relax_{index:03d}.restart"
 
 
-def generate_relax_input(args, segment, run_steps, nevery):
+def generate_relax_input(args, segment, run_steps, nevery, seed):
     output_root = Path(args.output_root)
-    seed = args.seed + segment - 1
     lines = common_header(args, seed)
 
     restart_dir = output_root / "restarts"
@@ -77,9 +88,8 @@ def generate_relax_input(args, segment, run_steps, nevery):
     return "\n".join(lines)
 
 
-def generate_budget_input(args, run_steps, budget_nevery, time_series_nevery):
+def generate_budget_input(args, run_steps, budget_nevery, time_series_nevery, seed):
     output_root = Path(args.output_root)
-    seed = args.seed + 100000 + args.restart_index
     lines = common_header(args, seed)
 
     restart_dir = output_root / "restarts"
@@ -151,20 +161,29 @@ def main():
     (output_root / "logs").mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.mode in ("relax", "all"):
-        for segment in range(1, args.relax_segments + 1):
-            input_path = run_dir / f"input_relax_{segment:03d}.script"
+    used_seeds = set()
+    seeds_path = output_root / "seeds.dat"
+    with seeds_path.open("w", encoding="utf-8") as seeds:
+        seeds.write("# kind index noise_seed input\n")
+
+        if args.mode in ("relax", "all"):
+            for segment in range(1, args.relax_segments + 1):
+                input_path = run_dir / f"input_relax_{segment:03d}.script"
+                seed = random_seed(used_seeds)
+                input_path.write_text(
+                    generate_relax_input(args, segment, relax_steps, time_series_nevery, seed),
+                    encoding="utf-8",
+                )
+                seeds.write(f"relax {segment:03d} {seed} {input_path.as_posix()}\n")
+
+        if args.mode in ("budget", "all"):
+            input_path = run_dir / f"input_budget_from_{args.restart_index:03d}.script"
+            seed = random_seed(used_seeds)
             input_path.write_text(
-                generate_relax_input(args, segment, relax_steps, time_series_nevery),
+                generate_budget_input(args, budget_steps, args.budget_nevery, time_series_nevery, seed),
                 encoding="utf-8",
             )
-
-    if args.mode in ("budget", "all"):
-        input_path = run_dir / f"input_budget_from_{args.restart_index:03d}.script"
-        input_path.write_text(
-            generate_budget_input(args, budget_steps, args.budget_nevery, time_series_nevery),
-            encoding="utf-8",
-        )
+            seeds.write(f"budget {args.restart_index:03d} {seed} {input_path.as_posix()}\n")
 
 
 if __name__ == "__main__":

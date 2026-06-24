@@ -12,6 +12,7 @@
 #include "initial_condition_gaussian_order_parameter_style.h"
 #include "initial_condition_equilibrium_gaussian_order_parameter_style.h"
 #include "initial_condition_sine_order_parameter_style.h"
+#include "initial_condition_sine2d_order_parameter_style.h"
 
 InitialConditionRegistry build_initial_condition_registry() {
     InitialConditionRegistry registry;
@@ -28,5 +29,6 @@ InitialConditionRegistry build_initial_condition_registry() {
     registry.register_order_parameter_style(std::make_unique<GaussianOrderParameterInitialConditionStyle>());
     registry.register_order_parameter_style(std::make_unique<EquilibriumGaussianOrderParameterInitialConditionStyle>());
     registry.register_order_parameter_style(std::make_unique<SineOrderParameterInitialConditionStyle>());
+    registry.register_order_parameter_style(std::make_unique<Sine2DOrderParameterInitialConditionStyle>());
     return registry;
 }

@@ -1,0 +1,28 @@
+dimension           2
+boundary            p p
+
+grid                256 256
+length              8192 8192
+dealias             three_halves
+
+order_parameters    1
+
+timestep            4.0
+time_evolution      srk3/incompressible
+
+model free_energy   quadratic a[0] 1.0
+model transport     constant eta 0.12 zeta 0.0 M[0,0] 0.12
+
+fix                 1 momentum nonlinear off
+fix                 2 order_parameter nonlinear on
+fix                 3 momentum noise on seed 12345 kBT 1.0
+
+set                 density uniform value 1.0
+set                 momentum all uniform value 0.0
+set                 order_parameter all sine2d base 0.0 amplitude 0.1 nkx 1 nky 1
+
+thermo              observe on progress on nevery 5000
+measure             1 snapshot on nevery 1000 file examples/05_order_parameter_relaxation/raw_data/physical space physical
+restart             off
+
+run                 50000

@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 import argparse
+import secrets
 from pathlib import Path
+
+
+MAX_SEED = 2147483646
+
+
+def random_seed(used_seeds):
+    while True:
+        seed = secrets.randbelow(MAX_SEED) + 1
+        if seed not in used_seeds:
+            used_seeds.add(seed)
+            return seed
 
 
 def label(prefix, value):
@@ -48,8 +60,7 @@ def initial_condition_block(args):
     ]
 
 
-def generate_input(args, sample, segment, run_steps, time_series_nevery, paths):
-    seed = args.seed + 100000 * (segment - 1) + sample
+def generate_input(args, sample, segment, run_steps, time_series_nevery, paths, seed):
     lines = common_header(args, seed)
 
     sid = f"{sample:03d}"
@@ -129,22 +140,29 @@ def main():
         "result_dir": output_root / "results" / case_dir,
         "segment_dir": output_root / "segments" / case_dir,
         "restart_dir": output_root / "restarts" / case_dir,
+        "seed_dir": output_root / "seeds" / case_dir,
     }
     for path in paths.values():
         path.mkdir(parents=True, exist_ok=True)
 
-    for sample in range(args.samples):
-        sid = f"{sample:03d}"
-        for segment in range(1, args.segments + 1):
-            segment_id = f"{segment:03d}"
-            if args.legacy_single_segment:
-                input_path = paths["run_dir"] / f"input_{sid}.script"
-            else:
-                input_path = paths["run_dir"] / f"input_{sid}_seg{segment_id}.script"
-            input_path.write_text(
-                generate_input(args, sample, segment, run_steps, time_series_nevery, paths),
-                encoding="utf-8",
-            )
+    used_seeds = set()
+    seeds_path = paths["seed_dir"] / "seeds.dat"
+    with seeds_path.open("w", encoding="utf-8") as seeds:
+        seeds.write("# sample segment noise_seed input\n")
+        for sample in range(args.samples):
+            sid = f"{sample:03d}"
+            for segment in range(1, args.segments + 1):
+                segment_id = f"{segment:03d}"
+                if args.legacy_single_segment:
+                    input_path = paths["run_dir"] / f"input_{sid}.script"
+                else:
+                    input_path = paths["run_dir"] / f"input_{sid}_seg{segment_id}.script"
+                seed = random_seed(used_seeds)
+                input_path.write_text(
+                    generate_input(args, sample, segment, run_steps, time_series_nevery, paths, seed),
+                    encoding="utf-8",
+                )
+                seeds.write(f"{sid} {segment_id} {seed} {input_path.as_posix()}\n")
 
 
 if __name__ == "__main__":

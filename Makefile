@@ -27,6 +27,7 @@ SRCS := \
 	src/initial_condition_random_vorticity_momentum.cc \
 	src/initial_condition_sine_density.cc \
 	src/initial_condition_sine_momentum.cc \
+	src/initial_condition_sine2d_order_parameter.cc \
 	src/initial_condition_sine_order_parameter.cc \
 	src/initial_condition_uniform_density.cc \
 	src/initial_condition_uniform_momentum.cc \

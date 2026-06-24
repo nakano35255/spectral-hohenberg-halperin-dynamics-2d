@@ -22,6 +22,7 @@ set psi <target> <type> [key value ...]
 set order_parameter 0 uniform value 0.0
 set order_parameter all uniform value 0.0
 set order_parameter 0 sine base 0.0 amplitude 0.1 nkx 1 nky 0
+set order_parameter 0 sine2d base 0.0 amplitude 0.1 nkx 1 nky 1
 set order_parameter 0 gaussian base 0.0 amplitude 0.1 x0 32.0 y0 32.0 sigma 4.0
 set order_parameter all equilibrium/gaussian psi0 0.0 kBT 1.0 k0 1.0 seed 12345
 ```
@@ -38,6 +39,7 @@ set order_parameter all equilibrium/gaussian psi0 0.0 kBT 1.0 k0 1.0 seed 12345
   - 指定可能な値:
     - `uniform`
     - `sine`
+    - `sine2d`
     - `gaussian`
     - `equilibrium/gaussian`
 - `[key value ...]`
@@ -74,12 +76,50 @@ set order_parameter 0 uniform value 0.0
 set order_parameter 0 sine base 0.0 amplitude 0.1 nkx 1 nky 0
 ```
 
+この初期条件は
+
+```math
+\psi(x,y)
+= base + amplitude
+\sin\left[
+2\pi\left(nkx\,x/L_x + nky\,y/L_y\right)
+\right]
+```
+
+を設定します。
+
 | key | 型 | 必須 | 説明 |
 | --- | --- | --- | --- |
 | `base` | double | no | 背景値。省略時は `0.0` |
 | `amplitude` | double | yes | 正弦波の振幅 |
 | `nkx` | integer | yes | $x$ 方向の波数 index |
 | `nky` | integer | no | $y$ 方向の波数 index。省略時は `0` |
+
+### `sine2d`
+
+$x$ 方向と $y$ 方向の正弦波の積で表されるスカラー場摂動を設定します。
+
+```sh
+set order_parameter 0 sine2d base 0.0 amplitude 0.1 nkx 1 nky 1
+```
+
+この初期条件は
+
+```math
+\psi(x,y)
+= base + amplitude
+\sin\left(2\pi\,nkx\,x/L_x\right)
+\sin\left(2\pi\,nky\,y/L_y\right)
+```
+
+を設定します。
+
+| key | 型 | 必須 | 説明 |
+| --- | --- | --- | --- |
+| `base` | double | no | 背景値。省略時は `0.0` |
+| `amplitude` | double | yes | 正弦波積の振幅 |
+| `nkx` | integer | yes | $x$ 方向の波数 index |
+| `nky` | integer | yes | $y$ 方向の波数 index |
 
 ### `gaussian`
 
@@ -190,6 +230,7 @@ P(\hat{\psi}_\alpha(\boldsymbol{k}))
 - `all` を使う場合、`order_parameters` は `1` 以上である必要があります。
 - `sine` の波数は `0 <= nkx < Nx/2`, `-Ny/2 < nky < Ny/2` の範囲で指定します。
 - `sine` では `(nkx, nky) = (0, 0)` は指定できません。
+- `sine2d` の波数は `0 < nkx < Nx/2`, `0 < nky < Ny/2` の範囲で指定します。
 - `gaussian` の `sigma`, `sigma_x`, `sigma_y` は正の値である必要があります。
 - `equilibrium/gaussian` では `kBT >= 0` である必要があります。
 - `equilibrium/gaussian` では、全ての active な非ゼロ mode で `k0 + k2 k^2 + k4 k^4 > 0` である必要があります。

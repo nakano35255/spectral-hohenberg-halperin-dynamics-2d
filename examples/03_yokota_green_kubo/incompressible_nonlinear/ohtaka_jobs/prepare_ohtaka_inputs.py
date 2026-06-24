@@ -2,7 +2,19 @@
 """Generate Ohtaka input scripts for incompressible YKGK replicas."""
 
 import argparse
+import secrets
 from pathlib import Path
+
+
+MAX_SEED = 2147483646
+
+
+def random_seed(used_seeds):
+    while True:
+        seed = secrets.randbelow(MAX_SEED) + 1
+        if seed not in used_seeds:
+            used_seeds.add(seed)
+            return seed
 
 
 def steps_from_time(time_value, dt, name):
@@ -18,7 +30,7 @@ def nevery_from_time(time_value, dt, default_steps, name):
     return steps_from_time(time_value, dt, name)
 
 
-def generate_input(args, sample, paths):
+def generate_input(args, sample, paths, noise_seed, init_seed):
     global_sample = args.sample_offset + sample
     dt = float(args.dt)
     run_steps = steps_from_time(args.run_time, dt, "run-time")
@@ -31,8 +43,6 @@ def generate_input(args, sample, paths):
         raise RuntimeError("run-time must be an integer multiple of ykgk-block-time")
 
     sid = f"{global_sample:03d}"
-    noise_seed = args.seed + 2 * global_sample
-    init_seed = args.seed + 2 * global_sample + 1
     ykgk_file = paths["result_dir"] / f"yokota_green_kubo_{sid}.dat"
 
     lines = [
@@ -110,7 +120,9 @@ def main():
         config.write("# Yokota Green-Kubo incompressible nonlinear run configuration\n")
         for key, value in sorted(vars(args).items()):
             config.write(f"{key} {value}\n")
+        config.write("seed_source os_entropy\n")
 
+    used_seeds = set()
     with seeds_path.open("w", encoding="utf-8") as seeds:
         seeds.write("# sample noise_seed init_seed input ykgk_output\n")
         for sample in range(args.samples):
@@ -118,7 +130,9 @@ def main():
             sid = f"{global_sample:03d}"
             input_path = paths["run_dir"] / f"input_{sid}.script"
             ykgk_path = paths["result_dir"] / f"yokota_green_kubo_{sid}.dat"
-            text, noise_seed, init_seed = generate_input(args, sample, paths)
+            noise_seed = random_seed(used_seeds)
+            init_seed = random_seed(used_seeds)
+            text, noise_seed, init_seed = generate_input(args, sample, paths, noise_seed, init_seed)
             input_path.write_text(text, encoding="utf-8")
             seeds.write(
                 f"{sid} {noise_seed} {init_seed} "
