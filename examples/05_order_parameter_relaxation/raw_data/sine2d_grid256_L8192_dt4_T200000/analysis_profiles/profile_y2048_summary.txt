@@ -1,0 +1,10 @@
+run_dir: /Users/nakano/github/spectral-hohenberg-halperin-dynamics-2d/examples/05_order_parameter_relaxation/raw_data/sine2d_grid256_L8192_dt4_T200000
+samples: 16
+frames: 50
+step_first: 1000
+step_last: 50000
+nx: 384
+ny: 384
+y_index: 96
+y_value: 2.0480000000000000e+03
+ylim: (-0.10801542638648787, 0.10801542638648787)
