@@ -44,6 +44,7 @@ SRCS := \
 	src/measure_registry_builtin.cc \
 	src/measure_manager.cc \
 	src/measure_yokota_green_kubo.cc \
+	src/measure_long_time_tail.cc \
 	src/measure_snapshot.cc \
 	src/measure_time_series.cc \
 	src/measure_ave_profile.cc \
