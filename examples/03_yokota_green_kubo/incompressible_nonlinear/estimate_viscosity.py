@@ -19,7 +19,7 @@ import numpy as np
 
 CASE_DIR = Path(__file__).resolve().parent
 ROOT = CASE_DIR.parents[2]
-DEFAULT_CASE = "eta0_0p1_grid256_L256_dt0p01_T25000_diag_n576"
+DEFAULT_CASE = "eta0_0p1_grid256_L256_dt0p01_T25000_diag_n1152"
 RAW_DATA_DIR = CASE_DIR / "raw_data"
 PROCESSED_DATA_DIR = CASE_DIR / "processed_data"
 

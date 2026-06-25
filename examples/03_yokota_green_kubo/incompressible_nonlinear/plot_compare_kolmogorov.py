@@ -14,7 +14,7 @@ import numpy as np
 
 CASE_DIR = Path(__file__).resolve().parent
 ROOT = CASE_DIR.parents[2]
-DEFAULT_CASE = "eta0_0p1_grid256_L256_dt0p01_T25000_diag_n576"
+DEFAULT_CASE = "eta0_0p1_grid256_L256_dt0p01_T25000_diag_n1152"
 DEFAULT_YKGK_SUMMARY = CASE_DIR / "processed_data" / DEFAULT_CASE / "yokota_green_kubo_summary.csv"
 DEFAULT_KOLOMOGOROV_PROCESSED_GLOB = (
     ROOT

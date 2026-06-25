@@ -74,7 +74,7 @@
 - 3/2ルール（padding）を用いた擬スペクトル法による非線形項評価
 - 時間積分スキーム: Euler法、SRK3法（確率的Runge-Kutta法）
 - 保存型加法ノイズ
-- 観測量出力: `snapshot`
+- 観測量出力: `snapshot`, `time_series`, `ave/profile`, `long_time_tail`, `yokota_green_kubo`
 - 今後の実装予定 (Future works): リスタート機能（状態の保存と読み込み）
 
 

@@ -30,6 +30,7 @@ private:
      int nevery_ = 0;
      int nblock_ = 0;
      int profile_size_ = 0;
+     
      int block_step_ = 0;
      int samples_in_block_ = 0;
      int running_samples_ = 0;

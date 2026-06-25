@@ -218,6 +218,7 @@ run                 100000
 | `measure snapshot` | `measure <ID> snapshot <on\|off> [key value ...]` | [詳細](./measure_snapshot.md) |
 | `measure time_series` | `measure <ID> time_series <on\|off> nevery <integer> file <filename> target <target1> [target2 ...]` | [詳細](./measure_time_series.md) |
 | `measure ave/profile` | `measure <ID> ave/profile <on\|off> axis <x\|y> nevery <integer> nblock <integer> file <filename> average <block\|running> target <target1> [target2 ...]` | [詳細](./measure_ave_profile.md) |
+| `measure long_time_tail` | `measure <ID> long_time_tail <on\|off> nevery <integer> nblock <integer> file <filename> [average <block\|running>] [cross <on\|off>] target <target1> [target2 ...]` | [詳細](./measure_long_time_tail.md) |
 | `measure yokota_green_kubo` | `measure <ID> yokota_green_kubo <on\|off> nevery <integer> nblock <integer> file <filename> [mode <diagonal\|all>]` | [詳細](./measure_yokota_green_kubo.md) |
 | `measure budget/spectrum` | `measure <ID> budget/spectrum <on\|off> component <integer> nevery <integer> nblock <integer> file <filename> mode <2d\|shell> average <block\|running>` | [詳細](./measure_budget_spectrum.md) (`PASSIVE_SCALAR`) |
 | `run` | `run <steps>` | [詳細](./run.md) |

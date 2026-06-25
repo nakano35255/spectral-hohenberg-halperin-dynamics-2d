@@ -4,9 +4,9 @@
 #SBATCH -n 9216
 #SBATCH -c 1
 #SBATCH -t 24:00:00
-#SBATCH -J shhd03-ykgk-e0260
-#SBATCH -o /work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/03_yokota_green_kubo/incompressible_nonlinear/ohtaka_jobs/%x-%j.out
-#SBATCH -e /work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/03_yokota_green_kubo/incompressible_nonlinear/ohtaka_jobs/%x-%j.err
+#SBATCH -J shhd03-ykgk-e0270
+#SBATCH -o /work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/03_yokota_green_kubo/yokota_data/ohtaka_jobs/%x-%j.out
+#SBATCH -e /work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/03_yokota_green_kubo/yokota_data/ohtaka_jobs/%x-%j.err
 
 set -eu
 
@@ -24,15 +24,15 @@ export I_MPI_PIN=1
 export I_MPI_PIN_DOMAIN=core
 
 repo=${REPO_ROOT:-/home/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d}
-job_dir=examples/03_yokota_green_kubo/incompressible_nonlinear/ohtaka_jobs
-work_base=${WORK_BASE:-/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/03_yokota_green_kubo/incompressible_nonlinear/raw_data}
-run_name=${RUN_NAME:-eta0_0p260_rho0p75_grid256_L256_dt0p01_T25000_diag_n576}
+job_dir=examples/03_yokota_green_kubo/yokota_data/ohtaka_jobs
+work_base=${WORK_BASE:-/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/03_yokota_green_kubo/yokota_data/raw_data}
+run_name=${RUN_NAME:-eta0_0p270_rho0p75_grid256_L256_dt0p01_T25000_diag_n576}
 output_root=$work_base/$run_name
 
 cd "$repo"
 mkdir -p "$output_root" "$work_base"
 
-eta0=${ETA0:-0.260}
+eta0=${ETA0:-0.270}
 dt=${DT:-0.01}
 run_time=${RUN_TIME:-25000.0}
 ykgk_dtout=${YKGK_DTOUT:-100.0}
@@ -43,7 +43,7 @@ samples=${SAMPLES:-576}
 sample_offset=${SAMPLE_OFFSET:-0}
 total_tasks=9216
 tasks_per_sample=${TASKS_PER_SAMPLE:-16}
-base_seed=${BASE_SEED:-260123}
+base_seed=${BASE_SEED:-270123}
 
 active_tasks=$((samples * tasks_per_sample))
 if [ "$active_tasks" -gt "$total_tasks" ]; then
