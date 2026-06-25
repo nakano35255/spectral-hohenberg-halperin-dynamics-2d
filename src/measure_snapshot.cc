@@ -1,12 +1,124 @@
 #include "measure_snapshot.h"
 #include "measure_snapshot_style.h"
 
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <mpi.h>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
+
+namespace {
+constexpr int SNAPSHOT_PHYSICAL_TAG = 7402;
+constexpr int SNAPSHOT_SPECTRAL_TAG = 7403;
+
+int checked_int(std::size_t value, const std::string& name) {
+     if (value > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+          throw std::runtime_error("SnapshotMeasure: " + name + " exceeds MPI int range.");
+     }
+     return static_cast<int>(value);
+}
+
+std::size_t total_count_from_counts_and_displs(
+     const std::vector<int>& counts,
+     const std::vector<int>& displs
+) {
+     if (counts.empty()) {
+          return 0;
+     }
+     return static_cast<std::size_t>(displs.back())
+          + static_cast<std::size_t>(counts.back());
+}
+
+void build_physical_counts_and_displs(
+     const Domain2D& domain,
+     int nfields,
+     std::vector<int>& counts,
+     std::vector<int>& displs
+) {
+     counts.assign(static_cast<std::size_t>(domain.size()), 0);
+     displs.assign(static_cast<std::size_t>(domain.size()), 0);
+
+     std::size_t offset = 0;
+     for (int rank = 0; rank < domain.size(); ++rank) {
+          const Box2D box = domain.physical_box_for_rank(rank);
+          const std::size_t count =
+               static_cast<std::size_t>(nfields)
+             * static_cast<std::size_t>(box.size[0])
+             * static_cast<std::size_t>(box.size[1]);
+          counts[static_cast<std::size_t>(rank)] =
+               checked_int(count, "physical snapshot payload size");
+          displs[static_cast<std::size_t>(rank)] =
+               checked_int(offset, "physical snapshot displacement");
+          offset += count;
+     }
+}
+
+void build_spectral_counts_and_displs(
+     const Domain2D& domain,
+     int nfields,
+     std::vector<int>& counts,
+     std::vector<int>& displs
+) {
+     counts.assign(static_cast<std::size_t>(domain.size()), 0);
+     displs.assign(static_cast<std::size_t>(domain.size()), 0);
+
+     std::size_t offset = 0;
+     for (int rank = 0; rank < domain.size(); ++rank) {
+          const Box2D box = domain.spectral_box_for_rank(rank);
+          const std::size_t complex_count =
+               static_cast<std::size_t>(nfields)
+             * static_cast<std::size_t>(box.size[0])
+             * static_cast<std::size_t>(box.size[1]);
+          const std::size_t double_count = 2 * complex_count;
+          counts[static_cast<std::size_t>(rank)] =
+               checked_int(double_count, "spectral snapshot payload size");
+          displs[static_cast<std::size_t>(rank)] =
+               checked_int(offset, "spectral snapshot displacement");
+          offset += double_count;
+     }
+}
+
+void gather_payload_to_root(
+     const double* local_data,
+     int local_count,
+     const Domain2D& domain,
+     int tag,
+     const std::vector<int>& counts,
+     const std::vector<int>& displs,
+     std::vector<double>& gathered
+) {
+     if (domain.rank() == 0) {
+          std::copy(
+               local_data,
+               local_data + local_count,
+               gathered.begin() + displs[0]
+          );
+          for (int rank = 1; rank < domain.size(); ++rank) {
+               MPI_Recv(
+                    gathered.data() + displs[static_cast<std::size_t>(rank)],
+                    counts[static_cast<std::size_t>(rank)],
+                    MPI_DOUBLE,
+                    rank,
+                    tag,
+                    domain.comm(),
+                    MPI_STATUS_IGNORE
+               );
+          }
+     } else {
+          MPI_Send(
+               local_data,
+               local_count,
+               MPI_DOUBLE,
+               0,
+               tag,
+               domain.comm()
+          );
+     }
+}
+} // namespace
 
 // ---------------------------------------------------------------------- //
 SnapshotMeasure::SnapshotMeasure(
@@ -148,36 +260,29 @@ void SnapshotMeasure::observe_physical(
      const int ny = domain.ny_global();
 
      const Box2D& local_box = domain.physical_box();
-     const int local_count = nfields * local_box.size[0] * local_box.size[1];
+     const std::size_t local_size =
+          static_cast<std::size_t>(nfields)
+        * static_cast<std::size_t>(local_box.size[0])
+        * static_cast<std::size_t>(local_box.size[1]);
+     const int local_count = checked_int(local_size, "local physical snapshot payload size");
 
      std::vector<int> counts;
-     if (domain.rank() == 0) {
-          counts.resize(static_cast<std::size_t>(domain.size()));
-     }
-
-     MPI_Gather(
-          &local_count, 1, MPI_INT,
-          counts.data(), 1, MPI_INT,
-          0, domain.comm()
-     );
-
      std::vector<int> displs;
      std::vector<double> gathered;
 
      if (domain.rank() == 0) {
-          displs.resize(static_cast<std::size_t>(domain.size()), 0);
-          int total = 0;
-          for (int rank = 0; rank < domain.size(); ++rank) {
-               displs[rank] = total;
-               total += counts[rank];
-          }
-          gathered.resize(static_cast<std::size_t>(total));
+          build_physical_counts_and_displs(domain, nfields, counts, displs);
+          gathered.resize(total_count_from_counts_and_displs(counts, displs));
      }
 
-     MPI_Gatherv(
-          physical.data(), local_count, MPI_DOUBLE,
-          gathered.data(), counts.data(), displs.data(), MPI_DOUBLE,
-          0, domain.comm()
+     gather_payload_to_root(
+          physical.data(),
+          local_count,
+          domain,
+          SNAPSHOT_PHYSICAL_TAG,
+          counts,
+          displs,
+          gathered
      );
 
      if (domain.rank() != 0) {
@@ -227,47 +332,41 @@ void SnapshotMeasure::observe_spectral(
      const int nky = domain.ny_global();
 
      const Box2D& local_box = domain.spectral_box();
-     const int local_complex_count =
-          nfields * local_box.size[0] * local_box.size[1];
+     const std::size_t local_complex_count =
+          static_cast<std::size_t>(nfields)
+        * static_cast<std::size_t>(local_box.size[0])
+        * static_cast<std::size_t>(local_box.size[1]);
 
-     std::vector<double> local_data(static_cast<std::size_t>(2 * local_complex_count));
+     std::vector<double> local_data(2 * local_complex_count);
 
      const Complex* spectral = state.data();
-     for (int i = 0; i < local_complex_count; ++i) {
+     for (std::size_t i = 0; i < local_complex_count; ++i) {
           local_data[2 * i] = spectral[i].real();
           local_data[2 * i + 1] = spectral[i].imag();
      }
 
-     const int local_double_count = 2 * local_complex_count;
-
-     std::vector<int> counts;
-     if (domain.rank() == 0) {
-          counts.resize(static_cast<std::size_t>(domain.size()));
-     }
-
-     MPI_Gather(
-          &local_double_count, 1, MPI_INT,
-          counts.data(), 1, MPI_INT,
-          0, domain.comm()
+     const int local_double_count = checked_int(
+          local_data.size(),
+          "local spectral snapshot payload size"
      );
 
+     std::vector<int> counts;
      std::vector<int> displs;
      std::vector<double> gathered;
 
      if (domain.rank() == 0) {
-          displs.resize(static_cast<std::size_t>(domain.size()), 0);
-          int total = 0;
-          for (int rank = 0; rank < domain.size(); ++rank) {
-               displs[rank] = total;
-               total += counts[rank];
-          }
-          gathered.resize(static_cast<std::size_t>(total));
+          build_spectral_counts_and_displs(domain, nfields, counts, displs);
+          gathered.resize(total_count_from_counts_and_displs(counts, displs));
      }
 
-     MPI_Gatherv(
-          local_data.data(), local_double_count, MPI_DOUBLE,
-          gathered.data(), counts.data(), displs.data(), MPI_DOUBLE,
-          0, domain.comm()
+     gather_payload_to_root(
+          local_data.data(),
+          local_double_count,
+          domain,
+          SNAPSHOT_SPECTRAL_TAG,
+          counts,
+          displs,
+          gathered
      );
 
      if (domain.rank() != 0) {

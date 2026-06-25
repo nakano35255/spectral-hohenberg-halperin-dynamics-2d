@@ -17,8 +17,8 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OMP_DYNAMIC=FALSE
 export MKL_DYNAMIC=FALSE
-export I_MPI_PIN=1
-export I_MPI_PIN_DOMAIN=core
+export I_MPI_PIN=0
+unset I_MPI_PIN_PROCESSOR_LIST
 
 repo=${REPO_ROOT:-$HOME/spectral-hohenberg-halperin-dynamics-2d}
 case_dir=examples/05_order_parameter_relaxation
@@ -27,8 +27,9 @@ work_base=${WORK_BASE:-/work/k0565/k056500/spectral-hohenberg-halperin-dynamics-
 run_name=${RUN_NAME:-sine2d_grid256_L8192_dt4_T2400000}
 output_root=$work_base/$run_name
 
-replica_num=$((10#${REPLICA_ID:-${SAMPLE_ID:-${SAMPLE_OFFSET:-0}}}))
-tasks_per_run=$((10#${TASKS_PER_RUN:-128}))
+offset=$((10#${OFFSET:-${SAMPLE_OFFSET:-0}}))
+samples=$((10#${SAMPLES:-16}))
+tasks_per_sample=$((10#${TASKS_PER_SAMPLE:-8}))
 
 grid_x=${GRID_X:-256}
 grid_y=${GRID_Y:-256}
@@ -48,12 +49,18 @@ nkx=${NKX:-1}
 nky=${NKY:-1}
 
 allocated_tasks=$(wc -l < "$PBS_NODEFILE")
-if [ "$replica_num" -lt 0 ] || [ "$tasks_per_run" -le 0 ]; then
-    echo "invalid run layout: replica_num=$replica_num tasks_per_run=$tasks_per_run" >&2
+if [ "$offset" -lt 0 ] || [ "$samples" -le 0 ]; then
+    echo "invalid run layout: offset=$offset samples=$samples" >&2
     exit 1
 fi
-if [ "$tasks_per_run" -gt "$allocated_tasks" ]; then
-    echo "TASKS_PER_RUN=$tasks_per_run exceeds allocated PBS tasks $allocated_tasks." >&2
+if [ "$tasks_per_sample" -le 0 ]; then
+    echo "invalid TASKS_PER_SAMPLE=$tasks_per_sample" >&2
+    exit 1
+fi
+
+active_tasks=$((samples * tasks_per_sample))
+if [ "$active_tasks" -gt "$allocated_tasks" ]; then
+    echo "active MPI tasks exceed allocation: $active_tasks > $allocated_tasks" >&2
     exit 1
 fi
 
@@ -63,8 +70,8 @@ case "$dealias" in
     two|2) compute_grid_x=$((2 * grid_x)) ;;
 esac
 spectral_x=$((compute_grid_x / 2 + 1))
-if [ "$tasks_per_run" -gt "$spectral_x" ]; then
-    echo "TASKS_PER_RUN=$tasks_per_run exceeds spectral x size $spectral_x." >&2
+if [ "$tasks_per_sample" -gt "$spectral_x" ]; then
+    echo "TASKS_PER_SAMPLE=$tasks_per_sample exceeds spectral x size $spectral_x." >&2
     exit 1
 fi
 
@@ -78,8 +85,8 @@ fi
 
 python3 "$job_dir/prepare_kugui_inputs.py" \
     --output-root "$output_root" \
-    --samples 1 \
-    --sample-offset "$replica_num" \
+    --samples "$samples" \
+    --sample-offset "$offset" \
     --grid "$grid_x" "$grid_y" \
     --length "$length_x" "$length_y" \
     --dealias "$dealias" \
@@ -95,16 +102,31 @@ python3 "$job_dir/prepare_kugui_inputs.py" \
     --nkx "$nkx" \
     --nky "$nky"
 
-rid=$(printf "%03d" "$replica_num")
-input=$output_root/runs/input_${rid}.script
-stdout=$output_root/logs/stdout_${rid}.log
-stderr=$output_root/logs/stderr_${rid}.log
-
-echo "run replica ${rid}"
 echo "PBS_JOBID=${PBS_JOBID:-}"
 echo "PBS_NODEFILE=$PBS_NODEFILE"
-echo "allocated_tasks=$allocated_tasks tasks_per_run=$tasks_per_run"
+echo "allocated_tasks=$allocated_tasks samples=$samples tasks_per_sample=$tasks_per_sample active_tasks=$active_tasks"
+echo "OFFSET=$offset"
 echo "output_root=$output_root"
 
-mpirun -np "$tasks_per_run" -machinefile "$PBS_NODEFILE" \
-    ./src/out.exe "$input" > "$stdout" 2> "$stderr"
+pids=()
+for local_sample in $(seq 0 $((samples - 1))); do
+    replica_num=$((offset + local_sample))
+    rid=$(printf "%03d" "$replica_num")
+    input=$output_root/runs/input_${rid}.script
+    stdout=$output_root/logs/stdout_${rid}.log
+    stderr=$output_root/logs/stderr_${rid}.log
+
+    (
+        echo "run replica ${rid}: ranks=${tasks_per_sample}"
+        mpiexec -n "$tasks_per_sample" \
+            ./src/out.exe "$input" > "$stdout" 2> "$stderr"
+    ) &
+    pids+=($!)
+done
+
+status=0
+for pid in "${pids[@]}"; do
+    wait "$pid" || status=1
+done
+
+exit "$status"
