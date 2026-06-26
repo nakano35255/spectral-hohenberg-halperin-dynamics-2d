@@ -49,7 +49,7 @@ The job script also supports rebuilding inside the job:
 
 ```sh
 qsub -v BUILD_BEFORE_RUN=1 \
-  examples/05_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
+  examples/06_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
 ```
 
 
@@ -58,20 +58,20 @@ qsub -v BUILD_BEFORE_RUN=1 \
 Submit replicas 0 through 15 from the repository root on Kugui:
 
 ```sh
-qsub examples/05_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
+qsub examples/06_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
 ```
 
 Submit replicas 16 through 31:
 
 ```sh
 qsub -v OFFSET=16 \
-  examples/05_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
+  examples/06_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
 ```
 
 Each replica writes to its own sample id:
 
 ```text
-/work/k0565/k056500/spectral-hohenberg-halperin-dynamics-2d/examples/05_order_parameter_relaxation/raw_data/
+/work/k0565/k056500/spectral-hohenberg-halperin-dynamics-2d/examples/06_order_parameter_relaxation/raw_data/
   sine2d_grid256_L8192_dt4_T2400000/
     runs/input_000.script
     logs/stdout_000.log
@@ -88,14 +88,14 @@ Use fewer ranks while still reserving one `F1cpu` node:
 
 ```sh
 qsub -v OFFSET=0,TASKS_PER_SAMPLE=4 \
-  examples/05_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
+  examples/06_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
 ```
 
 Longer run with the same number of output snapshots:
 
 ```sh
 qsub -v OFFSET=0,RUN_TIME=4800000.0,SNAPSHOT_DTOUT=96000.0,RUN_NAME=sine2d_grid256_L8192_dt4_T4800000 \
-  examples/05_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
+  examples/06_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
 ```
 
 Short i2cpu probe with only replica 0:
@@ -103,7 +103,7 @@ Short i2cpu probe with only replica 0:
 ```sh
 qsub -q i2cpu -l walltime=00:30:00 \
   -v SAMPLES=1,OFFSET=0,RUN_TIME=4000.0,SNAPSHOT_DTOUT=4000.0,THERMO_DTOUT=400.0,RUN_NAME=probe_sine2d_grid256_L8192_dt4_T4000 \
-  examples/05_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
+  examples/06_order_parameter_relaxation/kugui_jobs/job_kugui_relax_sine2d_grid256_L8192_dt4.pbs
 ```
 
 `SAMPLE_OFFSET` is accepted as an alias for `OFFSET`.
@@ -119,7 +119,7 @@ qsub -q i2cpu -l walltime=00:30:00 \
   pinning with `I_MPI_PIN=0`; each replica is launched as
   `mpiexec -n "$TASKS_PER_SAMPLE" ... &`.
 - Physical snapshots are text files and can be large, so outputs are written
-  under `/work/.../examples/05_order_parameter_relaxation/raw_data/`.
+  under `/work/.../examples/06_order_parameter_relaxation/raw_data/`.
 - Override `WORK_BASE` if your Kugui work directory is different.
 - The current domain decomposition is x-slab based, so do not request more MPI
   ranks per replica than the available spectral x size. For default

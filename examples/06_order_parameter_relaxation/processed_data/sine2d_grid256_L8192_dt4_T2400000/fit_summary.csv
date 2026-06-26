@@ -1,0 +1,17 @@
+quantity,value
+dataset,sine2d_grid256_L8192_dt4_T2400000
+samples,16
+frames_per_sample,50
+nx_physical,384
+ny_physical,384
+first_step,12000
+last_step,600000
+first_time,4.8000000000000000e+04
+last_time,2.4000000000000000e+06
+fit_amplitude0,1.0533972848014277e-01
+fit_gamma,8.1006044501035409e-07
+fit_tau,1.2344757803687330e+06
+fit_rmse,9.1603681542177118e-04
+bare_diffusion_gamma,1.4118582345613515e-07
+bare_diffusion_tau,7.0828640972631983e+06
+gamma_fit_over_bare_diffusion,5.7375480425768863e+00

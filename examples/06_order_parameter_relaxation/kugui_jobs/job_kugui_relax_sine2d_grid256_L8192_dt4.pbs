@@ -21,9 +21,9 @@ export I_MPI_PIN=0
 unset I_MPI_PIN_PROCESSOR_LIST
 
 repo=${REPO_ROOT:-$HOME/spectral-hohenberg-halperin-dynamics-2d}
-case_dir=examples/05_order_parameter_relaxation
+case_dir=examples/06_order_parameter_relaxation
 job_dir=$case_dir/kugui_jobs
-work_base=${WORK_BASE:-/work/k0565/k056500/spectral-hohenberg-halperin-dynamics-2d/examples/05_order_parameter_relaxation/raw_data}
+work_base=${WORK_BASE:-/work/k0565/k056500/spectral-hohenberg-halperin-dynamics-2d/examples/06_order_parameter_relaxation/raw_data}
 run_name=${RUN_NAME:-sine2d_grid256_L8192_dt4_T2400000}
 output_root=$work_base/$run_name
 

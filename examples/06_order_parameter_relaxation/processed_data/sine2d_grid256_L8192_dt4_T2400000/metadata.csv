@@ -1,0 +1,34 @@
+key,value
+dataset,sine2d_grid256_L8192_dt4_T2400000
+raw_data,raw_data/sine2d_grid256_L8192_dt4_T2400000
+samples,16
+snapshots_total,800
+snapshots_per_sample,50
+nx_physical,384
+ny_physical,384
+config.dealias,three_halves
+config.density,1.0
+config.dt,4.0
+config.eta,0.12
+config.free_energy_a,1.0
+config.grid,"[256, 256]"
+config.kBT,1.0
+config.length,"['8192', '8192']"
+config.mobility,0.12
+config.nkx,1
+config.nky,1
+config.order_parameter_amplitude,0.1
+config.order_parameter_base,0.0
+config.output_root,/work/k0565/k056500/spectral-hohenberg-halperin-dynamics-2d/examples/06_order_parameter_relaxation/raw_data/sine2d_grid256_L8192_dt4_T2400000
+config.progress,on
+config.run_steps,50000
+config.run_time,2400000.0
+config.sample_offset,0
+config.samples,16
+config.seed_source,os_entropy
+config.snapshot_dtout,48000.0
+config.snapshot_nevery,1000
+config.thermo_dtout,120000.0
+config.thermo_nevery,5000
+config.time_evolution,srk3/incompressible
+config.zeta,0.0

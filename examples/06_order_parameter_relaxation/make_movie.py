@@ -58,8 +58,8 @@ def read_domain_length(path: Path) -> tuple[float, float] | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input-glob", default="raw_data/physical_step*.snapshot")
-    parser.add_argument("--output", default="figures/order_parameter_relaxation.gif")
+    parser.add_argument("--input-glob", default="raw_data/sine2d_grid256_L8192_dt4_T2400000/samples/sample_000/snapshots/physical_step*.snapshot")
+    parser.add_argument("--output", default="figures/sample000_order_parameter.gif")
     parser.add_argument("--fps", type=int, default=10)
     parser.add_argument("--dpi", type=int, default=140)
     args = parser.parse_args()

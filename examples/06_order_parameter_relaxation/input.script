@@ -22,7 +22,7 @@ set                 momentum all uniform value 0.0
 set                 order_parameter all sine2d base 0.0 amplitude 0.1 nkx 1 nky 1
 
 thermo              observe on progress on nevery 5000
-measure             1 snapshot on nevery 1000 file examples/05_order_parameter_relaxation/raw_data/physical space physical
+measure             1 snapshot on nevery 1000 file examples/06_order_parameter_relaxation/raw_data/physical space physical
 restart             off
 
 run                 50000
