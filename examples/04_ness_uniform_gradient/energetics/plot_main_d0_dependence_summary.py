@@ -8,15 +8,16 @@ import numpy as np
 from analysis_common import (
     FIGURE_DIR,
     load_or_build_processed_energetics,
-    mct_induced_values,
-    mct_psi2_values,
+    mct_observable_values,
 )
 
 
 SC_LABELS = ("Sc1", "Sc4")
+FIXED_NU_LABEL = "nu0_1p00"
 OUTPUT = FIGURE_DIR / "04_main_steady_D0_dependence.png"
 SC4_OUTPUT = FIGURE_DIR / "04_main_steady_D0_dependence_sc4.png"
 COMPARISON_OUTPUT = FIGURE_DIR / "05_main_steady_D0_dependence_sc1_sc4.png"
+FIXED_NU_OUTPUT = FIGURE_DIR / "08_nu0_1p00_steady_D0_dependence.png"
 
 
 def load_rows(sc_label):
@@ -30,6 +31,16 @@ def power_law_fit(x, y, mask):
 
 def schmidt_number(params):
     return params["eta"] / (params["density"] * params["mobility"])
+
+
+def kinematic_viscosity(params):
+    return float(params.get("kinematic_viscosity_nu0", params["eta"] / params["density"]))
+
+
+def system_label(params):
+    if params.get("parameter_protocol") == "fixed_kinematic_viscosity":
+        return rf"\nu_0={kinematic_viscosity(params):.3g}"
+    return rf"S_c={schmidt_number(params):.0f}"
 
 
 def rows_to_arrays(rows):
@@ -48,12 +59,20 @@ def rows_to_arrays(rows):
 def theory_for_rows(rows):
     d0 = np.asarray([row["d0"] for row in rows])
     params = rows[0]["params"]
-    theory_d0 = np.exp(np.linspace(np.log(1.0e-3), np.log(max(d0.max() * 1.15, 4.5)), 700))
+    theory_d0 = np.unique(
+        np.concatenate(
+            [
+                np.exp(np.linspace(np.log(1.0e-3), np.log(max(d0.max() * 1.15, 4.5)), 90)),
+                d0,
+            ]
+        )
+    )
+    theory_values = mct_observable_values(theory_d0, params)
     return {
         "params": params,
         "d0": theory_d0,
-        "induced": mct_induced_values(theory_d0, params),
-        "psi2": mct_psi2_values(theory_d0, params),
+        "induced": theory_values["induced"],
+        "psi2": theory_values["psi2"],
     }
 
 
@@ -64,9 +83,8 @@ def length_fit(arrays):
     return fit, fit_x
 
 
-def plot_single(rows, output, sc_label):
+def plot_single(rows, output, sc_label, theory):
     arrays = rows_to_arrays(rows)
-    theory = theory_for_rows(rows)
     params = theory["params"]
     fit, fit_x = length_fit(arrays)
 
@@ -107,7 +125,7 @@ def plot_single(rows, output, sc_label):
     ax.legend(frameon=False, fontsize=8.1)
 
     fig.suptitle(
-        rf"$S_c={schmidt_number(params):.0f},\ N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$; "
+        rf"${system_label(params)},\ N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$; "
         r"steady averages over the last half of each run",
         fontsize=12.5,
     )
@@ -117,7 +135,69 @@ def plot_single(rows, output, sc_label):
     return fit
 
 
-def plot_comparison(rows_by_sc, output):
+def plot_fixed_nu(rows, output, theory):
+    arrays = rows_to_arrays(rows)
+    params = theory["params"]
+    fit, fit_x = length_fit(arrays)
+    sc_values = np.asarray([schmidt_number(row["params"]) for row in rows])
+
+    fig, axes = plt.subplots(1, 4, figsize=(16.8, 4.35), constrained_layout=True)
+
+    ax = axes[0]
+    ax.errorbar(arrays["d0"], arrays["psi2"], yerr=arrays["psi2_sem"], fmt="o-", color="#2563eb", capsize=3, lw=1.25, label="simulation")
+    ax.plot(theory["d0"], theory["psi2"], color="#111827", ls="--", lw=1.6, label="self-consistent MCT")
+    ax.set_xscale("log")
+    ax.set_xlabel(r"$D_0$")
+    ax.set_ylabel(r"$\langle|\psi|^2\rangle$")
+    ax.set_title(r"(a) Static fluctuation amplitude")
+    ax.grid(True, which="both", alpha=0.25)
+    ax.legend(frameon=False, fontsize=7.5)
+
+    ax = axes[1]
+    ax.errorbar(arrays["d0"], arrays["induced"], yerr=arrays["induced_sem"], fmt="o-", color="#2563eb", capsize=3, lw=1.25, label="simulation")
+    ax.plot(theory["d0"], theory["induced"], color="#111827", ls="--", lw=1.6, label="self-consistent MCT")
+    ax.axhline(theory["induced"][0], color="#64748b", ls=":", lw=1.2, label=r"$D_0\to0$")
+    ax.set_xscale("log")
+    ax.set_ylim(0.0, 1.10 * max(float(theory["induced"].max()), float((arrays["induced"] + arrays["induced_sem"]).max())))
+    ax.set_xlabel(r"$D_0$")
+    ax.set_ylabel(r"$D_0\langle|\nabla\delta\psi|^2\rangle/V$")
+    ax.set_title(r"(b) Induced part, MCT zoom")
+    ax.ticklabel_format(axis="y", style="sci", scilimits=(-2, 2))
+    ax.grid(True, which="both", alpha=0.25)
+    ax.legend(frameon=False, fontsize=7.5)
+
+    ax = axes[2]
+    ax.errorbar(arrays["d0"], arrays["length"], yerr=arrays["length_sem"], fmt="o-", color="#2563eb", capsize=3, lw=1.25)
+    ax.plot(fit_x, fit[1] * fit_x ** fit[0], color="#111827", ls="--", lw=1.3, label=rf"$D_0\leq0.5$: $\ell\propto D_0^{{{fit[0]:.2f}}}$")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel(r"$D_0$")
+    ax.set_ylabel(r"$2\pi\sqrt{\langle|\psi|^2\rangle/\langle|\nabla\psi|^2\rangle}$")
+    ax.set_title(r"(c) Characteristic length")
+    ax.grid(True, which="both", alpha=0.25)
+    ax.legend(frameon=False, fontsize=7.4)
+
+    ax = axes[3]
+    ax.plot(arrays["d0"], sc_values, "o-", color="#dc2626", lw=1.25)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel(r"$D_0$")
+    ax.set_ylabel(r"$S_c=\nu_0/D_0$")
+    ax.set_title(r"(d) Schmidt number")
+    ax.grid(True, which="both", alpha=0.25)
+
+    fig.suptitle(
+        rf"${system_label(params)},\ N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$; "
+        r"steady averages over the last half of each run",
+        fontsize=12.3,
+    )
+    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=240, bbox_inches="tight")
+    plt.close(fig)
+    return fit
+
+
+def plot_comparison(rows_by_sc, theories_by_sc, output):
     styles = {
         "Sc1": {"color": "#2563eb", "marker": "o"},
         "Sc4": {"color": "#dc2626", "marker": "s"},
@@ -127,7 +207,7 @@ def plot_comparison(rows_by_sc, output):
 
     for sc_label, rows in rows_by_sc.items():
         arrays = rows_to_arrays(rows)
-        theory = theory_for_rows(rows)
+        theory = theories_by_sc[sc_label]
         params = theory["params"]
         fit, fit_x = length_fit(arrays)
         style = styles[sc_label]
@@ -219,15 +299,20 @@ def print_summary(sc_label, rows, fit):
 
 def main():
     rows_by_sc = {sc_label: load_rows(sc_label) for sc_label in SC_LABELS}
+    theories_by_sc = {sc_label: theory_for_rows(rows_by_sc[sc_label]) for sc_label in SC_LABELS}
+    fixed_nu_rows = load_rows(FIXED_NU_LABEL)
+    fixed_nu_theory = theory_for_rows(fixed_nu_rows)
     outputs = {"Sc1": OUTPUT, "Sc4": SC4_OUTPUT}
     fits = {}
     for sc_label, rows in rows_by_sc.items():
-        fits[sc_label] = plot_single(rows, outputs[sc_label], sc_label)
-    plot_comparison(rows_by_sc, COMPARISON_OUTPUT)
+        fits[sc_label] = plot_single(rows, outputs[sc_label], sc_label, theories_by_sc[sc_label])
+    plot_comparison(rows_by_sc, theories_by_sc, COMPARISON_OUTPUT)
+    fixed_nu_fit = plot_fixed_nu(fixed_nu_rows, FIXED_NU_OUTPUT, fixed_nu_theory)
 
     for sc_label in SC_LABELS:
         print_summary(sc_label, rows_by_sc[sc_label], fits[sc_label])
-    for output in (OUTPUT, SC4_OUTPUT, COMPARISON_OUTPUT):
+    print_summary(FIXED_NU_LABEL, fixed_nu_rows, fixed_nu_fit)
+    for output in (OUTPUT, SC4_OUTPUT, COMPARISON_OUTPUT, FIXED_NU_OUTPUT):
         print(f"saved {output}")
 
 

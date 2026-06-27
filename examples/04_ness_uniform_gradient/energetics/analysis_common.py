@@ -13,6 +13,11 @@ FIGURE_DIR = EXAMPLE / "figures"
 
 QUANTITY_KEYS = ("E_K", "psi2", "induced", "production")
 PROCESSED_TIME_SERIES_MAX_POINTS = 2500
+MCT_S46_RADIAL_COUNT = 192
+MCT_S46_MAX_ITER = 300
+MCT_S46_TOLERANCE = 1.0e-8
+MCT_S46_DAMPING = 0.45
+_MCT_GEOMETRY_CACHE = {}
 
 
 def numeric_label(path, prefix):
@@ -148,22 +153,130 @@ def active_mode_arrays(params):
     return np.asarray(k_values), np.asarray(angles), np.asarray(weights)
 
 
+def active_signed_mode_arrays(params):
+    active_nx, active_ny = params["grid"]
+    lx, ly = params["length"]
+    nx_values = np.arange(-active_nx // 2 + 1, active_nx // 2, dtype=float)
+    ny_values = np.arange(-active_ny // 2 + 1, active_ny // 2, dtype=float)
+    nx_grid, ny_grid = np.meshgrid(nx_values, ny_values, indexing="ij")
+    qx = 2.0 * np.pi * nx_grid / lx
+    qy = 2.0 * np.pi * ny_grid / ly
+    q2 = qx * qx + qy * qy
+    mask = q2 > 0.0
+    return nx_grid[mask], ny_grid[mask], qx[mask], qy[mask], q2[mask]
+
+
 def kinematic_viscosity_for_d0(d0_values, params):
+    d0_values = np.asarray(d0_values, dtype=float)
+    if params.get("parameter_protocol") == "fixed_kinematic_viscosity":
+        nu0 = float(params.get("kinematic_viscosity_nu0", params["eta"] / params["density"]))
+        return np.full_like(d0_values, nu0, dtype=float)
+
     mobility = params["mobility"]
     if mobility == 0.0:
         raise ValueError("MCT comparison requires nonzero mobility.")
     schmidt = params["eta"] / (params["density"] * mobility)
-    return schmidt * np.asarray(d0_values, dtype=float)
+    return schmidt * d0_values
+
+
+def mct_external_wave_vector(k, params):
+    k = np.asarray(k, dtype=float)
+    if params["gradient_direction"] == "x":
+        return k, np.zeros_like(k)
+    if params["gradient_direction"] == "y":
+        return np.zeros_like(k), k
+    raise ValueError(f"unknown gradient direction: {params['gradient_direction']}")
+
+
+def mct_s46_geometry(params, radial_count=MCT_S46_RADIAL_COUNT):
+    key = (
+        params["grid"],
+        params["length"],
+        params["gradient_direction"],
+        int(radial_count),
+    )
+    if key in _MCT_GEOMETRY_CACHE:
+        return _MCT_GEOMETRY_CACHE[key]
+
+    nx, ny, qx, qy, q2 = active_signed_mode_arrays(params)
+    q_abs = np.sqrt(q2)
+    k_grid = np.geomspace(float(q_abs.min()), float(q_abs.max()), int(radial_count))
+    kx_external, ky_external = mct_external_wave_vector(k_grid, params)
+    k2_external = k_grid * k_grid
+    q_dot_k = kx_external[:, None] * qx[None, :] + ky_external[:, None] * qy[None, :]
+    numerator = q2[None, :] * k2_external[:, None] - q_dot_k * q_dot_k
+    px = kx_external[:, None] - qx[None, :]
+    py = ky_external[:, None] - qy[None, :]
+    p2 = px * px + py * py
+
+    lx, ly = params["length"]
+    active_nx, active_ny = params["grid"]
+    nx_external = kx_external * lx / (2.0 * np.pi)
+    ny_external = ky_external * ly / (2.0 * np.pi)
+    px_index = nx_external[:, None] - nx[None, :]
+    py_index = ny_external[:, None] - ny[None, :]
+    p_active = (np.abs(px_index) < active_nx / 2.0) & (np.abs(py_index) < active_ny / 2.0)
+    mask = (p2 > 1.0e-30) & (numerator > 0.0) & p_active
+
+    geometry = {
+        "k_grid": k_grid,
+        "q_abs": q_abs,
+        "q2": q2,
+        "p2": p2,
+        "numerator": numerator,
+        "mask": mask,
+        "volume": params["volume"],
+    }
+    _MCT_GEOMETRY_CACHE[key] = geometry
+    return geometry
+
+
+def solve_mct_s46_active_for_d0(d0, params, geometry, initial=None):
+    k_grid = geometry["k_grid"]
+    q_abs = geometry["q_abs"]
+    q2 = geometry["q2"]
+    p2 = geometry["p2"]
+    numerator = geometry["numerator"]
+    mask = geometry["mask"]
+    volume = geometry["volume"]
+    nu0 = float(kinematic_viscosity_for_d0(np.asarray([d0]), params)[0])
+    if initial is None:
+        current = np.full_like(k_grid, float(d0))
+    else:
+        current = np.asarray(initial, dtype=float).copy()
+
+    error = np.inf
+    iterations = 0
+    for iteration in range(1, MCT_S46_MAX_ITER + 1):
+        d_q = np.interp(q_abs, k_grid, current, left=current[0], right=current[-1])
+        denominator = p2 * (nu0 * p2 + d_q[None, :] * q2[None, :])
+        terms = np.zeros_like(p2)
+        np.divide(numerator, denominator, out=terms, where=mask)
+        integral = np.sum(terms, axis=1) / volume
+        target = float(d0) + params["kBT"] * integral / (params["density"] * k_grid * k_grid)
+        next_value = (1.0 - MCT_S46_DAMPING) * current + MCT_S46_DAMPING * target
+        scale = np.maximum(np.abs(next_value), 1.0e-12)
+        error = float(np.max(np.abs(next_value - current) / scale))
+        current = next_value
+        iterations = iteration
+        if error < MCT_S46_TOLERANCE:
+            break
+    return current, iterations, error
 
 
 def mct_renormalized_diffusion(d0_values, k, params):
     d0_values = np.asarray(d0_values, dtype=float)
-    nu0 = kinematic_viscosity_for_d0(d0_values, params)
-    cutoff = 2.0 * np.pi / params["a_uv"]
-    delta = params["kBT"] * np.log(cutoff / k) / (4.0 * np.pi * params["density"])
-    d0_grid = d0_values[:, None]
-    nu0_grid = nu0[:, None]
-    return 0.5 * (d0_grid - nu0_grid) + np.sqrt(0.25 * (d0_grid + nu0_grid) ** 2 + delta[None, :])
+    k = np.asarray(k, dtype=float)
+    geometry = mct_s46_geometry(params)
+    order = np.argsort(d0_values)
+    values = np.empty((d0_values.size, k.size), dtype=float)
+    previous = None
+    for ordered_index in order:
+        d0 = float(d0_values[ordered_index])
+        solution, _, _ = solve_mct_s46_active_for_d0(d0, params, geometry, previous)
+        values[ordered_index, :] = np.interp(k, geometry["k_grid"], solution, left=solution[0], right=solution[-1])
+        previous = solution
+    return values
 
 
 def mct_induced(d0, params):
@@ -177,29 +290,29 @@ def mct_induced(d0, params):
 
 
 def mct_induced_values(d0_values, params):
-    d0_values = np.asarray(d0_values, dtype=float)
-    k, angle, weight = active_mode_arrays(params)
-    dr = mct_renormalized_diffusion(d0_values, k, params)
-    nu0 = kinematic_viscosity_for_d0(d0_values, params)
-    total = np.sum(weight[None, :] * angle[None, :] / (nu0[:, None] + dr), axis=1)
-    return params["kBT"] * params["gradient"] ** 2 * total / (
-        params["density"] * params["chi"] * params["volume"]
-    )
+    return mct_observable_values(d0_values, params)["induced"]
 
 
 def mct_psi2_values(d0_values, params):
+    return mct_observable_values(d0_values, params)["psi2"]
+
+
+def mct_observable_values(d0_values, params):
     d0_values = np.asarray(d0_values, dtype=float)
     k, angle, weight = active_mode_arrays(params)
     dr = mct_renormalized_diffusion(d0_values, k, params)
     nu0 = kinematic_viscosity_for_d0(d0_values, params)
-    total = np.sum(
+    induced_total = np.sum(weight[None, :] * angle[None, :] / (nu0[:, None] + dr), axis=1)
+    psi2_total = np.sum(
         weight[None, :] * angle[None, :]
         / (k[None, :] ** 2 * dr * (nu0[:, None] + dr)),
         axis=1,
     )
-    return params["kBT"] * params["gradient"] ** 2 * total / (
-        params["density"] * params["chi"]
-    )
+    prefactor = params["kBT"] * params["gradient"] ** 2 / (params["density"] * params["chi"])
+    return {
+        "induced": prefactor * induced_total / params["volume"],
+        "psi2": prefactor * psi2_total,
+    }
 
 
 def format_float(value):
@@ -358,7 +471,39 @@ def metadata_to_base_params(metadata):
         "a_uv": float(metadata["a_uv"]),
         "volume": float(metadata["volume"]),
     }
+    if "parameter_protocol" in metadata:
+        params["parameter_protocol"] = metadata["parameter_protocol"]
+    if "kinematic_viscosity_nu0" in metadata:
+        params["kinematic_viscosity_nu0"] = float(metadata["kinematic_viscosity_nu0"])
     return params
+
+
+def parameter_protocol_metadata(cases):
+    d0_values = np.asarray([case["d0"] for case in cases], dtype=float)
+    eta_values = np.asarray([case["params"]["eta"] for case in cases], dtype=float)
+    density_values = np.asarray([case["params"]["density"] for case in cases], dtype=float)
+    mobility_values = np.asarray([case["params"]["mobility"] for case in cases], dtype=float)
+    schmidt_values = eta_values / (density_values * mobility_values)
+    nu_values = eta_values / density_values
+
+    entries = []
+    if np.allclose(nu_values, nu_values[0]) and np.allclose(mobility_values, d0_values):
+        entries.extend(
+            [
+                ("parameter_protocol", "fixed_kinematic_viscosity"),
+                ("kinematic_viscosity_nu0", format_float(nu_values[0])),
+                ("mobility_equals_d0", "true"),
+                ("schmidt_number_min", format_float(float(schmidt_values.min()))),
+                ("schmidt_number_max", format_float(float(schmidt_values.max()))),
+            ]
+        )
+    elif np.allclose(schmidt_values, schmidt_values[0]):
+        entries.append(("parameter_protocol", "fixed_schmidt"))
+    else:
+        entries.append(("parameter_protocol", "mixed"))
+        entries.append(("schmidt_number_min", format_float(float(schmidt_values.min()))))
+        entries.append(("schmidt_number_max", format_float(float(schmidt_values.max()))))
+    return entries
 
 
 def write_processed_energetics(sc_label, cases, processed_root=PROCESSED_DATA_ROOT):
@@ -387,6 +532,7 @@ def write_processed_energetics(sc_label, cases, processed_root=PROCESSED_DATA_RO
         ("time_series_sampling", f"uniform_index_max_{PROCESSED_TIME_SERIES_MAX_POINTS}"),
     ]
     entries.extend(params_to_metadata(first["params"]))
+    entries.extend(parameter_protocol_metadata(cases))
     write_metadata(metadata_path(sc_label, processed_root), entries)
 
     with time_series_path(sc_label, processed_root).open("w", newline="") as handle:

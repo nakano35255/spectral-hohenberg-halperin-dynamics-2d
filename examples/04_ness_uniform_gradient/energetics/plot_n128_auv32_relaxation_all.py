@@ -12,7 +12,7 @@ from analysis_common import FIGURE_DIR, load_or_build_processed_energetics
 
 RELAXATION_OUTPUT = FIGURE_DIR / "02_main_relaxation_by_D0.png"
 OVERLAY_OUTPUT = FIGURE_DIR / "03_main_observables_vs_time_by_D0.png"
-SC_LABELS = ("Sc1", "Sc4")
+SC_LABELS = ("Sc1", "Sc4", "nu0_1p00")
 
 
 QUANTITIES = [
@@ -26,11 +26,30 @@ QUANTITIES = [
 def output_paths(sc_label):
     if sc_label == "Sc1":
         return RELAXATION_OUTPUT, OVERLAY_OUTPUT
+    if sc_label == "nu0_1p00":
+        return (
+            FIGURE_DIR / "06_nu0_1p00_relaxation_by_D0.png",
+            FIGURE_DIR / "07_nu0_1p00_observables_vs_time_by_D0.png",
+        )
     suffix = sc_label.lower()
     return (
         FIGURE_DIR / f"02_main_relaxation_by_D0_{suffix}.png",
         FIGURE_DIR / f"03_main_observables_vs_time_by_D0_{suffix}.png",
     )
+
+
+def schmidt_number(params):
+    return params["eta"] / (params["density"] * params["mobility"])
+
+
+def kinematic_viscosity(params):
+    return float(params.get("kinematic_viscosity_nu0", params["eta"] / params["density"]))
+
+
+def system_label(params):
+    if params.get("parameter_protocol") == "fixed_kinematic_viscosity":
+        return rf"\nu_0={kinematic_viscosity(params):.3g}"
+    return rf"S_c={schmidt_number(params):.0f}"
 
 
 def plot_indices(size, max_points=2500):
@@ -89,8 +108,7 @@ def plot_relaxation_grid(cases, colors, sc_label, output):
 
     params = cases[0]["params"]
     fig.suptitle(
-        rf"$S_c={params['eta'] / (params['density'] * params['mobility']):.0f},\ "
-        rf"N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$: "
+        rf"${system_label(params)},\ N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$: "
         rf"relaxation for all main $D_0$ values ({sc_label})",
         fontsize=13,
     )
@@ -128,8 +146,7 @@ def plot_overlay(cases, colors, sc_label, output):
     fig.legend(handles, labels, loc="upper center", ncols=5, frameon=False, bbox_to_anchor=(0.5, 1.05))
     params = cases[0]["params"]
     fig.suptitle(
-        rf"$S_c={params['eta'] / (params['density'] * params['mobility']):.0f},\ "
-        rf"N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$: "
+        rf"${system_label(params)},\ N={params['grid'][0]},\ a_{{uv}}={params['a_uv']:.0f},\ L={params['length'][0]:.0f},\ G={params['gradient']:.8g}$: "
         rf"all main $D_0$ time series ({sc_label})",
         fontsize=13,
         y=1.11,

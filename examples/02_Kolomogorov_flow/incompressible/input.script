@@ -10,7 +10,7 @@ order_parameters    0
 timestep            0.01
 time_evolution      srk3/incompressible
 
-model transport     constant eta 0.1
+model transport     constant eta 0.5
 
 fix                 1 momentum nonlinear on
 fix                 2 momentum force/sine on component x axis y nk 1 amplitude 0.02
