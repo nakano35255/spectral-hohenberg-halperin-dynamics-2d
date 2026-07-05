@@ -12,17 +12,20 @@ enum class DynamicsMode {
 
 inline DynamicsMode parse_dynamics_mode(const std::string& time_evolution_type) {
     if (time_evolution_type == "euler/compressible" ||
-        time_evolution_type == "srk3/compressible") {
+        time_evolution_type == "srk3/compressible" ||
+        time_evolution_type == "imex_midpoint/compressible") {
         return DynamicsMode::Compressible;
     }
 
     if (time_evolution_type == "euler/incompressible" ||
-        time_evolution_type == "srk3/incompressible") {
+        time_evolution_type == "srk3/incompressible" ||
+        time_evolution_type == "imex_midpoint/incompressible") {
         return DynamicsMode::Incompressible;
     }
 
     if (time_evolution_type == "euler/quiescent" ||
-        time_evolution_type == "srk3/quiescent") {
+        time_evolution_type == "srk3/quiescent" ||
+        time_evolution_type == "imex_midpoint/quiescent") {
         return DynamicsMode::Quiescent;
     }
 

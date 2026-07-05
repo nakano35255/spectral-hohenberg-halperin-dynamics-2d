@@ -16,6 +16,10 @@
 #include "time_integrator_srk3_compressible.h"
 #include "time_integrator_srk3_incompressible.h"
 #include "time_integrator_srk3_quiescent.h"
+#include "implicit_operator.h"
+#include "time_integrator_imex_compressible.h"
+#include "time_integrator_imex_incompressible.h"
+#include "time_integrator_imex_quiescent.h"
 
 #include <memory>
 #include <string>
@@ -31,6 +35,7 @@ private:
 
      SpectralMask2D spectral_mask_;
      FCalculator fcalculator_;
+     ImplicitOperator imoperator_;
      std::unique_ptr<TimeIntegrator> time_integrator_;
      RHSOperators rhs_;
 
@@ -43,7 +48,9 @@ private:
           if (type == "srk3/compressible") return std::make_unique<SRK3Compressible>(domain, params, spectral_mask);
           if (type == "srk3/quiescent") return std::make_unique<SRK3Quiescent>(domain, params, spectral_mask);
           if (type == "srk3/incompressible") return std::make_unique<SRK3Incompressible>(domain, params, spectral_mask);
-
+          if (type == "imex_midpoint/compressible") return std::make_unique<IMEXCompressible>(domain, params, spectral_mask);
+          if (type == "imex_midpoint/incompressible") return std::make_unique<IMEXIncompressible>(domain, params, spectral_mask);
+          if (type == "imex_midpoint/quiescent") return std::make_unique<IMEXQuiescent>(domain, params, spectral_mask);
           throw std::runtime_error("unknown time_evolution type: " + type);
      }
 
@@ -63,6 +70,7 @@ public:
           transport_coefficient_(transport_coefficient),
           spectral_mask_(params_, domain_),
           fcalculator_(params_, domain_, spectral_mask_, thermodynamics_, free_energy_, transport_coefficient_),
+          imoperator_(params_, domain_, spectral_mask_, thermodynamics_, free_energy_, transport_coefficient_),
           time_integrator_(create_time_integrator(params_, domain_, spectral_mask_))
      {
           rhs_.rho_det = [this](const State& state, Complex* out, double time, FluxBuffer* flux) {
@@ -75,6 +83,25 @@ public:
                fcalculator_.j_det(state, out_jx, out_jy, time, flux);
           };
 
+          // Split deterministic RHS used by IMEX midpoint.
+          rhs_.rho_lin_det = [this](const State& state, Complex* out, double time, FluxBuffer* flux) {
+               fcalculator_.rho_lin_det(state, out, time, flux);
+          };
+          rhs_.rho_nonlin_det = [this](const State& state, Complex* out, double time, FluxBuffer* flux) {
+               fcalculator_.rho_nonlin_det(state, out, time, flux);
+          };
+          rhs_.psi_lin_det = [this](int order_parameter, const State& state, Complex* out, double time, FluxBuffer* flux) {
+               fcalculator_.psi_lin_det(order_parameter, state, out, time, flux);
+          };
+          rhs_.psi_nonlin_det = [this](int order_parameter, const State& state, Complex* out, double time, FluxBuffer* flux) {
+               fcalculator_.psi_nonlin_det(order_parameter, state, out, time, flux);
+          };
+          rhs_.j_lin_det = [this](const State& state, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) {
+               fcalculator_.j_lin_det(state, out_jx, out_jy, time, flux);
+          };
+          rhs_.j_nonlin_det = [this](const State& state, Complex* out_jx, Complex* out_jy, double time, FluxBuffer* flux) {
+               fcalculator_.j_nonlin_det(state, out_jx, out_jy, time, flux);
+          };
 
           if (params_.fix.noise.enabled) {
                if (params_.fix.noise.order_parameter_enabled && params_.physics.num_order_parameters > 0) {
@@ -83,8 +110,7 @@ public:
                     };
                }
 
-               const bool quiescent = params_.runtime.time_evolution_type == "euler/quiescent"
-                                        || params_.runtime.time_evolution_type == "srk3/quiescent";
+               const bool quiescent = is_quiescent_mode(parse_dynamics_mode(params_.runtime.time_evolution_type));
 
                if (params_.fix.noise.momentum_enabled && !quiescent) {
                     rhs_.j_sto = [this](const State& state, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) {
@@ -92,6 +118,10 @@ public:
                     };
                }
           }
+
+          rhs_.apply_implicit_inverse = [this](State& dst, const State& src, double alpha) {
+               imoperator_.apply_inverse(dst, src, alpha);
+          };
      }
 
      void step(State& state, double time) {

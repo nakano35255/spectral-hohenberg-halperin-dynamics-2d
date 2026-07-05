@@ -22,6 +22,8 @@ using DensityStoRHSFunc = std::function<void(const State&, Complex*, FluxBuffer*
 using OrderParameterStoRHSFunc = std::function<void(int, const State&, Complex*, FluxBuffer*)>;
 using MomentumStoRHSFunc = std::function<void(const State&, Complex*, Complex*, FluxBuffer*)>;
 
+using ImplicitInverseFunc = std::function<void(State& dst, const State& src, double alpha)>;
+
 struct RHSOperators {
     DensityDetRHSFunc rho_det;
     OrderParameterDetRHSFunc psi_det;
@@ -29,6 +31,16 @@ struct RHSOperators {
 
     OrderParameterStoRHSFunc psi_sto;
     MomentumStoRHSFunc j_sto;
+
+    // Split deterministic RHS used by IMEX midpoint.
+    DensityDetRHSFunc rho_lin_det;
+    DensityDetRHSFunc rho_nonlin_det;
+    OrderParameterDetRHSFunc psi_lin_det;
+    OrderParameterDetRHSFunc psi_nonlin_det;
+    MomentumDetRHSFunc j_lin_det;
+    MomentumDetRHSFunc j_nonlin_det;
+    // Implicit linear solve used by IMEX midpoint:
+    ImplicitInverseFunc apply_implicit_inverse;
 };
 
 class TimeIntegrator {

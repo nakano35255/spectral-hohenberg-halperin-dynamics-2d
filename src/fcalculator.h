@@ -50,7 +50,10 @@ private:
     void add_momentum_sine_force_terms(Complex* out_jx, Complex* out_jy) const;
     void add_order_parameter_sine_force_terms(int order_parameter, Complex* out) const;
     void add_order_parameter_gradient_force_terms(int order_parameter, const State& current, Complex* out, double time) const;
-    
+
+    // helper used by IMEX midpoint
+    void add_compressible_linear_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double time, double weight, FluxBuffer* flux) const;
+
 public:
     FCalculator(
         const Params& params,
@@ -67,6 +70,14 @@ public:
 
     void psi_sto(int order_parameter, const State& current, Complex* out, FluxBuffer* flux) const;
     void j_sto(const State& current, Complex* out_jx, Complex* out_jy, FluxBuffer* flux) const;
+
+    // Split deterministic RHS used by IMEX midpoint.
+    void rho_lin_det(const State& current, Complex* out, double t, FluxBuffer* flux) const;
+    void rho_nonlin_det(const State& current, Complex* out, double t, FluxBuffer* flux) const;
+    void psi_lin_det(int order_parameter, const State& current, Complex* out, double t, FluxBuffer* flux) const;
+    void psi_nonlin_det(int order_parameter, const State& current, Complex* out, double t, FluxBuffer* flux) const;
+    void j_lin_det(const State& current, Complex* out_jx, Complex* out_jy, double t, FluxBuffer* flux) const;
+    void j_nonlin_det(const State& current, Complex* out_jx, Complex* out_jy, double t, FluxBuffer* flux) const;
 };
 
 #endif

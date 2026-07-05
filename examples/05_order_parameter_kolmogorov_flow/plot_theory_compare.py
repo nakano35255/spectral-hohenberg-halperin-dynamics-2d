@@ -582,9 +582,6 @@ def make_profile_figure(run_name, rows, selected_nks, output):
         left_axes.append(ax)
         metrics = profile_modes(profiles[nk])
         coord = metrics["coord"]
-        target = target_amplitude * np.sin(metrics["k"] * coord)
-        ax.plot(coord, target, color="#6b7280", lw=1.0, ls="--", label="bare target" if index == 0 else None)
-        ax.plot(coord, metrics["fit"], color="#111827", lw=1.0, ls=":", label="first harmonic" if index == 0 else None)
         ax.plot(coord, metrics["psi"], color=color, lw=1.55, label="simulation" if index == 0 else None)
         ax.fill_between(
             coord,
@@ -600,7 +597,7 @@ def make_profile_figure(run_name, rows, selected_nks, output):
         if index + 1 < len(selected):
             ax.tick_params(labelbottom=False)
     left_axes[-1].set_xlabel(r"$y$")
-    left_axes[0].legend(frameon=False, fontsize=8.0, ncol=3, loc="upper right")
+    left_axes[0].legend(frameon=False, fontsize=8.0, ncol=1, loc="upper right")
 
     all_k = []
     amplitude_ratio = []

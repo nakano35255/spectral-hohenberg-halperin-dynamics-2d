@@ -1,0 +1,11 @@
+comparison,quantity,baseline_window,comparison_window,baseline_mean,comparison_mean,relative_change
+segment1_last_half_vs_first_half,E_K,segment_001_first_half,segment_001_last_half,1.3055583099234685e+05,1.3055457366939838e+05,-9.6305384364132153e-06
+segment1_last_half_vs_first_half,psi2,segment_001_first_half,segment_001_last_half,1.4484460836491419e+06,2.2254770656584250e+06,5.3645834027295680e-01
+segment1_last_half_vs_first_half,dissipation,segment_001_first_half,segment_001_last_half,1.0079095088367243e-08,1.0576913944201518e-08,4.9391225250849283e-02
+segment1_last_half_vs_first_half,production,segment_001_first_half,segment_001_last_half,1.0153648420405907e-08,1.0614445039550180e-08,4.5382368983566963e-02
+segment1_last_half_vs_first_half,length,segment_001_first_half,segment_001_last_half,1.5014691609988597e+03,1.8886497318361007e+03,2.5786781433437317e-01
+segment1_last_quarter_vs_previous,E_K,segment_001_q3,segment_001_q4,1.3055636626938661e+05,1.3055278224411524e+05,-2.7451937992611401e-05
+segment1_last_quarter_vs_previous,psi2,segment_001_q3,segment_001_q4,1.9540628846282838e+06,2.4967133868058468e+06,2.7770370464857891e-01
+segment1_last_quarter_vs_previous,dissipation,segment_001_q3,segment_001_q4,1.0460650466515603e-08,1.0693101233501004e-08,2.2221444806847665e-02
+segment1_last_quarter_vs_previous,production,segment_001_q3,segment_001_q4,1.0454177366011343e-08,1.0774607688401245e-08,3.0650936096768937e-02
+segment1_last_quarter_vs_previous,length,segment_001_q3,segment_001_q4,1.7916683771376283e+03,1.9855675338774968e+03,1.0822268183894720e-01

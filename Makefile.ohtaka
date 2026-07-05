@@ -25,6 +25,7 @@ SRCS := \
 	src/domain.cc \
 	src/fcalculator.cc \
 	src/fcalculator_workspace.cc \
+	src/implicit_operator.cc \
 	src/initial_condition.cc \
 	src/initial_condition_equilibrium_gaussian_density.cc \
 	src/initial_condition_equilibrium_gaussian_momentum_compressible.cc \

@@ -839,3 +839,136 @@ void FCalculator::add_order_parameter_gradient_force_terms(int order_parameter, 
     throw std::runtime_error("force/gradient encountered unknown dynamics mode.");
 }
 // ---------------------------------------------------------------------- //
+void FCalculator::add_compressible_linear_viscous_term(double eta, double zeta, const State& current, Complex* out_jx, Complex* out_jy, double /*time*/, double weight, FluxBuffer* flux) const {
+    if (weight == 0.0 || (eta == 0.0 && zeta == 0.0)) {
+        return;
+    }
+
+    const double rho0 = workspace_.reference_density(current);
+    const Complex* jx = current.jx_hat_data();
+    const Complex* jy = current.jy_hat_data();
+
+    const bool record_flux = flux && flux->request().momentum;
+    Complex* momentum_flux_xx = nullptr;
+    Complex* momentum_flux_xy = nullptr;
+    Complex* momentum_flux_yy = nullptr;
+    if (record_flux) {
+        momentum_flux_xx = flux->momentum_flux_xx_hat_data();
+        momentum_flux_xy = flux->momentum_flux_xy_hat_data();
+        momentum_flux_yy = flux->momentum_flux_yy_hat_data();
+    }
+
+    for (const SpectralMode2D& mode : spectral_mask_.active_modes()) {
+        const std::size_t i = mode.index;
+        const double kx = mode.kx;
+        const double ky = mode.ky;
+
+        const Complex vx_hat = jx[i] / rho0;
+        const Complex vy_hat = jy[i] / rho0;
+        const Complex k_dot_v = kx * vx_hat + ky * vy_hat;
+
+        const Complex pi_xx = weight * (-Complex(0.0, 1.0)) * (2.0 * eta * kx * vx_hat - (eta - zeta) * k_dot_v);
+        const Complex pi_xy = weight * (-Complex(0.0, eta)) * (ky * vx_hat + kx * vy_hat);
+        const Complex pi_yy = weight * (-Complex(0.0, 1.0)) * (2.0 * eta * ky * vy_hat - (eta - zeta) * k_dot_v);
+
+        out_jx[i] += -Complex(0.0, 1.0) * (kx * pi_xx + ky * pi_xy);
+        out_jy[i] += -Complex(0.0, 1.0) * (kx * pi_xy + ky * pi_yy);
+
+        if (record_flux) {
+            momentum_flux_xx[i] += pi_xx;
+            momentum_flux_xy[i] += pi_xy;
+            momentum_flux_yy[i] += pi_yy;
+        }
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::rho_lin_det(const State& current, Complex* out, double t, FluxBuffer* flux) const {
+    rho_det(current, out, t, flux);
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::rho_nonlin_det(const State& /*current*/, Complex* out, double /*t*/, FluxBuffer* /*flux*/) const {
+    clear(out);
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::psi_lin_det(int order_parameter, const State& current, Complex* out, double /*t*/, FluxBuffer* flux) const {
+    clear(out);
+
+    const double mobility = transport_coefficient_.order_parameter_mobility()[static_cast<std::size_t>(order_parameter)];
+
+    if (mobility != 0.0) {
+        add_order_parameter_linear_term(order_parameter, mobility, current, out, flux);
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::psi_nonlin_det(int order_parameter, const State& current, Complex* out, double t, FluxBuffer* flux) const {
+    clear(out);
+
+    const double mobility = transport_coefficient_.order_parameter_mobility()[static_cast<std::size_t>(order_parameter)];
+    const bool has_advection = params_.fix.order_parameter_advection;
+    const bool has_physical_mu = free_energy_.has_physical_chemical_potential();
+
+    if (mobility == 0.0 && !has_advection) {
+        return;
+    }
+
+    if (has_advection || has_physical_mu) {
+        add_order_parameter_physical_terms(order_parameter, mobility, current, out, t, flux);
+    }
+
+    add_order_parameter_sine_force_terms(order_parameter, out);
+    add_order_parameter_gradient_force_terms(order_parameter, current, out, t);
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::j_lin_det(const State& current, Complex* out_jx, Complex* out_jy, double t, FluxBuffer* flux) const {
+    clear(out_jx);
+    clear(out_jy);
+
+    if (is_quiescent_mode(dynamics_mode_)) {
+        return;
+    }
+
+    const double pressure_coefficient = thermodynamics_.linear_pressure_coefficient();
+    const double eta = transport_coefficient_.shear_viscosity();
+    const double zeta = transport_coefficient_.bulk_viscosity();
+
+    if (pressure_coefficient != 0.0) {
+        add_linear_pressure_term(pressure_coefficient, current, out_jx, out_jy, flux);
+    }
+
+    if (eta != 0.0 || zeta != 0.0) {
+        if (is_incompressible_mode(dynamics_mode_)) {
+            add_incompressible_viscous_term(eta, zeta, current, out_jx, out_jy, flux);
+        } else if (is_compressible_mode(dynamics_mode_)) {
+            add_compressible_linear_viscous_term(eta, zeta, current, out_jx, out_jy, t, 1.0, flux);
+        }
+    }
+}
+// ---------------------------------------------------------------------- //
+void FCalculator::j_nonlin_det(const State& current, Complex* out_jx, Complex* out_jy, double t, FluxBuffer* flux) const {
+    clear(out_jx);
+    clear(out_jy);
+
+    if (is_quiescent_mode(dynamics_mode_)) {
+        return;
+    }
+
+    const double eta = transport_coefficient_.shear_viscosity();
+    const double zeta = transport_coefficient_.bulk_viscosity();
+
+    const bool has_physical_pressure = thermodynamics_.has_physical_pressure();
+    const bool has_viscosity = eta != 0.0 || zeta != 0.0;
+    const bool has_compressible_viscosity = has_viscosity && is_compressible_mode(dynamics_mode_);
+    const bool has_advection = params_.fix.momentum_advection;
+
+    if (has_compressible_viscosity) {
+        add_compressible_viscous_term(eta, zeta, current, out_jx, out_jy, t, flux);
+        add_compressible_linear_viscous_term(eta, zeta, current, out_jx, out_jy, t, -1.0, flux);
+    }
+
+    if (has_physical_pressure || has_advection) {
+        add_momentum_physical_terms(eta, zeta, current, out_jx, out_jy, t, flux);
+    }
+
+    add_momentum_sine_force_terms(out_jx, out_jy);
+}
+// ---------------------------------------------------------------------- //

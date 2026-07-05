@@ -22,7 +22,9 @@ namespace {
     }
     // ---------------------------------------------------------------------- //
     bool is_quiescent_time_evolution(const std::string& type) {
-        return type == "euler/quiescent" || type == "srk3/quiescent";
+        return type == "euler/quiescent"
+            || type == "srk3/quiescent"
+            || type == "imex_midpoint/quiescent";
     }
     // ---------------------------------------------------------------------- //
 } // namespace

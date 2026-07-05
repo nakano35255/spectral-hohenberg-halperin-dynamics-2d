@@ -1,0 +1,20 @@
+key,value
+grid_x,512
+grid_y,512
+length_x,1.6384000000000000e+04
+length_y,1.6384000000000000e+04
+dt,4.0000000000000000e+00
+d0,4.0000000000000000e+00
+eta,4.0000000000000000e+00
+gradient,1.2207031250000000e-04
+run_steps,3125000
+run_name,relax_D0_4p00_grid512_L16384_dt4
+n_replica,8
+n_shells,361
+k_min,3.8349519697141029e-04
+k_max,1.3844176610667910e-01
+budget_block,15625
+budget_step,28125000
+budget_time,1.1250000000000000e+08
+budget_samples,156250
+budget_note,statistics use the last running-average block from each replica

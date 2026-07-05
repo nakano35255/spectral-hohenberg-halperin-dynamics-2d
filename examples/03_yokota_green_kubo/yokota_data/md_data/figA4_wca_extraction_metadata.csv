@@ -1,0 +1,19 @@
+key,value
+source_pdf,/Users/nakano/Downloads/Yokota 2026 - Unified understanding of mesoscale and macroscale transport phenomena from a microscopic particle description.pdf
+paper,"Yokota 2026, Unified understanding of mesoscale and macroscale transport phenomena from a microscopic particle description"
+figure,Fig. A.4
+system,WCA
+method,PDF vector marker extraction with axis calibration from vector tick positions
+page_index_zero_based,35
+x_axis_min,0.0000000000000000e+00
+x_axis_max,8.8857658763167322e+00
+y_axis_min,0.0000000000000000e+00
+y_axis_max,8.0000000000000000e+00
+x0_axis_pdf,1.9804613090571925e+02
+x1_axis_pdf,4.1535549745710546e+02
+bottom_axis_pdf,3.2045762207999996e+02
+top_axis_pdf,4.7405874086399996e+02
+rows,227
+series,"L=32,64,128"
+note,k column is set from k=2*pi*sqrt(2)*n/L; k_digitized is inferred from the plotted x coordinate.
+fns_note,"FNS fit uses S(k)^2 = B - A log(k), equivalent to S(k)^2 = eta0^2 + A log(2*pi/(a_uv*k)); eta0 and a_uv are not separately identifiable unless one is fixed."
