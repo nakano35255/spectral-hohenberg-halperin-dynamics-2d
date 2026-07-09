@@ -370,26 +370,25 @@ void BudgetSpectrumMeasure::accumulate_sample(const State& state, FourierTransfo
             continue;
         }
 
-        const std::size_t i = mode.index;
-        const Complex psi = psi_hat[i];
+        const std::size_t mode_index = mode.index;
+        const int shell = shell_index(mode.k2);
+        const double weight = (mode.gx == 0) ? 1.0 : 2.0;
+        const double shell_factor = spectral_prefactor * weight;
+
+        const Complex psi = psi_hat[mode_index];
 
         const Complex transfer = transfer_term(mode);
         const Complex dissipation = dissipation_term(mode, psi);
         const Complex production = production_term(mode);
 
-        const double weight = mode.gx == 0 ? 1.0 : 2.0;
-        const double factor = spectral_prefactor * weight;
-
         const std::array<double, NUM_TERMS> values = {
-            factor * std::real(std::conj(psi) * transfer),
-            factor * std::real(std::conj(psi) * dissipation),
-            factor * std::real(std::conj(psi) * production)
+            shell_factor * std::real(std::conj(psi) * transfer),
+            shell_factor * std::real(std::conj(psi) * dissipation),
+            shell_factor * std::real(std::conj(psi) * production)
         };
 
-        const int shell = shell_index(mode.k2);
-
         for (int term = 0; term < NUM_TERMS; ++term) {
-            mode_block_sum_[static_cast<std::size_t>(term) * local_spectral_size_ + i] += values[static_cast<std::size_t>(term)];
+            mode_block_sum_[static_cast<std::size_t>(term) * local_spectral_size_ + mode_index] += values[static_cast<std::size_t>(term)];
             shell_block_sum_[static_cast<std::size_t>(term) * static_cast<std::size_t>(nshells_) + static_cast<std::size_t>(shell)] += values[static_cast<std::size_t>(term)];
         }
     }
@@ -410,8 +409,8 @@ void BudgetSpectrumMeasure::finish_block(int step, double time) {
         shell_running_sum_[i] += shell_block_sum_[i];
     }
 
-    ++completed_blocks_;
     running_samples_ += samples_in_block_;
+    ++completed_blocks_;
 
     const int output_samples = (average_mode_ == BudgetSpectrumAverageMode::Block) ? samples_in_block_ : running_samples_;
     const std::vector<double>& mode_source = (average_mode_ == BudgetSpectrumAverageMode::Block) ? mode_block_sum_ : mode_running_sum_;

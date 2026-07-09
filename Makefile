@@ -40,6 +40,7 @@ SRCS := \
 	src/measure_time_series.cc \
 	src/measure_ave_profile.cc \
 	src/measure_long_time_tail.cc \
+	src/measure_correlation_static.cc \
 	src/model_free_energy_null.cc \
 	src/model_free_energy_phi4.cc \
 	src/model_free_energy_quadratic.cc \
