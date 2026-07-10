@@ -121,6 +121,50 @@ replica_000/
 ```
 
 
+## Structure Factor Shell
+
+After checking the relaxation time-series, run the order-parameter static
+correlation shell from the same restart used for the budget/spectrum job.
+For example, to use `relax_005.restart` from replica 0 for `D0=0.004`:
+
+```sh
+qsub -v REPLICA_ID=0,RESTART_INDEX=5 \
+  examples/04_ness_uniform_gradient/cascade/kugui_jobs/job_kugui_structure_D0_0p004_grid512_dt16.pbs
+```
+
+For `D0=0.12` after two relaxation segments:
+
+```sh
+qsub -v REPLICA_ID=0,RESTART_INDEX=2 \
+  examples/04_ness_uniform_gradient/cascade/kugui_jobs/job_kugui_structure_D0_0p12_grid512_dt4.pbs
+```
+
+For `D0=4.0` after one relaxation segment:
+
+```sh
+qsub -v REPLICA_ID=0,RESTART_INDEX=1 \
+  examples/04_ness_uniform_gradient/cascade/kugui_jobs/job_kugui_structure_D0_4p00_grid512_dt4.pbs
+```
+
+The structure job writes:
+
+```text
+replica_000/
+  results/time_series_structure_from_NNN.dat
+  results/static_corr_shell_from_NNN.dat
+  restarts/structure_from_NNN.restart
+  runs/input_structure_from_NNN.script
+  logs/stdout_structure_from_NNN.log
+  logs/stderr_structure_from_NNN.log
+```
+
+The measured static-correlation command is:
+
+```text
+measure sc_shell correlation/static on nevery 20 nblock 200 file .../static_corr_shell_from_NNN.dat mode shell average running cross off target psi[0]
+```
+
+
 ## Common Overrides
 
 PBS variables should be passed with `qsub -v`.

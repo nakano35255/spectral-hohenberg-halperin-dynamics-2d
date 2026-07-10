@@ -103,9 +103,36 @@ def generate_budget_input(args, run_steps, budget_nevery, time_series_nevery):
     return "\n".join(lines)
 
 
+
+def generate_structure_input(args, run_steps, structure_nevery, time_series_nevery):
+    output_root = Path(args.output_root)
+    seed = args.seed + 100000 + args.restart_index
+    lines = common_header(args, seed)
+
+    restart_dir = output_root / "restarts"
+    result_dir = output_root / "results"
+    source_restart = restart_dir / restart_index_name(args.restart_index)
+    final_restart_tmp = restart_dir / f"structure_from_{args.restart_index:03d}.restart.tmp"
+    time_series = result_dir / f"time_series_structure_from_{args.restart_index:03d}.dat"
+    structure_shell = result_dir / f"static_corr_shell_from_{args.restart_index:03d}.dat"
+
+    lines += [
+        f"restart             read file {source_restart.as_posix()}",
+        "",
+        f"thermo              observe on progress off nevery {args.thermo_nevery}",
+        f"measure             ts time_series on nevery {time_series_nevery} file {time_series.as_posix()} target E_K |psi[0]|^2 |d_psi[0]|^2 Jpsi[0]_x",
+        f"measure             sc_shell correlation/static on nevery {structure_nevery} nblock {args.structure_nblock} file {structure_shell.as_posix()} mode shell average running cross off target psi[0]",
+        f"restart             write file {final_restart_tmp.as_posix()}",
+        "",
+        f"run                 {run_steps}",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["relax", "budget", "all"], default="all")
+    parser.add_argument("--mode", choices=["relax", "budget", "structure", "all"], default="all")
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--relax-segments", type=int, default=1)
     parser.add_argument("--restart-index", type=int, default=None)
@@ -126,9 +153,12 @@ def main():
 
     parser.add_argument("--relax-time-per-segment", type=float, default=400000000.0)
     parser.add_argument("--budget-time", type=float, default=50000000.0)
+    parser.add_argument("--structure-time", type=float, default=None)
     parser.add_argument("--time-series-dtout", type=float, default=16384.0)
     parser.add_argument("--budget-nevery", type=int, default=20)
     parser.add_argument("--budget-nblock", type=int, default=200)
+    parser.add_argument("--structure-nevery", type=int, default=None)
+    parser.add_argument("--structure-nblock", type=int, default=None)
     parser.add_argument("--thermo-nevery", type=int, default=1000)
     args = parser.parse_args()
 
@@ -139,9 +169,17 @@ def main():
     if args.restart_index <= 0:
         raise RuntimeError("restart-index must be positive")
 
+    if args.structure_time is None:
+        args.structure_time = args.budget_time
+    if args.structure_nevery is None:
+        args.structure_nevery = args.budget_nevery
+    if args.structure_nblock is None:
+        args.structure_nblock = args.budget_nblock
+
     dt = float(args.dt)
     relax_steps = steps_from_time(args.relax_time_per_segment, dt, "relax-time-per-segment")
     budget_steps = steps_from_time(args.budget_time, dt, "budget-time")
+    structure_steps = steps_from_time(args.structure_time, dt, "structure-time")
     time_series_nevery = steps_from_time(args.time_series_dtout, dt, "time-series-dtout")
 
     output_root = Path(args.output_root)
@@ -163,6 +201,13 @@ def main():
         input_path = run_dir / f"input_budget_from_{args.restart_index:03d}.script"
         input_path.write_text(
             generate_budget_input(args, budget_steps, args.budget_nevery, time_series_nevery),
+            encoding="utf-8",
+        )
+
+    if args.mode in ("structure", "all"):
+        input_path = run_dir / f"input_structure_from_{args.restart_index:03d}.script"
+        input_path.write_text(
+            generate_structure_input(args, structure_steps, args.structure_nevery, time_series_nevery),
             encoding="utf-8",
         )
 

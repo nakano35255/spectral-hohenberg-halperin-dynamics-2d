@@ -1,0 +1,114 @@
+#!/bin/bash
+#PBS -q F1cpu
+#PBS -N shhd04-cascade-kugui-struct-D0004
+#PBS -l select=1:ncpus=128:mpiprocs=128:ompthreads=1
+#PBS -l walltime=24:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+module purge
+module load intel/2022.2.1 intel-mpi/2021.7.1
+
+export HEFFTE_ROOT=$HOME/local/heffte-oneapi-fftw
+export FFTW_ROOT=$HOME/local/fftw-oneapi
+export LD_LIBRARY_PATH=$HEFFTE_ROOT/lib:$FFTW_ROOT/lib:${LD_LIBRARY_PATH:-}
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OMP_DYNAMIC=FALSE
+export MKL_DYNAMIC=FALSE
+export I_MPI_PIN=1
+export I_MPI_PIN_DOMAIN=core
+
+repo=${REPO_ROOT:-$HOME/spectral-hohenberg-halperin-dynamics-2d}
+case_dir=examples/04_ness_uniform_gradient/cascade/kugui_jobs
+work_base=${WORK_BASE:-/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-2d/examples/04_ness_uniform_gradient/cascade/raw_data}
+
+grid_n=${GRID_N:-512}
+length_n=${LENGTH_N:-16384}
+dt=${DT:-16.0}
+d0=${D0:-0.004}
+eta=${ETA:-0.004}
+gradient_amplitude=${GRADIENT_AMPLITUDE:-0.0001220703125}
+structure_time=${STRUCTURE_TIME:-50000000.0}
+time_series_dtout=${TIME_SERIES_DTOUT:-16384.0}
+structure_nevery=${STRUCTURE_NEVERY:-20}
+structure_nblock=${STRUCTURE_NBLOCK:-200}
+thermo_nevery=${THERMO_NEVERY:-1000}
+tasks_per_run=${TASKS_PER_RUN:-128}
+replica_num=$((10#${REPLICA_ID:-0}))
+restart_num=$((10#${RESTART_INDEX:-1}))
+base_seed=${BASE_SEED:-12345}
+seed=$((base_seed + 1000000 * replica_num))
+
+run_name=${RUN_NAME:-relax_D0_0p004_grid${grid_n}_L${length_n}_dt16}
+output_root=$work_base/$run_name
+rid=$(printf "%03d" "$replica_num")
+restart_id=$(printf "%03d" "$restart_num")
+replica_root=$output_root/replica_${rid}
+
+if [ "$grid_n" -eq 512 ] && [ "$tasks_per_run" -gt 385 ]; then
+    echo "TASKS_PER_RUN=$tasks_per_run exceeds grid512 dealiased spectral x size 385." >&2
+    exit 1
+fi
+
+allocated_tasks=$(wc -l < "$PBS_NODEFILE")
+if [ "$tasks_per_run" -gt "$allocated_tasks" ]; then
+    echo "TASKS_PER_RUN=$tasks_per_run exceeds allocated PBS tasks $allocated_tasks." >&2
+    exit 1
+fi
+
+cd "$repo"
+mkdir -p "$output_root" "$work_base"
+
+if [ "${BUILD_BEFORE_RUN:-0}" = "1" ]; then
+    make -f Makefile.ohtaka yes-PASSIVE-SCALAR
+    make -f Makefile.ohtaka clean
+    make -f Makefile.ohtaka -j 8 all
+fi
+
+source_restart=$replica_root/restarts/relax_${restart_id}.restart
+if [ ! -s "$source_restart" ]; then
+    echo "missing source restart: $source_restart" >&2
+    exit 1
+fi
+
+python3 "$case_dir/prepare_kugui_inputs.py" \
+    --mode structure \
+    --output-root "$replica_root" \
+    --restart-index "$restart_num" \
+    --seed "$seed" \
+    --D0 "$d0" \
+    --eta "$eta" \
+    --dt "$dt" \
+    --grid "$grid_n" "$grid_n" \
+    --length "$length_n" "$length_n" \
+    --gradient-amplitude "$gradient_amplitude" \
+    --structure-time "$structure_time" \
+    --time-series-dtout "$time_series_dtout" \
+    --structure-nevery "$structure_nevery" \
+    --structure-nblock "$structure_nblock" \
+    --thermo-nevery "$thermo_nevery"
+
+input=$replica_root/runs/input_structure_from_${restart_id}.script
+stdout=$replica_root/logs/stdout_structure_from_${restart_id}.log
+stderr=$replica_root/logs/stderr_structure_from_${restart_id}.log
+final_restart=$replica_root/restarts/structure_from_${restart_id}.restart
+tmp_restart=${final_restart}.tmp
+
+if [ -s "$final_restart" ]; then
+    echo "skip completed replica ${rid} structure from relax restart ${restart_id}: $final_restart"
+    exit 0
+fi
+
+rm -f "$tmp_restart"
+echo "run replica ${rid} structure from relax restart ${restart_id}"
+echo "PBS_JOBID=${PBS_JOBID:-}"
+echo "PBS_NODEFILE=$PBS_NODEFILE"
+echo "allocated_tasks=$allocated_tasks tasks_per_run=$tasks_per_run"
+echo "output_root=$output_root"
+
+mpirun -np "$tasks_per_run" -machinefile "$PBS_NODEFILE" \
+    ./src/out.exe "$input" > "$stdout" 2> "$stderr"
+
+mv "$tmp_restart" "$final_restart"
