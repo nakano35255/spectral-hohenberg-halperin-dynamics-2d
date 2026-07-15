@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -q F1cpu
-#PBS -N shhd04-cascade-kugui-struct-D025
+#PBS -N shhd04-cascade-kugui-budget-D050
 #PBS -l select=1:ncpus=128:mpiprocs=128:ompthreads=1
 #PBS -l walltime=24:00:00
 #PBS -j oe
@@ -27,13 +27,13 @@ work_base=${WORK_BASE:-/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-
 grid_n=${GRID_N:-512}
 length_n=${LENGTH_N:-16384}
 dt=${DT:-4.0}
-d0=${D0:-0.25}
-eta=${ETA:-0.25}
+d0=${D0:-0.5}
+eta=${ETA:-0.5}
 gradient_amplitude=${GRADIENT_AMPLITUDE:-0.0001220703125}
-structure_time=${STRUCTURE_TIME:-12500000.0}
+budget_time=${BUDGET_TIME:-12500000.0}
 time_series_dtout=${TIME_SERIES_DTOUT:-16384.0}
-structure_nevery=${STRUCTURE_NEVERY:-20}
-structure_nblock=${STRUCTURE_NBLOCK:-200}
+budget_nevery=${BUDGET_NEVERY:-20}
+budget_nblock=${BUDGET_NBLOCK:-200}
 thermo_nevery=${THERMO_NEVERY:-1000}
 tasks_per_run=${TASKS_PER_RUN:-128}
 replica_num=$((10#${REPLICA_ID:-0}))
@@ -44,7 +44,7 @@ else
     seed=$(python3 -c 'import secrets; print(secrets.randbelow(2000000000) + 1)')
 fi
 
-run_name=${RUN_NAME:-relax_D0_0p25_grid${grid_n}_L${length_n}_dt4}
+run_name=${RUN_NAME:-relax_D0_0p50_grid${grid_n}_L${length_n}_dt04}
 output_root=$work_base/$run_name
 rid=$(printf "%03d" "$replica_num")
 restart_id=$(printf "%03d" "$restart_num")
@@ -77,7 +77,7 @@ if [ ! -s "$source_restart" ]; then
 fi
 
 python3 "$case_dir/prepare_kugui_inputs.py" \
-    --mode structure \
+    --mode budget \
     --output-root "$replica_root" \
     --restart-index "$restart_num" \
     --seed "$seed" \
@@ -87,25 +87,25 @@ python3 "$case_dir/prepare_kugui_inputs.py" \
     --grid "$grid_n" "$grid_n" \
     --length "$length_n" "$length_n" \
     --gradient-amplitude "$gradient_amplitude" \
-    --structure-time "$structure_time" \
+    --budget-time "$budget_time" \
     --time-series-dtout "$time_series_dtout" \
-    --structure-nevery "$structure_nevery" \
-    --structure-nblock "$structure_nblock" \
+    --budget-nevery "$budget_nevery" \
+    --budget-nblock "$budget_nblock" \
     --thermo-nevery "$thermo_nevery"
 
-input=$replica_root/runs/input_structure_from_${restart_id}.script
-stdout=$replica_root/logs/stdout_structure_from_${restart_id}.log
-stderr=$replica_root/logs/stderr_structure_from_${restart_id}.log
-final_restart=$replica_root/restarts/structure_from_${restart_id}.restart
+input=$replica_root/runs/input_budget_from_${restart_id}.script
+stdout=$replica_root/logs/stdout_budget_from_${restart_id}.log
+stderr=$replica_root/logs/stderr_budget_from_${restart_id}.log
+final_restart=$replica_root/restarts/budget_from_${restart_id}.restart
 tmp_restart=${final_restart}.tmp
 
 if [ -s "$final_restart" ]; then
-    echo "skip completed replica ${rid} structure from relax restart ${restart_id}: $final_restart"
+    echo "skip completed replica ${rid} budget from relax restart ${restart_id}: $final_restart"
     exit 0
 fi
 
 rm -f "$tmp_restart"
-echo "run replica ${rid} structure from relax restart ${restart_id}"
+echo "run replica ${rid} budget from relax restart ${restart_id}"
 echo "PBS_JOBID=${PBS_JOBID:-}"
 echo "PBS_NODEFILE=$PBS_NODEFILE"
 echo "allocated_tasks=$allocated_tasks tasks_per_run=$tasks_per_run"

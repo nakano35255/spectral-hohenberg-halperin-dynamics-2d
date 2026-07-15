@@ -44,7 +44,7 @@ else
     seed=$(python3 -c 'import secrets; print(secrets.randbelow(2000000000) + 1)')
 fi
 
-run_name=${RUN_NAME:-relax_D0_0p50_grid${grid_n}_L${length_n}_dt4}
+run_name=${RUN_NAME:-relax_D0_0p50_grid${grid_n}_L${length_n}_dt04}
 output_root=$work_base/$run_name
 rid=$(printf "%03d" "$replica_num")
 restart_id=$(printf "%03d" "$restart_num")

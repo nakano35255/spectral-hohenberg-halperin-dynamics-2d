@@ -1,8 +1,8 @@
 #!/bin/bash
 #PBS -q F1cpu
-#PBS -N shhd04-cascade-kugui-relax-D025
+#PBS -N shhd04-cascade-kugui-struct-D025
 #PBS -l select=1:ncpus=128:mpiprocs=128:ompthreads=1
-#PBS -l walltime=120:00:00
+#PBS -l walltime=24:00:00
 #PBS -j oe
 
 set -euo pipefail
@@ -30,22 +30,24 @@ dt=${DT:-4.0}
 d0=${D0:-0.25}
 eta=${ETA:-0.25}
 gradient_amplitude=${GRADIENT_AMPLITUDE:-0.0001220703125}
-relax_time=${RELAX_TIME:-100000000.0}
+structure_time=${STRUCTURE_TIME:-12500000.0}
 time_series_dtout=${TIME_SERIES_DTOUT:-16384.0}
+structure_nevery=${STRUCTURE_NEVERY:-20}
+structure_nblock=${STRUCTURE_NBLOCK:-200}
 thermo_nevery=${THERMO_NEVERY:-1000}
 tasks_per_run=${TASKS_PER_RUN:-128}
 replica_num=$((10#${REPLICA_ID:-0}))
-segment_num=$((10#${RELAX_SEGMENT:-1}))
+restart_num=$((10#${RESTART_INDEX:-1}))
 if [ -n "${BASE_SEED:-}" ]; then
     seed=$((BASE_SEED + 1000000 * replica_num))
 else
     seed=$(python3 -c 'import secrets; print(secrets.randbelow(2000000000) + 1)')
 fi
 
-run_name=${RUN_NAME:-relax_D0_0p25_grid${grid_n}_L${length_n}_dt4}
+run_name=${RUN_NAME:-relax_D0_0p25_grid${grid_n}_L${length_n}_dt04}
 output_root=$work_base/$run_name
 rid=$(printf "%03d" "$replica_num")
-sid=$(printf "%03d" "$segment_num")
+restart_id=$(printf "%03d" "$restart_num")
 replica_root=$output_root/replica_${rid}
 
 if [ "$grid_n" -eq 512 ] && [ "$tasks_per_run" -gt 385 ]; then
@@ -68,10 +70,16 @@ if [ "${BUILD_BEFORE_RUN:-0}" = "1" ]; then
     make -f Makefile.ohtaka -j 8 all
 fi
 
+source_restart=$replica_root/restarts/relax_${restart_id}.restart
+if [ ! -s "$source_restart" ]; then
+    echo "missing source restart: $source_restart" >&2
+    exit 1
+fi
+
 python3 "$case_dir/prepare_kugui_inputs.py" \
-    --mode relax \
+    --mode structure \
     --output-root "$replica_root" \
-    --relax-segments "$segment_num" \
+    --restart-index "$restart_num" \
     --seed "$seed" \
     --D0 "$d0" \
     --eta "$eta" \
@@ -79,32 +87,25 @@ python3 "$case_dir/prepare_kugui_inputs.py" \
     --grid "$grid_n" "$grid_n" \
     --length "$length_n" "$length_n" \
     --gradient-amplitude "$gradient_amplitude" \
-    --relax-time-per-segment "$relax_time" \
+    --structure-time "$structure_time" \
     --time-series-dtout "$time_series_dtout" \
+    --structure-nevery "$structure_nevery" \
+    --structure-nblock "$structure_nblock" \
     --thermo-nevery "$thermo_nevery"
 
-input=$replica_root/runs/input_relax_${sid}.script
-stdout=$replica_root/logs/stdout_relax_${sid}.log
-stderr=$replica_root/logs/stderr_relax_${sid}.log
-final_restart=$replica_root/restarts/relax_${sid}.restart
+input=$replica_root/runs/input_structure_from_${restart_id}.script
+stdout=$replica_root/logs/stdout_structure_from_${restart_id}.log
+stderr=$replica_root/logs/stderr_structure_from_${restart_id}.log
+final_restart=$replica_root/restarts/structure_from_${restart_id}.restart
 tmp_restart=${final_restart}.tmp
 
-if [ "$segment_num" -gt 1 ]; then
-    prev_sid=$(printf "%03d" $((segment_num - 1)))
-    prev_restart=$replica_root/restarts/relax_${prev_sid}.restart
-    if [ ! -s "$prev_restart" ]; then
-        echo "missing previous restart: $prev_restart" >&2
-        exit 1
-    fi
-fi
-
 if [ -s "$final_restart" ]; then
-    echo "skip completed replica ${rid} relax segment ${sid}: $final_restart"
+    echo "skip completed replica ${rid} structure from relax restart ${restart_id}: $final_restart"
     exit 0
 fi
 
 rm -f "$tmp_restart"
-echo "run replica ${rid} relax segment ${sid}"
+echo "run replica ${rid} structure from relax restart ${restart_id}"
 echo "PBS_JOBID=${PBS_JOBID:-}"
 echo "PBS_NODEFILE=$PBS_NODEFILE"
 echo "allocated_tasks=$allocated_tasks tasks_per_run=$tasks_per_run"

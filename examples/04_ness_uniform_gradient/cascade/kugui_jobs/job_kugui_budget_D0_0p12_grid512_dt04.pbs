@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -q F1cpu
-#PBS -N shhd04-cascade-kugui-budget-D200
+#PBS -N shhd04-cascade-kugui-budget-D012
 #PBS -l select=1:ncpus=128:mpiprocs=128:ompthreads=1
 #PBS -l walltime=24:00:00
 #PBS -j oe
@@ -27,8 +27,8 @@ work_base=${WORK_BASE:-/work/i0019/i001900/spectral-hohenberg-halperin-dynamics-
 grid_n=${GRID_N:-512}
 length_n=${LENGTH_N:-16384}
 dt=${DT:-4.0}
-d0=${D0:-2.0}
-eta=${ETA:-2.0}
+d0=${D0:-0.12}
+eta=${ETA:-0.12}
 gradient_amplitude=${GRADIENT_AMPLITUDE:-0.0001220703125}
 budget_time=${BUDGET_TIME:-12500000.0}
 time_series_dtout=${TIME_SERIES_DTOUT:-16384.0}
@@ -44,7 +44,7 @@ else
     seed=$(python3 -c 'import secrets; print(secrets.randbelow(2000000000) + 1)')
 fi
 
-run_name=${RUN_NAME:-relax_D0_2p00_grid${grid_n}_L${length_n}_dt4}
+run_name=${RUN_NAME:-relax_D0_0p12_grid${grid_n}_L${length_n}_dt04}
 output_root=$work_base/$run_name
 rid=$(printf "%03d" "$replica_num")
 restart_id=$(printf "%03d" "$restart_num")

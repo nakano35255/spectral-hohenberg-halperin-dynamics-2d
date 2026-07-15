@@ -136,14 +136,14 @@ For `D0=0.12` after two relaxation segments:
 
 ```sh
 qsub -v REPLICA_ID=0,RESTART_INDEX=2 \
-  examples/04_ness_uniform_gradient/cascade/kugui_jobs/job_kugui_structure_D0_0p12_grid512_dt4.pbs
+  examples/04_ness_uniform_gradient/cascade/kugui_jobs/job_kugui_structure_D0_0p12_grid512_dt04.pbs
 ```
 
 For `D0=4.0` after one relaxation segment:
 
 ```sh
 qsub -v REPLICA_ID=0,RESTART_INDEX=1 \
-  examples/04_ness_uniform_gradient/cascade/kugui_jobs/job_kugui_structure_D0_4p00_grid512_dt4.pbs
+  examples/04_ness_uniform_gradient/cascade/kugui_jobs/job_kugui_structure_D0_4p00_grid512_dt04.pbs
 ```
 
 The structure job writes:
