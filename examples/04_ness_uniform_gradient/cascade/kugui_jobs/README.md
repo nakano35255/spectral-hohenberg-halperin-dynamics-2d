@@ -5,14 +5,14 @@ run. It is the Kugui counterpart of `examples/04_ness_uniform_gradient/cascade/o
 scheduler model is different:
 
 - Ohtaka version: one large Slurm allocation, many replicas launched together.
-- Kugui version: one `F1cpu` PBS job runs one replica and one segment.
+- Kugui version: one `L1cpu` PBS job runs one replica and one segment.
 
 This is intended for manually submitting a few replicas and extending each
 replica by restart segments.
 
 Default parameters:
 
-- queue: `F1cpu`
+- queue: `L1cpu`
 - allocation: `1` node, `128` MPI ranks
 - one job runs one replica only
 - active grid: `512 x 512`
@@ -25,7 +25,7 @@ Default parameters:
 - budget measurement time: `BUDGET_TIME=50000000.0`
 
 The default grid is `512 x 512`, because the current Kugui plan is to use
-`F1cpu` one sample at a time. The scripts can still be overridden for a
+`L1cpu` one sample at a time. The scripts can still be overridden for a
 `1024 x 1024` run.
 
 
@@ -176,7 +176,7 @@ qsub -v REPLICA_ID=0,RELAX_SEGMENT=1,RELAX_TIME=204800.0,TIME_SERIES_DTOUT=1024.
   examples/04_ness_uniform_gradient/cascade/kugui_jobs/job_kugui_relax_D0_0p004_grid512_dt16.pbs
 ```
 
-Use fewer MPI ranks while still reserving one `F1cpu` node:
+Use fewer MPI ranks while still reserving one `L1cpu` node:
 
 ```sh
 qsub -v REPLICA_ID=0,TASKS_PER_RUN=64 \
@@ -194,8 +194,7 @@ qsub -v REPLICA_ID=0,RELAX_SEGMENT=1,GRID_N=1024,LENGTH_N=32768,GRADIENT_AMPLITU
 ## Notes
 
 - These scripts are PBS scripts; use `qsub`, not `sbatch`.
-- The default queue is `F1cpu`. The relaxation job requests `120:00:00`;
-  the budget job requests `24:00:00`.
+- The default queue is `L1cpu`. All jobs request `96:00:00`.
 - One job runs one replica and writes one final restart.
 - For multi-segment relaxation, increment `RELAX_SEGMENT` manually.
 - The restart files are text files and can be large, so outputs are written
