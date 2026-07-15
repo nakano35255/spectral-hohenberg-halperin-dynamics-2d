@@ -38,8 +38,11 @@ thermo_nevery=${THERMO_NEVERY:-1000}
 tasks_per_run=${TASKS_PER_RUN:-128}
 replica_num=$((10#${REPLICA_ID:-0}))
 restart_num=$((10#${RESTART_INDEX:-1}))
-base_seed=${BASE_SEED:-12345}
-seed=$((base_seed + 1000000 * replica_num))
+if [ -n "${BASE_SEED:-}" ]; then
+    seed=$((BASE_SEED + 1000000 * replica_num))
+else
+    seed=$(python3 -c 'import secrets; print(secrets.randbelow(2000000000) + 1)')
+fi
 
 run_name=${RUN_NAME:-relax_D0_0p12_grid${grid_n}_L${length_n}_dt4}
 output_root=$work_base/$run_name
